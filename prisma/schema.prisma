@@ -1,8 +1,234 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-arm64-openssl-3.0.x"]
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String?  @unique
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  configs       TenantConfig[]
+  conversations Conversation[]
+  auditLogs     AuditLog[]
+  customRoles   CustomRole[]
+  invitations   Invitation[]
+  userRoles     UserTenantRole[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+model TenantConfig {
+  id        String   @id @default(cuid())
+  tenantId  String
+  configKey String
+  data      Json
+  updatedAt DateTime @updatedAt
+  updatedBy String   @default("system")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, configKey])
+  @@index([tenantId])
+  @@map("tenant_configs")
+}
+
+model AuthUser {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  emailVerified  DateTime?
+  image          String?
+  passwordHash   String?
+  isSuperAdmin   Boolean   @default(false)
+  activeTenantId String?
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts AuthAccount[]
+  sessions AuthSession[]
+  roles    UserTenantRole[]
+
+  @@map("auth_users")
+}
+
+model AuthAccount {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("auth_accounts")
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model UserTenantRole {
+  id         String    @id @default(cuid())
+  userId     String
+  tenantId   String
+  email      String
+  role       String
+  roleId     String?
+  assignedAt DateTime  @default(now())
+  assignedBy String
+
+  user       AuthUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customRole CustomRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([roleId])
+  @@map("user_tenant_roles")
+}
+
+model CustomRole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  permissions Json
+  level       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  UserTenantRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("custom_roles")
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  role      String   @default("Member")
+  status    String   @default("pending")
+  invitedBy String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@map("invitations")
+}
+
+model Conversation {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  title        String   @default("New Conversation")
+  model        String   @default("anthropic.claude-sonnet-4-20250514")
+  status       String   @default("active")
+  messageCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  summaries ConversationSummary[]
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String                       @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  tokenCount     Int?
+  embedding      Unsupported("vector(1024)")?
+  createdAt      DateTime                     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model ConversationSummary {
+  id             String   @id @default(cuid())
+  conversationId String
+  summary        String
+  messageRange   Json
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("conversation_summaries")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eventType String
+  action    String
+  userId    String?
+  resource  String?
+  status    String   @default("success")
+  severity  String   @default("info")
+  metadata  Json?
+  ttl       DateTime?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, eventType])
+  @@index([tenantId, createdAt])
+  @@index([ttl])
+  @@map("audit_logs")
 }
