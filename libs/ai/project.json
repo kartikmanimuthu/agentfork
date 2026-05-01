@@ -1,0 +1,23 @@
+{
+  "name": "ai",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/ai/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/ai",
+        "tsConfig": "libs/ai/tsconfig.lib.json",
+        "main": "libs/ai/src/index.ts"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "config": "libs/ai/vitest.config.ts"
+      }
+    }
+  }
+}
