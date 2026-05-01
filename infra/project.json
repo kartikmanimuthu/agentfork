@@ -1,0 +1,30 @@
+{
+  "name": "infra",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "infra",
+  "projectType": "application",
+  "targets": {
+    "deploy-networking": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pulumi up --yes --stack prod --cwd networking",
+        "cwd": "infra"
+      }
+    },
+    "deploy-compute": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["deploy-networking"],
+      "options": {
+        "command": "pulumi up --yes --stack prod --cwd compute",
+        "cwd": "infra"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pulumi preview --stack prod --cwd networking && pulumi preview --stack prod --cwd compute",
+        "cwd": "infra"
+      }
+    }
+  }
+}
