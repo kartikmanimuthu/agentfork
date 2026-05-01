@@ -1,0 +1,30 @@
+{
+  "name": "workers",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/workers/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/workers",
+        "tsConfig": "apps/workers/tsconfig.json",
+        "main": "apps/workers/src/index.ts"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx --env-file=.env --watch src/index.ts",
+        "cwd": "apps/workers"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "config": "apps/workers/vitest.config.ts"
+      }
+    }
+  }
+}

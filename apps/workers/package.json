@@ -1,0 +1,30 @@
+{
+  "name": "@chatbot/workers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx --env-file=.env --watch src/index.ts",
+    "start": "node --env-file=.env dist/index.js",
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "pg-boss": "^10.4.0",
+    "ai": "^5.0.0",
+    "@ai-sdk/amazon-bedrock": "^2.0.0",
+    "dayjs": "^1.11.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
