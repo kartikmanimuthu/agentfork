@@ -28,7 +28,9 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^4.0.100",
     "@prisma/client": "^6.0.0",
+    "ai": "^6.0.174",
     "tslib": "^2.8.0"
   }
 }
