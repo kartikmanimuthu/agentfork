@@ -1,0 +1,28 @@
+---
+title: FAQ
+description: Frequently asked questions about the Chatbot platform.
+---
+
+## Is this really free?
+
+Yes. Chatbot is MIT licensed and free to self-host. You pay only for your own AWS infrastructure (Bedrock API calls, RDS, ECS).
+
+## Which AI models are supported?
+
+Any model available through AWS Bedrock. The default is Claude Sonnet (`anthropic.claude-sonnet-4-20250514`). You can configure the model per conversation.
+
+## Do I need pgvector?
+
+Yes, if you want RAG (retrieval-augmented generation) support. The embedding pipeline stores vectors in PostgreSQL using the pgvector extension. Without it, basic chat still works but semantic search is disabled.
+
+## Can I use this without AWS?
+
+The AI layer is built on the Vercel AI SDK, which supports multiple providers. However, the current implementation is configured for AWS Bedrock. Swapping providers would require modifying `libs/ai/src/bedrock-client.ts`.
+
+## How does multi-tenancy work?
+
+Each organization is a tenant. A Prisma client extension automatically scopes all database queries to the current tenant's ID. Users belong to tenants via roles (Owner, Admin, Member, Viewer).
+
+## How do I add SSO?
+
+Configure AWS Cognito environment variables (`COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, `COGNITO_ISSUER`). See [Configuration](/docs/configuration#cognito-sso).

@@ -1,0 +1,94 @@
+---
+title: API Reference
+description: REST API endpoints for the Chatbot platform.
+---
+
+## Authentication
+
+All API endpoints (except `/api/health` and `/api/auth/*`) require a valid NextAuth session cookie.
+
+## Endpoints
+
+### POST /api/chat
+
+Stream a chat completion response.
+
+**Request body:**
+```json
+{
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "conversationId": "optional-id",
+  "model": "anthropic.claude-sonnet-4-20250514"
+}
+```
+
+**Response:** Server-sent events stream with AI response chunks.
+
+### GET /api/conversations
+
+List conversations for the authenticated user.
+
+**Query params:** `limit` (default 20), `offset` (default 0)
+
+**Response:**
+```json
+{
+  "items": [{ "id": "...", "title": "...", "status": "active", "messageCount": 5 }],
+  "total": 42,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+### POST /api/conversations
+
+Create a new conversation.
+
+**Request body:**
+```json
+{ "title": "My Chat", "model": "anthropic.claude-sonnet-4-20250514" }
+```
+
+### GET /api/conversations/[id]
+
+Get a single conversation by ID.
+
+### GET /api/messages
+
+List messages for a conversation.
+
+**Query params:** `conversationId` (required), `limit` (default 50)
+
+### POST /api/messages
+
+Create a message in a conversation.
+
+**Request body:**
+```json
+{ "conversationId": "...", "role": "user", "content": "Hello" }
+```
+
+### GET /api/health
+
+Health check endpoint. No authentication required.
+
+**Response:** `{ "status": "ok" }`
+
+### GET /api/audit
+
+Query audit logs with optional filters.
+
+**Query params:** `eventType`, `severity`, `startDate`, `endDate`, `limit`, `offset`
+
+### GET /api/tenants
+
+Get current tenant information.
+
+### POST /api/invitations
+
+Send a team invitation.
+
+**Request body:**
+```json
+{ "email": "user@example.com", "role": "Member" }
+```

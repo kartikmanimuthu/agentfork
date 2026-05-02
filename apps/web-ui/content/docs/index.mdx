@@ -1,0 +1,28 @@
+---
+title: Chatbot Documentation
+description: Open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. Self-hosted, MIT licensed.
+---
+
+Chatbot is an open-source AI chatbot platform with multi-tenant isolation, RBAC, audit logging, and RAG support. Built on Next.js 15, AWS Bedrock, and PostgreSQL with pgvector.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Multi-Tenant | Isolated organizations with tenant-scoped data |
+| AWS Bedrock | Claude models via Vercel AI SDK |
+| RAG Pipeline | pgvector embeddings for retrieval-augmented generation |
+| RBAC | Role-based access control (Owner, Admin, Member, Viewer) |
+| Audit Logs | Complete activity trail with filtering |
+| Background Jobs | pg-boss workers for embeddings and summaries |
+| Auth | NextAuth with Cognito SSO support |
+| Conversations | Persistent chat history with search |
+
+## Quick Links
+
+- [Getting Started](/docs/getting-started) — Set up your first instance in 5 minutes
+- [Installation](/docs/installation) — Deploy with Docker or Pulumi
+- [Configuration](/docs/configuration) — Configure Bedrock, Cognito, and pgvector
+- [API Reference](/docs/api-reference) — REST API endpoints
+- [Architecture](/docs/architecture) — System design and data flow
+- [FAQ](/docs/faq) — Frequently asked questions

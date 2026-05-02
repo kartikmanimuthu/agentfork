@@ -1,0 +1,53 @@
+---
+title: Getting Started
+description: Set up your Chatbot instance in 5 minutes.
+---
+
+## Prerequisites
+
+- Node.js 20+ or Bun 1.2+
+- PostgreSQL 16 with pgvector extension
+- AWS account with Bedrock access (Claude models enabled)
+
+## Step 1: Clone and Install
+
+```bash
+git clone https://github.com/kartikmanimuthu/chatbot.git
+cd chatbot
+bun install
+```
+
+## Step 2: Configure Environment
+
+Copy the example environment file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Key variables:
+- `DATABASE_URL` — PostgreSQL connection string
+- `AWS_REGION` — AWS region with Bedrock access
+- `NEXTAUTH_SECRET` — Random secret for session encryption
+- `NEXTAUTH_URL` — Your app URL (e.g., `http://localhost:3001`)
+
+## Step 3: Set Up the Database
+
+```bash
+bun run prepare
+npx prisma migrate deploy
+```
+
+## Step 4: Start Development
+
+```bash
+cd apps/web-ui && bun run dev
+```
+
+Visit `http://localhost:3001` to see the landing page. Sign up to create your first organization.
+
+## Next Steps
+
+- [Configure AWS Bedrock models](/docs/configuration#aws-bedrock)
+- [Set up Cognito SSO](/docs/configuration#cognito-sso)
+- [Deploy to production](/docs/installation)

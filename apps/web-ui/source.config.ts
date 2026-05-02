@@ -1,10 +1,7 @@
-import { defineCollections, defineConfig } from 'fumadocs-mdx/config';
+import { defineDocs, defineConfig } from 'fumadocs-mdx/config';
 
-export const docs = defineCollections({
-  type: 'doc',
-  dir: './content/docs',
+export const { docs, meta } = defineDocs({
+  dir: 'content/docs',
 });
 
-export default defineConfig({
-  lastModifiedTime: 'git',
-});
+export default defineConfig();
