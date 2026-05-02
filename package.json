@@ -12,13 +12,16 @@
     "infra"
   ],
   "scripts": {
-    "prepare": "prisma generate --schema=./prisma/schema.prisma"
+    "prepare": "prisma generate --schema=./prisma/schema.prisma",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
     "@nx/eslint-plugin": "^21.0.0",
     "@nx/js": "^21.0.0",
     "@nx/next": "^21.0.0",
     "@nx/vite": "^21.0.0",
+    "@playwright/test": "^1.59.1",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",

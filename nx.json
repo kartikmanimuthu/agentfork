@@ -18,6 +18,10 @@
     "lint": {
       "inputs": ["default"],
       "cache": true
+    },
+    "e2e": {
+      "cache": true,
+      "inputs": ["default", "^production"]
     }
   },
   "defaultBase": "main"

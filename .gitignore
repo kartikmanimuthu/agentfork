@@ -6,3 +6,8 @@ dist/
 *.log
 .nx/
 .prisma/
+tests/e2e/.auth/
+.superpowers/
+playwright-report/
+test-results/
+.source/
