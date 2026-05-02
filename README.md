@@ -81,53 +81,40 @@ Verify it's running:
 docker compose ps
 ```
 
-### 3. Configure environment variables
-
-**Web UI:**
+### 3. One-command setup
 
 ```bash
-cp apps/web-ui/.env.local.example apps/web-ui/.env.local
+bun run setup
 ```
 
-Edit `apps/web-ui/.env.local`:
+This single command:
+1. Copies `apps/web-ui/.env.local.example` → `apps/web-ui/.env.local` (if not already present)
+2. Copies `apps/workers/.env.example` → `apps/workers/.env` (if not already present)
+3. Generates the Prisma client
+4. Runs all database migrations
+
+Then edit `apps/web-ui/.env.local` and fill in your real values:
 
 ```env
-# Database (matches docker-compose defaults)
-DATABASE_URL="postgresql://chatbot_admin:chatbot_dev@localhost:5432/chatbot?schema=public"
+# Required — generate with: openssl rand -base64 32
+NEXTAUTH_SECRET=your-nextauth-secret-min-32-chars
 
-# NextAuth — generate a secret with: openssl rand -base64 32
-NEXTAUTH_SECRET="your-random-secret-here"
-NEXTAUTH_URL="http://localhost:3001"
+# Required — AWS region with Bedrock access
+AWS_REGION=ap-south-1
 
-# AWS Bedrock — needs bedrock:InvokeModel and bedrock:InvokeModelWithResponseStream
-AWS_REGION="ap-south-1"
-AWS_ACCESS_KEY_ID="your-access-key"
-AWS_SECRET_ACCESS_KEY="your-secret-key"
+# Optional — explicit AWS credentials (skip if using AWS CLI profile or IAM role)
+# AWS_ACCESS_KEY_ID=your-access-key-id
+# AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
-# Cognito SSO (optional — credentials login works without these)
-# COGNITO_APP_CLIENT_ID=""
-# COGNITO_APP_CLIENT_SECRET=""
-# COGNITO_ISSUER=""
+# Optional — Cognito SSO (credentials login works without these)
+# COGNITO_APP_CLIENT_ID=your-app-client-id
+# COGNITO_APP_CLIENT_SECRET=your-app-client-secret
+# COGNITO_ISSUER=https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_example
 ```
 
-**Workers** (only needed if running background jobs):
+The `DATABASE_URL`, `NEXTAUTH_URL`, and Bedrock model IDs are pre-filled with sensible defaults that match the docker-compose setup.
 
-```bash
-cp apps/workers/.env.example apps/workers/.env
-```
-
-The defaults in `apps/workers/.env` match the docker-compose database, so no edits needed for local dev.
-
-### 4. Run database migrations
-
-```bash
-bun run prepare
-bunx prisma migrate deploy --schema=./prisma/schema.prisma
-```
-
-`bun run prepare` generates the Prisma client. `migrate deploy` applies all migrations.
-
-### 5. Start the development server
+### 4. Start the development server
 
 ```bash
 bun run dev
@@ -138,7 +125,7 @@ Open http://localhost:3001. You should see the marketing landing page.
 
 **Sign up** to create your first account and organization, then navigate to `/chat`.
 
-### 6. Start background workers (optional)
+### 5. Start background workers (optional)
 
 Workers handle message embedding generation and conversation summarization. In a separate terminal:
 
@@ -147,7 +134,7 @@ bun run dev:workers
 # or: bunx nx serve workers
 ```
 
-### 7. Start everything in parallel
+### 6. Start everything in parallel
 
 ```bash
 bun run dev:all
@@ -164,6 +151,7 @@ All commands run from the **repo root**.
 
 | Command | What it does |
 |---------|-------------|
+| `bun run setup` | Copy env examples, generate Prisma client, run migrations |
 | `bun run dev` | Start web-ui dev server (port 3001) |
 | `bun run dev:workers` | Start workers in watch mode |
 | `bun run dev:all` | Start web-ui + workers in parallel |

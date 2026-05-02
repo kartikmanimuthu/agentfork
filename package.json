@@ -12,6 +12,7 @@
     "infra"
   ],
   "scripts": {
+    "setup": "[ -f apps/web-ui/.env.local ] || cp apps/web-ui/.env.local.example apps/web-ui/.env.local && [ -f apps/workers/.env ] || cp apps/workers/.env.example apps/workers/.env && bun run prepare && bunx prisma migrate deploy --schema=./prisma/schema.prisma",
     "prepare": "prisma generate --schema=./prisma/schema.prisma",
     "dev": "nx serve web-ui",
     "dev:workers": "nx serve workers",
