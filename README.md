@@ -89,11 +89,10 @@ bun run setup
 
 This single command:
 1. Copies `.env.example` → `.env` at the repo root (if not already present)
-2. Creates `apps/web-ui/.env.local` as a symlink to the root `.env` so Next.js picks it up
-3. Generates the Prisma client
-4. Runs all database migrations
+2. Generates the Prisma client
+3. Runs all database migrations
 
-All projects — web-ui, workers, shared, ai — read from the single root `.env`. No per-app env files needed.
+All projects — web-ui, workers, shared, ai — automatically inherit from the single root `.env` via Nx's built-in env loading. No per-app env files, no symlinks.
 
 Then edit `.env` and fill in your real values:
 
