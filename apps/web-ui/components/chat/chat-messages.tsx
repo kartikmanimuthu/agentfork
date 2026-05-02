@@ -1,12 +1,19 @@
 'use client';
 
-import type { Message } from 'ai';
+import type { UIMessage } from '@ai-sdk/react';
 import { ChatBubble } from './chat-bubble';
 import { useChatScroll } from '@/lib/hooks/use-chat-scroll';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+}
+
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: UIMessage[];
   isLoading?: boolean;
 }
 
@@ -17,7 +24,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
     <ScrollArea className="flex-1" ref={scrollRef}>
       <div className="flex flex-col">
         {messages.map((message) => (
-          <ChatBubble key={message.id} role={message.role as 'user' | 'assistant'} content={message.content} />
+          <ChatBubble key={message.id} role={message.role as 'user' | 'assistant'} content={getMessageText(message)} />
         ))}
         {isLoading && messages[messages.length - 1]?.role === 'user' && (
           <div className="flex gap-3 p-4">

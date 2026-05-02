@@ -1,24 +1,33 @@
 'use client';
 
-import { useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { SendHorizontal } from 'lucide-react';
 
 interface ChatInputProps {
-  input: string;
-  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onSend: (content: string) => void;
   isLoading: boolean;
 }
 
-export function ChatInput({ input, handleInputChange, handleSubmit, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+  const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && !isLoading) {
+      onSend(input.trim());
+      setInput('');
+    }
+  };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      const form = e.currentTarget.closest('form');
-      if (form && input.trim()) form.requestSubmit();
+      if (input.trim() && !isLoading) {
+        onSend(input.trim());
+        setInput('');
+      }
     }
   };
 
@@ -27,7 +36,7 @@ export function ChatInput({ input, handleInputChange, handleSubmit, isLoading }:
       <textarea
         ref={textareaRef}
         value={input}
-        onChange={handleInputChange}
+        onChange={(e) => setInput(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Type a message..."
         disabled={isLoading}

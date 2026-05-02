@@ -11,9 +11,11 @@ export async function register(boss: PgBoss, executor: JobExecutor): Promise<voi
     executor.registerHandler(JOB_NAME, handleConversationSummary);
   }
 
-  await boss.work(JOB_NAME, { teamSize: 2, teamConcurrency: 1 }, async (job) => {
-    log.info('Processing job', { jobId: job.id });
-    await executor.execute(JOB_NAME, job.data);
+  await boss.work(JOB_NAME, { batchSize: 2 }, async (jobs) => {
+    for (const job of jobs) {
+      log.info('Processing job', { jobId: job.id });
+      await executor.execute(JOB_NAME, job.data);
+    }
   });
 
   log.info('Registered job handler', { jobName: JOB_NAME });

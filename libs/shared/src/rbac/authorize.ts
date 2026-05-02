@@ -10,7 +10,7 @@ export async function authorize(
   subjectType: string,
   authOptions: any,
 ): Promise<NextResponse | null> {
-  const session = await getServerSession(authOptions);
+  const session: any = await getServerSession(authOptions);
 
   if (!session?.user) {
     return NextResponse.json(

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
           conversationId: conversation.id,
           role: 'assistant',
           content: text,
-          tokenCount: usage.completionTokens,
+          tokenCount: usage.outputTokens ?? 0,
         });
         await conversationService.update(conversation.id, {
           messageCount: messages.length + 2,
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return result.toDataStreamResponse({
+    return result.toUIMessageStreamResponse({
       headers: { 'x-conversation-id': conversation.id },
     });
   } catch (error) {

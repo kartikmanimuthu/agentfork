@@ -1,17 +1,17 @@
-import { streamText, type CoreMessage } from 'ai';
+import { streamText, type ModelMessage, type LanguageModelUsage } from 'ai';
 import { getBedrockProvider, DEFAULT_MODEL } from './bedrock-client';
 
 export interface StreamChatOptions {
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   model?: string;
   system?: string;
   temperature?: number;
-  maxTokens?: number;
-  onFinish?: (result: { text: string; usage: { promptTokens: number; completionTokens: number } }) => void | Promise<void>;
+  maxOutputTokens?: number;
+  onFinish?: (result: { text: string; usage: LanguageModelUsage }) => void | Promise<void>;
 }
 
 export function streamChat(options: StreamChatOptions) {
-  const { messages, model, system, temperature = 0.7, maxTokens = 4096, onFinish } = options;
+  const { messages, model, system, temperature = 0.7, maxOutputTokens = 4096, onFinish } = options;
   const bedrock = getBedrockProvider();
 
   return streamText({
@@ -19,7 +19,7 @@ export function streamChat(options: StreamChatOptions) {
     messages,
     system,
     temperature,
-    maxTokens,
+    maxOutputTokens,
     onFinish,
   });
 }

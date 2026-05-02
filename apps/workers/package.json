@@ -15,7 +15,7 @@
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "pg-boss": "^10.4.0",
-    "ai": "^5.0.0",
+    "ai": "^6.0.0",
     "@ai-sdk/amazon-bedrock": "^2.0.0",
     "dayjs": "^1.11.0",
     "uuid": "^10.0.0"

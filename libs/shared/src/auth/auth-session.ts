@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 export async function getSessionTenantId(authOptions: any): Promise<string> {
-  const session = await getServerSession(authOptions);
+  const session: any = await getServerSession(authOptions);
   if (!session?.user) {
     throw new Error('Unauthenticated: no valid session');
   }
@@ -13,7 +13,7 @@ export async function getSessionTenantId(authOptions: any): Promise<string> {
 }
 
 export async function getSessionUserId(authOptions: any): Promise<string> {
-  const session = await getServerSession(authOptions);
+  const session: any = await getServerSession(authOptions);
   if (!session?.user?.id) {
     throw new Error('Unauthenticated: no valid session');
   }
@@ -21,7 +21,7 @@ export async function getSessionUserId(authOptions: any): Promise<string> {
 }
 
 export async function assertSuperAdmin(authOptions: any): Promise<NextResponse | null> {
-  const session = await getServerSession(authOptions);
+  const session: any = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json(
       { error: 'Unauthenticated', message: 'No valid session' },

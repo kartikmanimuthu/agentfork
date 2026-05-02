@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
         role: role ?? 'Member',
         invitedBy: userId,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        tenant: { connect: { id: tenantId } },
       },
     });
 

@@ -22,6 +22,7 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
+    "next": "^16.2.4",
     "nx": "^21.0.0",
     "prettier": "^3.4.0",
     "prisma": "^6.0.0",
@@ -30,7 +31,9 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.100",
+    "@ai-sdk/react": "^3.0.176",
     "@auth/prisma-adapter": "^2.11.2",
+    "@aws-sdk/client-ecs": "^3.1041.0",
     "@prisma/client": "^6.0.0",
     "ai": "^6.0.174",
     "bcryptjs": "^3.0.3",

@@ -38,7 +38,7 @@ export async function handleConversationSummary(data: unknown): Promise<void> {
       },
     ],
     system: 'You are a helpful assistant that creates concise conversation summaries.',
-    maxTokens: 256,
+    maxOutputTokens: 256,
   });
 
   let summary = '';
