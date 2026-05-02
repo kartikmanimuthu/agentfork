@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/libs/ai",
-    "declaration": true,
+    "declaration": false,
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],

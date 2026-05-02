@@ -5,10 +5,11 @@
   "projectType": "application",
   "targets": {
     "build": {
-      "executor": "@nx/next:build",
-      "outputs": ["{options.outputPath}"],
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/apps/web-ui/.next"],
       "options": {
-        "outputPath": "dist/apps/web-ui"
+        "command": "bun run build",
+        "cwd": "apps/web-ui"
       }
     },
     "serve": {
