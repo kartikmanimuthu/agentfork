@@ -13,8 +13,21 @@
   ],
   "scripts": {
     "prepare": "prisma generate --schema=./prisma/schema.prisma",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "dev": "nx serve web-ui",
+    "dev:workers": "nx serve workers",
+    "dev:all": "nx run-many -t serve -p web-ui,workers --parallel",
+    "build": "nx run-many -t build --all",
+    "build:web": "nx build web-ui",
+    "build:workers": "nx build workers",
+    "test": "nx run-many -t test -p shared,ai,workers",
+    "test:workers": "nx test workers",
+    "test:shared": "nx test shared",
+    "test:ai": "nx test ai",
+    "e2e": "nx e2e web-ui",
+    "e2e:ui": "nx e2e:ui web-ui",
+    "affected:test": "nx affected -t test",
+    "affected:build": "nx affected -t build",
+    "graph": "nx graph"
   },
   "devDependencies": {
     "@nx/eslint-plugin": "^21.0.0",
@@ -26,7 +39,6 @@
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.0.0",
-    "next": "^16.2.4",
     "nx": "^21.0.0",
     "prettier": "^3.4.0",
     "prisma": "^6.0.0",

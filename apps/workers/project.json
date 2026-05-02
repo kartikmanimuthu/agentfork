@@ -21,9 +21,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "nx:run-commands",
       "options": {
-        "config": "apps/workers/vitest.config.ts"
+        "command": "bunx vitest run --passWithNoTests",
+        "cwd": "apps/workers"
       }
     }
   }

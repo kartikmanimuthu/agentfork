@@ -11,6 +11,9 @@
       "inputs": ["production", "^production"],
       "cache": true
     },
+    "serve": {
+      "continuous": true
+    },
     "test": {
       "inputs": ["default", "^production"],
       "cache": true
@@ -20,7 +23,8 @@
       "cache": true
     },
     "e2e": {
-      "cache": true,
+      "dependsOn": ["web-ui:build"],
+      "cache": false,
       "inputs": ["default", "^production"]
     }
   },

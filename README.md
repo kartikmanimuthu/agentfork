@@ -17,6 +17,29 @@ Chatbot is a production-ready, self-hosted AI chat platform you can deploy on yo
 
 ---
 
+## Monorepo Structure
+
+This project uses **Nx** as the monorepo build system with **Bun** as the package manager.
+
+```
+chatbot/                          # Nx workspace root
+├── apps/
+│   ├── web-ui/                   # Next.js 15 — frontend, API routes, docs, marketing
+│   └── workers/                  # pg-boss background job processor
+├── libs/
+│   ├── shared/                   # Database repos, auth, RBAC, services
+│   └── ai/                       # AWS Bedrock client, chat completion, embeddings
+├── prisma/                       # Unified schema and migrations
+├── infra/                        # Pulumi AWS infrastructure stacks
+├── tests/e2e/                    # Playwright end-to-end tests
+├── nx.json                       # Nx workspace configuration
+└── docker-compose.yml            # Local PostgreSQL with pgvector
+```
+
+**Nx projects:** `web-ui`, `workers`, `shared`, `ai`
+
+---
+
 ## Prerequisites
 
 | Tool | Version | Install |
@@ -102,12 +125,13 @@ bun run prepare
 bunx prisma migrate deploy --schema=./prisma/schema.prisma
 ```
 
-`bun run prepare` generates the Prisma client. `migrate deploy` applies all migrations to your local database.
+`bun run prepare` generates the Prisma client. `migrate deploy` applies all migrations.
 
-### 5. Start the web UI
+### 5. Start the development server
 
 ```bash
-cd apps/web-ui && bun run dev
+bun run dev
+# or: bunx nx serve web-ui
 ```
 
 Open http://localhost:3001. You should see the marketing landing page.
@@ -119,38 +143,64 @@ Open http://localhost:3001. You should see the marketing landing page.
 Workers handle message embedding generation and conversation summarization. In a separate terminal:
 
 ```bash
-cd apps/workers && bun run dev
+bun run dev:workers
+# or: bunx nx serve workers
 ```
 
-Workers connect to the same PostgreSQL database and pick up jobs queued by the web UI.
+### 7. Start everything in parallel
+
+```bash
+bun run dev:all
+# or: bunx nx run-many -t serve -p web-ui,workers --parallel
+```
 
 ---
 
-## Project Structure
+## Nx Commands Reference
 
-```
-chatbot/
-├── apps/
-│   ├── web-ui/              # Next.js 15 app — frontend, API routes, docs, marketing
-│   │   ├── app/
-│   │   │   ├── page.tsx         # Marketing landing page (/)
-│   │   │   ├── (auth)/          # Login and register pages
-│   │   │   ├── (dashboard)/     # Authenticated app (chat, conversations, settings)
-│   │   │   ├── (docs)/          # Fumadocs documentation site (/docs/*)
-│   │   │   └── api/             # REST API routes
-│   │   ├── content/docs/        # MDX documentation content
-│   │   └── lib/                 # Shared utilities and services
-│   └── workers/             # pg-boss background job processor
-│       └── src/jobs/            # Job handlers (embeddings, summaries)
-├── libs/
-│   ├── shared/              # Database repos, auth, RBAC, services
-│   └── ai/                  # AWS Bedrock client, chat completion, embeddings
-├── prisma/                  # Unified schema and migrations
-├── infra/                   # Pulumi AWS infrastructure stacks
-├── tests/
-│   └── e2e/                 # Playwright end-to-end tests
-└── docker-compose.yml       # Local PostgreSQL with pgvector
-```
+All commands run from the **repo root**.
+
+### Development
+
+| Command | What it does |
+|---------|-------------|
+| `bun run dev` | Start web-ui dev server (port 3001) |
+| `bun run dev:workers` | Start workers in watch mode |
+| `bun run dev:all` | Start web-ui + workers in parallel |
+| `bunx nx serve web-ui` | Same as `bun run dev` |
+| `bunx nx serve workers` | Same as `bun run dev:workers` |
+
+### Building
+
+| Command | What it does |
+|---------|-------------|
+| `bun run build` | Build all projects |
+| `bun run build:web` | Build web-ui only |
+| `bun run build:workers` | Build workers only |
+| `bunx nx build web-ui` | Build web-ui via Nx |
+| `bunx nx build shared` | Build shared lib |
+| `bunx nx build ai` | Build ai lib |
+
+### Testing
+
+| Command | What it does |
+|---------|-------------|
+| `bun run test` | Run unit tests for shared, ai, workers |
+| `bun run test:shared` | Unit tests for libs/shared (65 tests) |
+| `bun run test:ai` | Unit tests for libs/ai (13 tests) |
+| `bun run test:workers` | Unit tests for apps/workers |
+| `bun run e2e` | Run Playwright e2e tests (51 tests) |
+| `bun run e2e:ui` | Open Playwright interactive UI |
+
+### Nx-specific
+
+| Command | What it does |
+|---------|-------------|
+| `bun run affected:test` | Run tests only for changed projects |
+| `bun run affected:build` | Build only changed projects |
+| `bun run graph` | Open Nx project dependency graph |
+| `bunx nx show projects` | List all Nx projects |
+| `bunx nx show project web-ui` | Show all targets for web-ui |
 
 ---
 
@@ -159,18 +209,17 @@ chatbot/
 ### Unit tests
 
 ```bash
-# libs/shared — repositories, auth, RBAC, services (65 tests)
-cd libs/shared && bunx vitest run
+# All projects at once
+bun run test
 
-# libs/ai — bedrock client, chat completion, embeddings (13 tests)
-cd libs/ai && bunx vitest run
-```
+# Individual projects
+bun run test:shared    # libs/shared — 65 tests
+bun run test:ai        # libs/ai — 13 tests
+bun run test:workers   # apps/workers
 
-With coverage report:
-
-```bash
-cd libs/shared && bunx vitest run --coverage
-cd libs/ai && bunx vitest run --coverage
+# With coverage report
+bunx nx test shared -- --coverage
+bunx nx test ai -- --coverage
 ```
 
 Coverage thresholds are enforced at 60% lines/branches/functions.
@@ -180,7 +229,7 @@ Coverage thresholds are enforced at 60% lines/branches/functions.
 Make sure the dev server is **not** already running — Playwright starts it automatically:
 
 ```bash
-bunx playwright test
+bun run e2e
 ```
 
 This runs 51 tests across 5 spec files:
@@ -192,7 +241,7 @@ This runs 51 tests across 5 spec files:
 Open the Playwright UI for interactive debugging:
 
 ```bash
-bunx playwright test --ui
+bun run e2e:ui
 ```
 
 ---
@@ -239,7 +288,8 @@ To enable "Sign in with SSO" on the login page:
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Runtime | Bun | 1.2 |
+| Monorepo | Nx | 21 |
+| Package Manager | Bun | 1.2 |
 | Frontend | Next.js + React | 15 + 19 |
 | Styling | Tailwind CSS + Radix UI | 3.4 |
 | Documentation | Fumadocs | 14 |
@@ -248,7 +298,6 @@ To enable "Sign in with SSO" on the login page:
 | ORM | Prisma | 6 |
 | Auth | NextAuth.js + Cognito | 4.24 |
 | Job Queue | pg-boss | 10 |
-| Monorepo | Nx | 21 |
 | Unit Tests | Vitest | 3 |
 | E2E Tests | Playwright | 1.59 |
 | Infrastructure | Pulumi (AWS) | 3 |
@@ -271,6 +320,9 @@ Run from the repo root: `bun run prepare` (not from inside apps/web-ui).
 
 **Workers not picking up jobs**
 Ensure `DATABASE_URL` in `apps/workers/.env` matches the web UI database.
+
+**`nx serve web-ui` fails with version mismatch**
+Make sure `next` is not in the root `package.json` devDependencies — it should only be in `apps/web-ui/package.json`.
 
 ---
 

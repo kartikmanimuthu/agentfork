@@ -12,17 +12,25 @@
       }
     },
     "serve": {
-      "executor": "@nx/next:server",
+      "executor": "nx:run-commands",
+      "continuous": true,
       "options": {
-        "buildTarget": "web-ui:build",
-        "dev": true,
-        "port": 3001
+        "command": "bun run dev",
+        "cwd": "apps/web-ui"
       }
     },
-    "test": {
-      "executor": "@nx/vite:test",
+    "e2e": {
+      "executor": "nx:run-commands",
       "options": {
-        "config": "apps/web-ui/vitest.config.ts"
+        "command": "bunx playwright test",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "e2e:ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx playwright test --ui",
+        "cwd": "{workspaceRoot}"
       }
     }
   }

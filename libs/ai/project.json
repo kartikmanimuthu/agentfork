@@ -14,9 +14,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "nx:run-commands",
       "options": {
-        "config": "libs/ai/vitest.config.ts"
+        "command": "bunx vitest run",
+        "cwd": "libs/ai"
       }
     }
   }
