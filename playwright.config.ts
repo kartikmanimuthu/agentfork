@@ -30,7 +30,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'cd apps/web-ui && bun run dev',
+    command: 'cd apps/web-ui && NEXTAUTH_SECRET=test-secret-for-e2e NEXTAUTH_URL=http://localhost:3001 bun run dev',
     url: 'http://localhost:3001',
     reuseExistingServer: true,
   },

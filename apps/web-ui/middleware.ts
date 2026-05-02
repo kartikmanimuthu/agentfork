@@ -11,7 +11,8 @@ export default withAuth(
       pathname.startsWith('/api/') ||
       pathname === '/login' ||
       pathname === '/register' ||
-      pathname === '/';
+      pathname === '/' ||
+      pathname.startsWith('/docs');
 
     if (!skipNoTenantRedirect && token && !token.tenantId) {
       return NextResponse.redirect(new URL('/create-org', req.url));
@@ -28,7 +29,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        if (pathname === '/login' || pathname === '/register' || pathname === '/') {
+        if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname.startsWith('/docs')) {
           return true;
         }
         return !!token;

@@ -7,11 +7,11 @@ setup.setTimeout(90000);
 setup('create authenticated session', async ({ page }) => {
   const { execSync } = await import('child_process');
 
-  const secret = process.env.NEXTAUTH_SECRET ?? 'chatbot-nextauth-secret-change-in-production';
+  const secret = process.env.NEXTAUTH_SECRET ?? 'test-secret-for-e2e';
 
   const tokenJson = execSync(
     `node -e "
-const { encode } = require('${path.resolve(__dirname, '../../apps/web-ui/node_modules/next-auth/jwt')}');
+const { encode } = require('next-auth/jwt');
 encode({
     token: {
         name: 'Test User',
