@@ -88,12 +88,14 @@ bun run setup
 ```
 
 This single command:
-1. Copies `apps/web-ui/.env.local.example` → `apps/web-ui/.env.local` (if not already present)
-2. Copies `apps/workers/.env.example` → `apps/workers/.env` (if not already present)
+1. Copies `.env.example` → `.env` at the repo root (if not already present)
+2. Creates `apps/web-ui/.env.local` as a symlink to the root `.env` so Next.js picks it up
 3. Generates the Prisma client
 4. Runs all database migrations
 
-Then edit `apps/web-ui/.env.local` and fill in your real values:
+All projects — web-ui, workers, shared, ai — read from the single root `.env`. No per-app env files needed.
+
+Then edit `.env` and fill in your real values:
 
 ```env
 # Required — generate with: openssl rand -base64 32
@@ -112,7 +114,7 @@ AWS_REGION=ap-south-1
 # COGNITO_ISSUER=https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_example
 ```
 
-The `DATABASE_URL`, `NEXTAUTH_URL`, and Bedrock model IDs are pre-filled with sensible defaults that match the docker-compose setup.
+`DATABASE_URL`, `NEXTAUTH_URL`, and Bedrock model IDs are pre-filled with defaults that match the docker-compose setup.
 
 ### 4. Start the development server
 

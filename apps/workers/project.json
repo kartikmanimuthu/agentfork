@@ -17,7 +17,7 @@
       "executor": "nx:run-commands",
       "continuous": true,
       "options": {
-        "command": "tsx --env-file=.env --watch src/index.ts",
+        "command": "tsx --env-file=../../.env --watch src/index.ts",
         "cwd": "apps/workers"
       }
     },
