@@ -48,7 +48,7 @@ bun install
 ### 3. Set up environment variables
 
 ```bash
-cp apps/web-ui/.env.example apps/web-ui/.env.local
+cp apps/web-ui/.env.local.example apps/web-ui/.env.local
 ```
 
 Edit `apps/web-ui/.env.local` with your values:
