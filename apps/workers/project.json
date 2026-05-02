@@ -15,8 +15,9 @@
     },
     "serve": {
       "executor": "nx:run-commands",
+      "continuous": true,
       "options": {
-        "command": "tsx --env-file=.env --watch src/index.ts",
+        "command": "[ -f .env ] || cp .env.example .env && tsx --env-file=.env --watch src/index.ts",
         "cwd": "apps/workers"
       }
     },
