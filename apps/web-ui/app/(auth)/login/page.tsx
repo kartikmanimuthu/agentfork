@@ -28,7 +28,7 @@ export default function LoginPage() {
       setError('Invalid email or password');
       setLoading(false);
     } else {
-      router.push('/chat');
+      router.push('/dashboard');
     }
   };
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        <Button variant="outline" className="w-full" onClick={() => signIn('cognito', { callbackUrl: '/chat' })}>
+        <Button variant="outline" className="w-full" onClick={() => signIn('cognito', { callbackUrl: '/dashboard' })}>
           Sign in with SSO
         </Button>
       </div>

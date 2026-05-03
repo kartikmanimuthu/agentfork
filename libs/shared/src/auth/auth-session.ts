@@ -1,5 +1,10 @@
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { authOptions } from './auth-options';
+
+export async function getAuthSession() {
+  return getServerSession(authOptions);
+}
 
 export async function getSessionTenantId(authOptions: any): Promise<string> {
   const session: any = await getServerSession(authOptions);

@@ -2,13 +2,13 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,18 +19,32 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
 
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
       const data = await res.json();
       setError(data.error ?? 'Registration failed');
       setLoading(false);
+      return;
+    }
+
+    // Auto-sign-in after successful registration
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError('Account created but sign-in failed. Please try logging in.');
+      setLoading(false);
     } else {
-      router.push('/login');
+      // Middleware will redirect to /create-org if no tenantId
+      router.push('/dashboard');
     }
   };
 
@@ -42,7 +56,6 @@ export default function RegisterPage() {
           <p className="text-sm text-muted-foreground">Enter your details to get started</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
           <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
           {error && <p className="text-sm text-destructive">{error}</p>}

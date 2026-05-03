@@ -10,10 +10,16 @@ vi.mock('next/server', () => ({
   },
 }));
 
+vi.mock('./custom-role-service', () => ({
+  getCustomRolePermissions: vi.fn(),
+}));
+
 import { getServerSession } from 'next-auth';
 import { authorize } from './authorize';
+import { getCustomRolePermissions } from './custom-role-service';
 
 const mockGetServerSession = vi.mocked(getServerSession);
+const mockGetCustomRolePermissions = vi.mocked(getCustomRolePermissions);
 
 describe('authorize', () => {
   beforeEach(() => {
@@ -22,7 +28,7 @@ describe('authorize', () => {
 
   it('returns 401 when no session exists', async () => {
     mockGetServerSession.mockResolvedValue(null);
-    const result = await authorize('read', 'Chat', {});
+    const result = await authorize('read', 'Conversation', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });
@@ -35,20 +41,20 @@ describe('authorize', () => {
 
   it('returns 403 when user has no role', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1' } } as any);
-    const result = await authorize('read', 'Chat', {});
+    const result = await authorize('read', 'Conversation', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
   });
 
-  it('returns null when Owner reads Chat', async () => {
+  it('returns null when Owner reads Conversation', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Owner' } } as any);
-    const result = await authorize('read', 'Chat', {});
+    const result = await authorize('read', 'Conversation', {});
     expect(result).toBeNull();
   });
 
-  it('returns 403 when Viewer tries to create Chat', async () => {
+  it('returns 403 when Viewer tries to create Conversation', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Viewer' } } as any);
-    const result = await authorize('create', 'Chat', {});
+    const result = await authorize('create', 'Conversation', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
   });
@@ -61,7 +67,33 @@ describe('authorize', () => {
 
   it('handles manage action (maps to all CRUD)', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Member' } } as any);
-    const result = await authorize('manage', 'Chat', {});
+    const result = await authorize('manage', 'Conversation', {});
     expect(result).toBeNull();
+  });
+
+  it('checks custom role permissions when role is not predefined', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: '1', role: 'CustomRole', tenantId: 't1' },
+    } as any);
+    mockGetCustomRolePermissions.mockResolvedValue({
+      Conversations: ['read'],
+      Messages: [],
+      Settings: [],
+      Users: [],
+      Tenants: [],
+    });
+    const result = await authorize('read', 'Conversation', {});
+    expect(result).toBeNull();
+    expect(mockGetCustomRolePermissions).toHaveBeenCalledWith('CustomRole', 't1');
+  });
+
+  it('returns 403 for custom role without matching permission', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: '1', role: 'CustomRole', tenantId: 't1' },
+    } as any);
+    mockGetCustomRolePermissions.mockResolvedValue(null);
+    const result = await authorize('delete', 'Conversation', {});
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe(403);
   });
 });

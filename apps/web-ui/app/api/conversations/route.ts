@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, getSessionUserId, authorize, ConversationService } from '@chatbot/shared';
+import { getServerSession } from 'next-auth';
+import { getSessionTenantId, getSessionUserId, authorize, AuditService, ConversationService } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
@@ -37,6 +38,24 @@ export async function POST(req: NextRequest) {
     const { title, model } = await req.json();
     const service = new ConversationService(tenantId);
     const conversation = await service.create({ userId, title, model });
+
+    const session = await getServerSession(authOptions);
+    AuditService.logUserAction({
+      eventType: 'chat.conversation.created',
+      action: 'Created Conversation',
+      resourceType: 'conversation',
+      resourceId: conversation.id,
+      resourceName: conversation.title || 'New Conversation',
+      user: session?.user?.email || session?.user?.id || userId,
+      userType: 'user',
+      status: 'success',
+      severity: 'low',
+      details: `Created conversation "${conversation.title || 'New Conversation'}"`,
+      apiRoute: 'POST /api/conversations',
+      httpMethod: 'POST',
+      metadata: { tenantId, conversationId: conversation.id, title: conversation.title },
+      tenantId,
+    }).catch(() => {});
 
     return NextResponse.json(conversation, { status: 201 });
   } catch (error) {

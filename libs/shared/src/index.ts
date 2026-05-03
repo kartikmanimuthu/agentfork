@@ -12,17 +12,28 @@ export type { AuditLogRepository, AuditLogRecord, CreateAuditLogInput, AuditLogF
 export type { PaginationParams, PaginatedResult, ConversationStatus, MessageRole, AuditSeverity, InvitationStatus } from './types/domain';
 
 // Auth
-export { getSessionTenantId, getSessionUserId, assertSuperAdmin } from './auth/auth-session';
+export { getAuthSession, getSessionTenantId, getSessionUserId, assertSuperAdmin } from './auth/auth-session';
 export { createAuthOptions } from './auth/auth-options';
-import './auth/types';
+import './auth/auth-types';
 
 // RBAC
-export { authorize } from './rbac/authorize';
-export { hasPermission, hasCustomPermission, ROLE_PERMISSIONS, ROLE_LEVELS } from './rbac/permissions';
-export type { Module, Action, PredefinedRole, PermissionSet } from './rbac/types';
+export { authorize, isAdmin, can, cannot } from './rbac/authorize';
+export { hasPermission, hasCustomPermission, canAssignRole, getAutoLevel, ROLE_PERMISSIONS, ROLE_LEVELS } from './rbac/permissions';
+export { SUBJECT_TO_MODULE, ACTION_MAP } from './rbac/types';
+export type { Module, Action, PredefinedRole, RoleLevel, PermissionSet } from './rbac/types';
+export {
+  createCustomRole,
+  getCustomRoles,
+  getCustomRole,
+  updateCustomRole,
+  deleteCustomRole,
+  getCustomRolePermissions,
+} from './rbac/custom-role-service';
+export type { CustomRoleInput, CustomRoleOutput } from './rbac/custom-role-service';
 
 // Services
 export { AuditService } from './services/audit-service';
 export { ConversationService } from './services/conversation-service';
 export { MessageService } from './services/message-service';
 export { TenantConfigService } from './services/tenant-config-service';
+export { InvitationService } from './services/invitation-service';

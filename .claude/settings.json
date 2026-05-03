@@ -1,0 +1,69 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun install)",
+      "Bash(bun run *)",
+      "Bash(bunx vitest *)",
+      "Bash(bunx playwright *)",
+      "Bash(bunx prisma generate *)",
+      "Bash(bunx prisma db push *)",
+      "Bash(bunx prisma migrate *)",
+      "Bash(bunx prisma format *)",
+      "Bash(nx *)",
+      "Bash(docker compose *)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "Bash(git show*)",
+      "Bash(git rev-parse*)",
+      "Bash(git ls-files*)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(which *)",
+      "Bash(echo *)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse:Edit": [
+      {
+        "description": "Auto-format edited TypeScript/TSX/JS/JSX/CSS files",
+        "if": "the edited file ends with .ts, .tsx, .js, .jsx, .css, or .json",
+        "prompt": "Run `bunx prettier --write <edited_file>` to format the file. If prettier is not available or the command fails, do not error — just continue."
+      },
+      {
+        "description": "Type-check affected project after editing TypeScript",
+        "if": "the edited file ends with .ts or .tsx and is inside apps/ or libs/",
+        "prompt": "Run `bunx tsc --noEmit` in the project root to type-check. Only report errors if they exist; do not block on warnings."
+      }
+    ],
+    "PostToolUse:Write": [
+      {
+        "description": "Auto-format written TypeScript/TSX/JS/JSX/CSS files",
+        "if": "the written file ends with .ts, .tsx, .js, .jsx, .css, or .json",
+        "prompt": "Run `bunx prettier --write <written_file>` to format the file. If prettier is not available or the command fails, do not error — just continue."
+      }
+    ],
+    "PreToolUse:Edit": [
+      {
+        "description": "Block accidental edits to .env files",
+        "if": "the file path matches `.env` but NOT `.env.example`, `.env.local`, `.env.test`, or `.env.production`",
+        "prompt": "STOP and ask the user for explicit confirmation before editing this .env file. Explain that .env files may contain secrets and should rarely be edited directly."
+      }
+    ],
+    "PreToolUse:Write": [
+      {
+        "description": "Block accidental writes to .env files",
+        "if": "the file path matches `.env` but NOT `.env.example`, `.env.local`, `.env.test`, or `.env.production`",
+        "prompt": "STOP and ask the user for explicit confirmation before writing this .env file. Explain that .env files may contain secrets and should rarely be created directly."
+      }
+    ]
+  }
+}

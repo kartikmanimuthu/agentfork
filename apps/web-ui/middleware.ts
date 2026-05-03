@@ -6,11 +6,21 @@ export default withAuth(
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
+    if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+      if (token?.isSuperAdmin !== true) {
+        return NextResponse.json(
+          { error: 'Forbidden', message: 'Super admin access required' },
+          { status: 403 },
+        );
+      }
+    }
+
     const skipNoTenantRedirect =
       pathname === '/create-org' ||
       pathname.startsWith('/api/') ||
       pathname === '/login' ||
       pathname === '/register' ||
+      pathname === '/signup' ||
       pathname === '/' ||
       pathname.startsWith('/docs');
 
@@ -29,7 +39,13 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname.startsWith('/docs')) {
+        if (
+          pathname === '/login' ||
+          pathname === '/register' ||
+          pathname === '/signup' ||
+          pathname === '/' ||
+          pathname.startsWith('/docs')
+        ) {
           return true;
         }
         return !!token;
@@ -40,6 +56,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|login|register).*)',
+    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|login|register|signup|docs).*)',
   ],
 };

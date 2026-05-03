@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getSessionTenantId, getSessionUserId, authorize, MessageService, ConversationService } from '@chatbot/shared';
+import { getServerSession } from 'next-auth';
+import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService } from '@chatbot/shared';
 import { streamChat } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
@@ -35,6 +36,24 @@ export async function POST(req: NextRequest) {
       role: 'user',
       content,
     });
+
+    const session = await getServerSession(authOptions);
+    AuditService.logUserAction({
+      eventType: 'chat.message.sent',
+      action: 'Sent Message',
+      resourceType: 'conversation',
+      resourceId: conversation.id,
+      resourceName: conversation.title || conversation.id,
+      user: session?.user?.email || session?.user?.id || userId,
+      userType: 'user',
+      status: 'success',
+      severity: 'low',
+      details: `User sent a message in conversation ${conversation.id}`,
+      apiRoute: 'POST /api/chat',
+      httpMethod: 'POST',
+      metadata: { conversationId: conversation.id, tenantId },
+      tenantId,
+    }).catch(() => {});
 
     const messages = await messageService.findByConversationId(conversation.id);
     const coreMessages = messages.map((m) => ({
