@@ -12,6 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Users, ArrowLeft, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { formatDate, useTenantTimezone } from '@/lib/date-utils';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { createInvitationSchema } from '@chatbot/shared/client';
+import type { z } from 'zod';
 
 interface Member {
   userId: string;
@@ -31,13 +36,107 @@ interface Invitation {
 
 const ROLE_OPTIONS = ['Owner', 'Admin', 'Member', 'Viewer'];
 
+type InviteFormValues = z.infer<typeof createInvitationSchema>;
+
+function InviteDialog({
+  open,
+  onOpenChange,
+  onSent,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSent: () => void;
+}) {
+  const form = useForm<InviteFormValues>({
+    resolver: zodResolver(createInvitationSchema),
+    defaultValues: { email: '', role: 'Member' },
+    mode: 'onChange',
+  });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({ email: '', role: 'Member' });
+    }
+  }, [open, form]);
+
+  const onSubmit = async (data: InviteFormValues) => {
+    try {
+      const res = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        toast.success('Invitation sent');
+        onOpenChange(false);
+        onSent();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to send invitation');
+      }
+    } catch {
+      toast.error('Failed to send invitation');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite Member</DialogTitle>
+          <DialogDescription>Send an invitation to join your organization.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="colleague@company.com"
+                {...form.register('email')}
+              />
+              {form.formState.errors.email && (
+                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select
+                value={form.watch('role')}
+                onValueChange={(v) => form.setValue('role', v, { shouldValidate: true })}
+              >
+                <SelectTrigger id="invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={!form.formState.isValid || form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? 'Sending...' : 'Send Invitation'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('Member');
+  const timezone = useTenantTimezone();
 
   useEffect(() => {
     fetchData();
@@ -72,7 +171,7 @@ export default function MembersPage() {
       } else {
         toast.error('Failed to update role');
       }
-    } catch (e) {
+    } catch {
       toast.error('Failed to update role');
     }
   }
@@ -87,29 +186,8 @@ export default function MembersPage() {
       } else {
         toast.error('Failed to remove member');
       }
-    } catch (e) {
+    } catch {
       toast.error('Failed to remove member');
-    }
-  }
-
-  async function sendInvite() {
-    try {
-      const res = await fetch('/api/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-      });
-      if (res.ok) {
-        toast.success('Invitation sent');
-        setInviteOpen(false);
-        setInviteEmail('');
-        fetchData();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to send invitation');
-      }
-    } catch (e) {
-      toast.error('Failed to send invitation');
     }
   }
 
@@ -123,19 +201,12 @@ export default function MembersPage() {
       } else {
         toast.error('Failed to revoke invitation');
       }
-    } catch (e) {
+    } catch {
       toast.error('Failed to revoke invitation');
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDateLocal = (dateStr: string) => formatDate(dateStr, timezone);
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -222,7 +293,7 @@ export default function MembersPage() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="py-2 px-3 text-muted-foreground">{formatDate(member.assignedAt)}</td>
+                      <td className="py-2 px-3 text-muted-foreground">{formatDateLocal(member.assignedAt)}</td>
                       <td className="py-2 px-3 text-right">
                         <Button
                           variant="ghost"
@@ -271,7 +342,7 @@ export default function MembersPage() {
                       <td className="py-2 px-3">
                         <Badge variant="secondary">{invite.status}</Badge>
                       </td>
-                      <td className="py-2 px-3 text-muted-foreground">{formatDate(invite.expiresAt)}</td>
+                      <td className="py-2 px-3 text-muted-foreground">{formatDateLocal(invite.expiresAt)}</td>
                       <td className="py-2 px-3 text-right">
                         <Button
                           variant="ghost"
@@ -291,42 +362,7 @@ export default function MembersPage() {
         </Card>
       )}
 
-      {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
-            <DialogDescription>Send an invitation to join your organization.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="colleague@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={sendInvite}>Send Invitation</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} onSent={fetchData} />
     </div>
   );
 }

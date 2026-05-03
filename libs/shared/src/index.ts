@@ -1,3 +1,9 @@
+// Env
+export { env } from './env';
+
+// Logging
+export { createLogger } from './logging/logger';
+
 // Database
 export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { getTenantClient, TENANT_SCOPED_MODELS } from './db/tenant-middleware';
@@ -14,6 +20,7 @@ export type { PaginationParams, PaginatedResult, ConversationStatus, MessageRole
 // Auth
 export { getAuthSession, getSessionTenantId, getSessionUserId, assertSuperAdmin } from './auth/auth-session';
 export { createAuthOptions } from './auth/auth-options';
+export { getCognitoClient, COGNITO_USER_POOL_ID } from './auth/cognito-client';
 import './auth/auth-types';
 
 // RBAC
@@ -37,3 +44,6 @@ export { ConversationService } from './services/conversation-service';
 export { MessageService } from './services/message-service';
 export { TenantConfigService } from './services/tenant-config-service';
 export { InvitationService } from './services/invitation-service';
+
+// Validation
+export * from './validation';

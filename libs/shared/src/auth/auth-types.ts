@@ -10,6 +10,7 @@ declare module 'next-auth' {
       tenantId: string | null;
       role: string | null;
       isSuperAdmin: boolean;
+      timezone: string;
     };
   }
 
@@ -42,5 +43,6 @@ declare module 'next-auth/jwt' {
     role?: string | null;
     isSuperAdmin?: boolean;
     email?: string;
+    timezone?: string;
   }
 }

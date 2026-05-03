@@ -1,4 +1,8 @@
 import { getPrismaClient } from '../db/prisma-client';
+import { createLogger } from '../logging/logger';
+import { env } from '../env';
+
+const logger = createLogger('audit-service');
 
 export interface AuditLogFilters {
   startDate?: string;
@@ -103,8 +107,8 @@ export class AuditService {
   ): Promise<void> {
     try {
       if (
-        process.env.NODE_ENV === 'development' &&
-        process.env.SKIP_AUDIT_LOGGING === 'true'
+        env.NODE_ENV === 'development' &&
+        env.SKIP_AUDIT_LOGGING === 'true'
       ) {
         return;
       }
@@ -135,7 +139,7 @@ export class AuditService {
         },
       });
     } catch (error: unknown) {
-      console.error('AuditService - Error creating audit log:', error);
+      logger.error({ error }, 'AuditService - Error creating audit log');
     }
   }
 
@@ -147,7 +151,7 @@ export class AuditService {
     tenantId?: string,
   ): Promise<AuditLogResponse> {
     try {
-      console.log('AuditService - Fetching audit logs with filters:', filters);
+      logger.info({ filters }, 'AuditService - Fetching audit logs');
       if (!tenantId) throw new Error('getAuditLogs: tenantId is required');
 
       const prisma = getPrismaClient();
@@ -200,7 +204,7 @@ export class AuditService {
 
       return { logs, nextPageToken };
     } catch (error: unknown) {
-      console.error('AuditService - Error fetching audit logs:', error);
+      logger.error({ error }, 'AuditService - Error fetching audit logs');
       return { logs: [], nextPageToken: undefined };
     }
   }
@@ -219,7 +223,7 @@ export class AuditService {
       );
       return result.logs;
     } catch (error: unknown) {
-      console.error('AuditService - Error fetching correlated audit logs:', error);
+      logger.error({ error }, 'AuditService - Error fetching correlated audit logs');
       return [];
     }
   }
@@ -253,7 +257,7 @@ export class AuditService {
         byResourceType: this.groupBy(logs, 'resourceType'),
       };
     } catch (error: unknown) {
-      console.error('AuditService - Error fetching audit log stats:', error);
+      logger.error({ error }, 'AuditService - Error fetching audit log stats');
       return {
         totalLogs: 0,
         successCount: 0,
@@ -351,7 +355,7 @@ export class AuditService {
         source: 'platform',
       });
     } catch (error) {
-      console.error('Failed to create user action audit log:', error);
+      logger.error({ error }, 'Failed to create user action audit log');
     }
   }
 
@@ -406,7 +410,7 @@ export class AuditService {
         source: data.source || 'system',
       });
     } catch (error) {
-      console.error('Failed to create resource action audit log:', error);
+      logger.error({ error }, 'Failed to create resource action audit log');
     }
   }
 
@@ -449,7 +453,7 @@ export class AuditService {
         source: 'system',
       });
     } catch (error) {
-      console.error('Failed to create system event audit log:', error);
+      logger.error({ error }, 'Failed to create system event audit log');
     }
   }
 
@@ -485,7 +489,7 @@ export class AuditService {
         source: 'agent',
       });
     } catch (error) {
-      console.error('Failed to create agent event audit log:', error);
+      logger.error({ error }, 'Failed to create agent event audit log');
     }
   }
 
@@ -510,7 +514,7 @@ export class AuditService {
         },
       });
     } catch (error) {
-      console.error('AuditService.log failed:', error);
+      logger.error({ error }, 'AuditService.log failed');
     }
   }
 }

@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,21 +9,16 @@ import { Label } from '@/components/ui/label';
 import { useSession } from 'next-auth/react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { profileUpdateSchema } from '@chatbot/shared/client';
+import type { z } from 'zod';
 
-const profileFormSchema = z.object({
-  username: z.string().min(2, { message: 'Username must be at least 2 characters.' }).max(30),
-  email: z.string().email(),
-  role: z.string(),
-  bio: z.string().max(160).optional(),
-});
-
-type ProfileFormValues = z.infer<typeof profileFormSchema>;
+type ProfileFormValues = z.infer<typeof profileUpdateSchema>;
 
 export function ProfileForm() {
   const { data: session } = useSession();
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
+    resolver: zodResolver(profileUpdateSchema),
     defaultValues: {
       username: '',
       email: '',

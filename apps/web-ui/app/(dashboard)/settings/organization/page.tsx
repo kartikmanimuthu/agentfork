@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { updateTenantSettingsSchema } from '@chatbot/shared/client';
+import type { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,29 +59,33 @@ const TIMEZONES = (() => {
   }
 })();
 
+type OrgSettingsFormValues = z.infer<typeof updateTenantSettingsSchema>;
+
 export default function OrganizationSettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const user = session?.user as any;
   const role = user?.role as string | undefined;
   const canEdit = role === 'Owner' || role === 'Admin';
 
-  const [settings, setSettings] = useState<TenantSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-
-  const [name, setName] = useState('');
-  const [timezone, setTimezone] = useState('UTC');
-  const [scheduleExecutions, setScheduleExecutions] = useState(true);
-  const [memberInvites, setMemberInvites] = useState(true);
-  const [systemAlerts, setSystemAlerts] = useState(true);
+  const form = useForm<OrgSettingsFormValues>({
+    resolver: zodResolver(updateTenantSettingsSchema),
+    defaultValues: {
+      name: '',
+      timezone: 'UTC',
+      notifications: {
+        scheduleExecutions: true,
+        memberInvites: true,
+        systemAlerts: true,
+      },
+    },
+    mode: 'onChange',
+  });
 
   useEffect(() => {
     fetchSettings();
   }, []);
 
   async function fetchSettings() {
-    setLoading(true);
     try {
       const res = await fetch('/api/tenants/settings');
       if (!res.ok) {
@@ -85,47 +93,23 @@ export default function OrganizationSettingsPage() {
         return;
       }
       const data: TenantSettings = await res.json();
-      setSettings(data);
-      setName(data.name);
-      setTimezone(data.timezone);
-      setScheduleExecutions(data.notifications.scheduleExecutions);
-      setMemberInvites(data.notifications.memberInvites);
-      setSystemAlerts(data.notifications.systemAlerts);
-      setDirty(false);
+      form.reset({
+        name: data.name,
+        timezone: data.timezone,
+        notifications: data.notifications,
+      });
     } catch {
       toast.error('Failed to load organization settings');
-    } finally {
-      setLoading(false);
     }
   }
 
-  useEffect(() => {
-    if (!settings) return;
-    const changed =
-      name !== settings.name ||
-      timezone !== settings.timezone ||
-      scheduleExecutions !== settings.notifications.scheduleExecutions ||
-      memberInvites !== settings.notifications.memberInvites ||
-      systemAlerts !== settings.notifications.systemAlerts;
-    setDirty(changed);
-  }, [name, timezone, scheduleExecutions, memberInvites, systemAlerts, settings]);
-
-  async function handleSave() {
+  const onSubmit = async (data: OrgSettingsFormValues) => {
     if (!canEdit) return;
-    setSaving(true);
     try {
       const res = await fetch('/api/tenants/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          timezone,
-          notifications: {
-            scheduleExecutions,
-            memberInvites,
-            systemAlerts,
-          },
-        }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -133,15 +117,19 @@ export default function OrganizationSettingsPage() {
         return;
       }
       const updated: TenantSettings = await res.json();
-      setSettings(updated);
-      setDirty(false);
+      form.reset({
+        name: updated.name,
+        timezone: updated.timezone,
+        notifications: updated.notifications,
+      });
+      await update();
       toast.success('Organization settings saved');
     } catch {
       toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
     }
-  }
+  };
+
+  const loading = !form.formState.isDirty && form.getValues('name') === '' && !form.formState.errors.name;
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
@@ -152,118 +140,124 @@ export default function OrganizationSettingsPage() {
       <p className="text-muted-foreground">Manage your organization details and preferences.</p>
 
       <div className="max-w-2xl space-y-4">
-        {loading ? (
+        {!form.getValues('name') && !form.formState.isDirty ? (
           <div className="space-y-4">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-48 w-full" />
           </div>
         ) : (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Organization Details</CardTitle>
-                <CardDescription>Update your organization name and view identifiers.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="org-name">Organization Name</Label>
-                  <Input
-                    id="org-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={!canEdit || saving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="org-slug">Slug</Label>
-                  <Input id="org-slug" value={settings?.slug ?? '—'} disabled />
-                  <p className="text-xs text-muted-foreground">Used in URLs. Contact support to change.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tenant-id">Tenant ID</Label>
-                  <Input id="tenant-id" value={settings?.id ?? '—'} disabled />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Preferences</CardTitle>
-                <CardDescription>Set timezone and notification preferences for your organization.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Select
-                    value={timezone}
-                    onValueChange={setTimezone}
-                    disabled={!canEdit || saving}
-                  >
-                    <SelectTrigger id="timezone" className="w-full">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {TIMEZONES.map((tz) => (
-                        <SelectItem key={tz} value={tz}>{tz}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <p className="text-sm font-medium">Notifications</p>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm">Schedule Executions</label>
-                      <p className="text-xs text-muted-foreground">Alerts when scheduled jobs run.</p>
-                    </div>
-                    <Switch
-                      checked={scheduleExecutions}
-                      onCheckedChange={setScheduleExecutions}
-                      disabled={!canEdit || saving}
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Organization Details</CardTitle>
+                  <CardDescription>Update your organization name and view identifiers.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="org-name">Organization Name</Label>
+                    <Input
+                      id="org-name"
+                      {...form.register('name')}
+                      disabled={!canEdit || form.formState.isSubmitting}
                     />
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm">Member Invites</label>
-                      <p className="text-xs text-muted-foreground">Alerts when members are invited or removed.</p>
-                    </div>
-                    <Switch
-                      checked={memberInvites}
-                      onCheckedChange={setMemberInvites}
-                      disabled={!canEdit || saving}
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="org-slug">Slug</Label>
+                    <Input id="org-slug" value="—" disabled />
+                    <p className="text-xs text-muted-foreground">Used in URLs. Contact support to change.</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm">System Alerts</label>
-                      <p className="text-xs text-muted-foreground">Critical system and security alerts.</p>
-                    </div>
-                    <Switch
-                      checked={systemAlerts}
-                      onCheckedChange={setSystemAlerts}
-                      disabled={!canEdit || saving}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleSave}
-                disabled={!canEdit || !dirty || saving}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-              <Link href="/settings">
-                <Button variant="outline">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Settings
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preferences</CardTitle>
+                  <CardDescription>Set timezone and notification preferences for your organization.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone">Timezone</Label>
+                    <Select
+                      value={form.watch('timezone')}
+                      onValueChange={(v) => form.setValue('timezone', v, { shouldDirty: true })}
+                      disabled={!canEdit || form.formState.isSubmitting}
+                    >
+                      <SelectTrigger id="timezone" className="w-full">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {TIMEZONES.map((tz) => (
+                          <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <p className="text-sm font-medium">Notifications</p>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-sm">Schedule Executions</label>
+                        <p className="text-xs text-muted-foreground">Alerts when scheduled jobs run.</p>
+                      </div>
+                      <Switch
+                        checked={form.watch('notifications.scheduleExecutions')}
+                        onCheckedChange={(v) =>
+                          form.setValue('notifications.scheduleExecutions', v, { shouldDirty: true })
+                        }
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-sm">Member Invites</label>
+                        <p className="text-xs text-muted-foreground">Alerts when members are invited or removed.</p>
+                      </div>
+                      <Switch
+                        checked={form.watch('notifications.memberInvites')}
+                        onCheckedChange={(v) =>
+                          form.setValue('notifications.memberInvites', v, { shouldDirty: true })
+                        }
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-sm">System Alerts</label>
+                        <p className="text-xs text-muted-foreground">Critical system and security alerts.</p>
+                      </div>
+                      <Switch
+                        checked={form.watch('notifications.systemAlerts')}
+                        onCheckedChange={(v) =>
+                          form.setValue('notifications.systemAlerts', v, { shouldDirty: true })
+                        }
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="submit"
+                  disabled={!canEdit || !form.formState.isDirty || form.formState.isSubmitting}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {form.formState.isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
-              </Link>
-            </div>
+                <Link href="/settings">
+                  <Button variant="outline">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Settings
+                  </Button>
+                </Link>
+              </div>
+            </form>
           </>
         )}
       </div>

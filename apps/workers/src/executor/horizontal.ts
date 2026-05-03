@@ -1,23 +1,24 @@
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
 import { createLogger } from '../lib/logger.js';
+import { env } from '../env';
 import type { JobExecutor } from './types.js';
 
 const log = createLogger('horizontal-executor');
 
 export class HorizontalExecutor implements JobExecutor {
-  private readonly ecs = new ECSClient({ region: process.env.AWS_REGION ?? 'ap-south-1' });
+  private readonly ecs = new ECSClient({ region: env.AWS_REGION });
 
   async execute(jobName: string, jobData: unknown): Promise<unknown> {
     log.info('Dispatching job to ECS Fargate', { jobName });
 
     const command = new RunTaskCommand({
-      cluster: process.env.ECS_CLUSTER_ARN,
-      taskDefinition: process.env.WORKER_TASK_DEFINITION_ARN,
+      cluster: env.ECS_CLUSTER_ARN,
+      taskDefinition: env.WORKER_TASK_DEFINITION_ARN,
       launchType: 'FARGATE',
       networkConfiguration: {
         awsvpcConfiguration: {
-          subnets: (process.env.PRIVATE_SUBNET_IDS ?? '').split(','),
-          securityGroups: (process.env.SECURITY_GROUP_IDS ?? '').split(','),
+          subnets: (env.PRIVATE_SUBNET_IDS ?? '').split(','),
+          securityGroups: (env.SECURITY_GROUP_IDS ?? '').split(','),
           assignPublicIp: 'DISABLED',
         },
       },

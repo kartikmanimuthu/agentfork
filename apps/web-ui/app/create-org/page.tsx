@@ -1,22 +1,30 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { createTenantSchema } from '@chatbot/shared/client';
+import type { z } from 'zod';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+
+type CreateOrgFormValues = z.infer<typeof createTenantSchema>;
 
 export default function CreateOrgPage() {
   const router = useRouter();
   const { status, update } = useSession();
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState('');
-  const [slugError, setSlugError] = useState('');
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const slugTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const form = useForm<CreateOrgFormValues>({
+    resolver: zodResolver(createTenantSchema),
+    defaultValues: { name: '', slug: '' },
+    mode: 'onChange',
+  });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -24,22 +32,7 @@ export default function CreateOrgPage() {
     }
   }, [status, router]);
 
-  const validateName = (value: string) => {
-    if (!value.trim()) return 'Organization name is required';
-    if (value.length > 100) return 'Organization name must be at most 100 characters';
-    return '';
-  };
-
-  const validateSlug = (value: string) => {
-    if (!value) return 'Slug is required';
-    if (value.length < 3) return 'Slug must be at least 3 characters';
-    if (value.length > 50) return 'Slug must be at most 50 characters';
-    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(value))
-      return 'Slug must be lowercase letters, numbers, or hyphens';
-    return '';
-  };
-
-  const checkSlugAvailability = useCallback(async (s: string) => {
+  const checkSlugAvailability = async (s: string) => {
     if (!s || s.length < 3 || !/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(s)) {
       setSlugStatus('idle');
       return;
@@ -48,40 +41,39 @@ export default function CreateOrgPage() {
     try {
       const res = await fetch(`/api/tenants/check-slug?slug=${encodeURIComponent(s)}`);
       const data = await res.json();
-      setSlugStatus(data.available ? 'available' : 'taken');
+      const available = data.available;
+      setSlugStatus(available ? 'available' : 'taken');
+      if (!available) {
+        form.setError('slug', { message: 'This slug is already taken. Try another.' });
+      } else {
+        form.clearErrors('slug');
+      }
     } catch {
       setSlugStatus('idle');
     }
-  }, []);
+  };
 
   const handleSlugBlur = () => {
+    const slug = form.getValues('slug');
     if (slugTimeoutRef.current) clearTimeout(slugTimeoutRef.current);
     slugTimeoutRef.current = setTimeout(() => checkSlugAvailability(slug), 300);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: CreateOrgFormValues) => {
     setServerError(null);
+    if (slugStatus === 'checking' || slugStatus === 'taken') return;
 
-    const nErr = validateName(name);
-    const sErr = validateSlug(slug);
-    setNameError(nErr);
-    setSlugError(sErr);
-
-    if (nErr || sErr || slugStatus === 'checking' || slugStatus === 'taken') return;
-
-    setIsLoading(true);
     try {
       const res = await fetch('/api/tenants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), slug }),
+        body: JSON.stringify(data),
       });
       const json = await res.json();
 
       if (res.status === 409) {
         if (json.error?.toLowerCase().includes('slug')) {
-          setSlugError('This slug is already taken. Try another.');
+          form.setError('slug', { message: 'This slug is already taken. Try another.' });
           setSlugStatus('taken');
         } else {
           setServerError(json.error ?? 'Failed to create organization. Please try again.');
@@ -98,8 +90,6 @@ export default function CreateOrgPage() {
       router.push('/dashboard');
     } catch {
       setServerError('Failed to create organization. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -124,60 +114,48 @@ export default function CreateOrgPage() {
             <p className="text-sm text-muted-foreground mt-1">Set up your workspace to get started</p>
           </div>
 
-          <form onSubmit={handleSubmit} noValidate>
-            <fieldset disabled={isLoading} className="border-0 p-0 m-0 min-w-0">
+          <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+            <fieldset disabled={form.formState.isSubmitting} className="border-0 p-0 m-0 min-w-0">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">Organization name</label>
+                  <Label htmlFor="name">Organization name</Label>
                   <Input
                     id="name"
                     type="text"
                     placeholder="Acme Corp"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setNameError('');
-                    }}
-                    aria-describedby={nameError ? 'name-error' : undefined}
-                    className={nameError ? 'border-destructive' : ''}
-                    disabled={isLoading}
+                    {...form.register('name')}
+                    aria-describedby={form.formState.errors.name ? 'name-error' : undefined}
+                    className={form.formState.errors.name ? 'border-destructive' : ''}
                   />
-                  {nameError && (
+                  {form.formState.errors.name && (
                     <p id="name-error" className="text-xs text-destructive mt-1" role="alert">
-                      {nameError}
+                      {form.formState.errors.name.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="slug" className="text-sm font-medium">Slug</label>
+                  <Label htmlFor="slug">Slug</Label>
                   <div className="relative">
                     <Input
                       id="slug"
                       type="text"
                       placeholder="acme-corp"
-                      value={slug}
-                      onChange={(e) => {
-                        setSlug(e.target.value);
-                        setSlugError('');
-                        setSlugStatus('idle');
-                      }}
-                      onBlur={handleSlugBlur}
+                      {...form.register('slug', { onBlur: handleSlugBlur })}
                       aria-describedby={
-                        slugError
+                        form.formState.errors.slug
                           ? 'slug-error'
                           : slugStatus === 'taken'
                             ? 'slug-taken'
                             : 'slug-hint'
                       }
                       className={
-                        (slugError || slugStatus === 'taken'
+                        (form.formState.errors.slug || slugStatus === 'taken'
                           ? 'border-destructive '
                           : '') +
                         (slugStatus === 'available' ? 'border-primary ' : '') +
                         'pr-8'
                       }
-                      disabled={isLoading}
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm">
                       {slugStatus === 'checking' && (
@@ -194,15 +172,15 @@ export default function CreateOrgPage() {
                   <p id="slug-hint" className="text-xs text-muted-foreground">
                     Lowercase letters, numbers, and hyphens only. 3-50 characters.
                   </p>
-                  {slugError && (
+                  {form.formState.errors.slug && (
                     <p id="slug-error" className="text-xs text-destructive mt-1" role="alert">
-                      {slugError}
+                      {form.formState.errors.slug.message}
                     </p>
                   )}
-                  {!slugError && slugStatus === 'available' && (
+                  {!form.formState.errors.slug && slugStatus === 'available' && (
                     <p className="text-xs text-primary">Slug is available</p>
                   )}
-                  {!slugError && slugStatus === 'taken' && (
+                  {!form.formState.errors.slug && slugStatus === 'taken' && (
                     <p id="slug-taken" className="text-xs text-destructive" role="alert">
                       This slug is already taken. Try another.
                     </p>
@@ -219,12 +197,13 @@ export default function CreateOrgPage() {
                   type="submit"
                   className="w-full h-11"
                   disabled={
-                    isLoading ||
+                    form.formState.isSubmitting ||
+                    !form.formState.isValid ||
                     slugStatus === 'checking' ||
                     slugStatus === 'taken'
                   }
                 >
-                  {isLoading ? 'Creating organization...' : 'Create organization'}
+                  {form.formState.isSubmitting ? 'Creating organization...' : 'Create organization'}
                 </Button>
               </div>
             </fieldset>

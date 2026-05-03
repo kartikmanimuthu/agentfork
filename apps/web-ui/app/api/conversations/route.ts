@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getSessionTenantId, getSessionUserId, authorize, AuditService, ConversationService } from '@chatbot/shared';
+import { getSessionTenantId, getSessionUserId, authorize, AuditService, ConversationService, paginationQuerySchema, createConversationSchema, parseSearchParams, parseJson, ValidationError } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
@@ -11,15 +11,16 @@ export async function GET(req: NextRequest) {
     const authError = await authorize('read', 'Conversations', authOptions);
     if (authError) return authError;
 
-    const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') ?? '20', 10);
-    const offset = parseInt(searchParams.get('offset') ?? '0', 10);
+    const { limit, offset } = parseSearchParams(new URL(req.url).searchParams, paginationQuerySchema);
 
     const service = new ConversationService(tenantId);
     const result = await service.findByUserId(userId, { limit, offset });
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const authError = await authorize('create', 'Conversations', authOptions);
     if (authError) return authError;
 
-    const { title, model } = await req.json();
+    const { title, model } = await parseJson(req, createConversationSchema);
     const service = new ConversationService(tenantId);
     const conversation = await service.create({ userId, title, model });
 
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(conversation, { status: 201 });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

@@ -20,6 +20,7 @@
     "baseUrl": ".",
     "paths": {
       "@chatbot/shared": ["libs/shared/src/index.ts"],
+      "@chatbot/shared/client": ["libs/shared/src/client.ts"],
       "@chatbot/ai": ["libs/ai/src/index.ts"]
     }
   },

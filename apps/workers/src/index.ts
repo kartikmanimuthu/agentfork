@@ -3,10 +3,11 @@ import { createExecutor } from './executor/factory.js';
 import { createLogger } from './lib/logger.js';
 import { register as registerMessageEmbedding } from './jobs/message-embedding/register.js';
 import { register as registerConversationSummary } from './jobs/conversation-summary/register.js';
+import { env } from './env';
 
 const log = createLogger('workers');
 const boss = createBoss();
-const executor = createExecutor(process.env.WORKER_ARCH ?? 'vertical');
+const executor = createExecutor(env.WORKER_ARCH);
 
 async function main() {
   log.info('Starting pg-boss...');

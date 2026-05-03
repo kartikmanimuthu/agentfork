@@ -6,12 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Shield, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { createRoleSchema } from '@chatbot/shared/client';
+import type { z } from 'zod';
 
 interface PredefinedRole {
   id: string;
@@ -31,14 +35,148 @@ interface CustomRole {
 const MODULES = ['Conversations', 'Messages', 'Settings', 'Users', 'Tenants'];
 const ACTIONS = ['create', 'read', 'update', 'delete'];
 
+type RoleFormValues = z.input<typeof createRoleSchema>;
+
+function RoleDialog({
+  open,
+  onOpenChange,
+  editingRole,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  editingRole: CustomRole | null;
+  onSaved: () => void;
+}) {
+  const form = useForm<RoleFormValues>({
+    resolver: zodResolver(createRoleSchema),
+    defaultValues: { name: '', permissions: {} },
+    mode: 'onChange',
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (editingRole) {
+        form.reset({
+          name: editingRole.name,
+          permissions: editingRole.permissions || {},
+        });
+      } else {
+        form.reset({ name: '', permissions: {} });
+      }
+    }
+  }, [open, editingRole, form]);
+
+  const perms = (form.watch('permissions') || {}) as Record<string, string[]>;
+
+  function togglePermission(module: string, action: string) {
+    const current = (perms as Record<string, string[]>)[module] || [];
+    const next = current.includes(action)
+      ? current.filter((a) => a !== action)
+      : [...current, action];
+    form.setValue('permissions', { ...perms, [module]: next } as RoleFormValues['permissions'], { shouldValidate: true });
+  }
+
+  const onSubmit = async (data: RoleFormValues) => {
+    const payload = editingRole ? { ...data, id: editingRole.id } : data;
+    const method = editingRole ? 'PUT' : 'POST';
+    try {
+      const res = await fetch('/api/roles', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(editingRole ? 'Role updated' : 'Role created');
+        onOpenChange(false);
+        onSaved();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to save role');
+      }
+    } catch {
+      toast.error('Failed to save role');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{editingRole ? 'Edit Role' : 'Create Custom Role'}</DialogTitle>
+          <DialogDescription>Configure permissions for this role.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="role-name">Role Name</Label>
+              <Input
+                id="role-name"
+                placeholder="e.g. Content Manager"
+                {...form.register('name')}
+              />
+              {form.formState.errors.name && (
+                <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Permissions</Label>
+              <div className="border rounded-md">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted">
+                      <th className="text-left py-2 px-3 font-medium">Module</th>
+                      {ACTIONS.map((action) => (
+                        <th key={action} className="text-center py-2 px-2 font-medium capitalize">{action}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MODULES.map((mod) => (
+                      <tr key={mod} className="border-b last:border-0">
+                        <td className="py-2 px-3 font-medium">{mod}</td>
+                        {ACTIONS.map((action) => (
+                          <td key={action} className="text-center py-2 px-2">
+                            <Switch
+                              checked={perms[mod]?.includes(action) || false}
+                              onCheckedChange={() => togglePermission(mod, action)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {form.formState.errors.permissions && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.permissions.message || 'At least one permission is required'}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={!form.formState.isValid || form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting
+                ? 'Saving...'
+                : editingRole ? 'Save Changes' : 'Create Role'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function RolesPage() {
   const [predefined, setPredefined] = useState<PredefinedRole[]>([]);
   const [custom, setCustom] = useState<CustomRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
-  const [roleName, setRoleName] = useState('');
-  const [rolePerms, setRolePerms] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     fetchRoles();
@@ -60,48 +198,9 @@ export default function RolesPage() {
     }
   }
 
-  function togglePermission(module: string, action: string) {
-    setRolePerms((prev) => {
-      const current = prev[module] || [];
-      const next = current.includes(action)
-        ? current.filter((a) => a !== action)
-        : [...current, action];
-      return { ...prev, [module]: next };
-    });
-  }
-
   function initDialog(role?: CustomRole) {
-    if (role) {
-      setEditingRole(role);
-      setRoleName(role.name);
-      setRolePerms(role.permissions || {});
-    } else {
-      setEditingRole(null);
-      setRoleName('');
-      setRolePerms({});
-    }
+    setEditingRole(role ?? null);
     setDialogOpen(true);
-  }
-
-  async function saveRole() {
-    const payload = { id: editingRole?.id, name: roleName, permissions: rolePerms };
-    try {
-      const res = await fetch('/api/roles', {
-        method: editingRole ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        toast.success(editingRole ? 'Role updated' : 'Role created');
-        setDialogOpen(false);
-        fetchRoles();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to save role');
-      }
-    } catch (e) {
-      toast.error('Failed to save role');
-    }
   }
 
   async function deleteRole(id: string) {
@@ -114,7 +213,7 @@ export default function RolesPage() {
       } else {
         toast.error('Failed to delete role');
       }
-    } catch (e) {
+    } catch {
       toast.error('Failed to delete role');
     }
   }
@@ -244,58 +343,7 @@ export default function RolesPage() {
         </div>
       )}
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingRole ? 'Edit Role' : 'Create Custom Role'}</DialogTitle>
-            <DialogDescription>Configure permissions for this role.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Role Name</Label>
-              <Input
-                value={roleName}
-                onChange={(e) => setRoleName(e.target.value)}
-                placeholder="e.g. Content Manager"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Permissions</Label>
-              <div className="border rounded-md">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted">
-                      <th className="text-left py-2 px-3 font-medium">Module</th>
-                      {ACTIONS.map((action) => (
-                        <th key={action} className="text-center py-2 px-2 font-medium capitalize">{action}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MODULES.map((mod) => (
-                      <tr key={mod} className="border-b last:border-0">
-                        <td className="py-2 px-3 font-medium">{mod}</td>
-                        {ACTIONS.map((action) => (
-                          <td key={action} className="text-center py-2 px-2">
-                            <Switch
-                              checked={rolePerms[mod]?.includes(action) || false}
-                              onCheckedChange={() => togglePermission(mod, action)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={saveRole}>{editingRole ? 'Save Changes' : 'Create Role'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RoleDialog open={dialogOpen} onOpenChange={setDialogOpen} editingRole={editingRole} onSaved={fetchRoles} />
     </div>
   );
 }

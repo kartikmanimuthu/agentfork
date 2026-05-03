@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Activity, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { formatTimestamp, useTenantTimezone } from '@/lib/date-utils';
 
 interface AuditLogRecord {
   id: string;
@@ -60,6 +61,7 @@ export default function AuditPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const timezone = useTenantTimezone();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -149,18 +151,7 @@ export default function AuditPage() {
     }
   };
 
-  const formatTimestamp = (dateStr: string) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
+  const formatTimestampLocal = (dateStr: string) => formatTimestamp(dateStr, timezone);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
@@ -360,7 +351,7 @@ export default function AuditPage() {
                   {filteredItems.map((item) => (
                     <tr key={item.id} className="border-b last:border-0 hover:bg-accent/50">
                       <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
-                        {formatTimestamp(item.createdAt)}
+                        {formatTimestampLocal(item.createdAt)}
                       </td>
                       <td className="py-2 px-3">
                         <div className="font-medium">{item.eventType}</div>

@@ -4,7 +4,12 @@ import CognitoProvider from 'next-auth/providers/cognito';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { getPrismaClient } from '../db/prisma-client';
+import { createLogger } from '../logging/logger';
 import { AuditService } from '../services/audit-service';
+import { TenantConfigService } from '../services/tenant-config-service';
+import { env } from '../env';
+
+const logger = createLogger('auth-options');
 
 export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAuthOptions {
   const prisma = getPrismaClient();
@@ -20,7 +25,7 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     adapter: PrismaAdapter(prismaForAuth as any) as any,
     session: { strategy: 'jwt', maxAge: 24 * 60 * 60 },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: env.NEXTAUTH_SECRET,
     providers: [
       CredentialsProvider({
         id: 'credentials',
@@ -114,12 +119,12 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
           };
         },
       }),
-      ...(process.env.COGNITO_APP_CLIENT_ID
+      ...(env.COGNITO_APP_CLIENT_ID
         ? [
             CognitoProvider({
-              clientId: process.env.COGNITO_APP_CLIENT_ID,
-              clientSecret: process.env.COGNITO_APP_CLIENT_SECRET!,
-              issuer: process.env.COGNITO_ISSUER!,
+              clientId: env.COGNITO_APP_CLIENT_ID,
+              clientSecret: env.COGNITO_APP_CLIENT_SECRET!,
+              issuer: env.COGNITO_ISSUER!,
               allowDangerousEmailAccountLinking: true,
             }),
           ]
@@ -162,7 +167,7 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
                 where: { userId },
               });
             } catch (err) {
-              console.error('jwt callback: acceptPendingInvitation failed:', err);
+              logger.error({ err }, 'jwt callback: acceptPendingInvitation failed');
             }
           }
 
@@ -171,6 +176,15 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
           if (user) {
             token.isSuperAdmin = (user as any).isSuperAdmin ?? false;
             token.email = user.email;
+          }
+
+          const tenantId = token.tenantId as string | null;
+          if (tenantId) {
+            const configService = new TenantConfigService(tenantId);
+            const timezone = await configService.get<string>('timezone');
+            token.timezone = timezone ?? 'UTC';
+          } else {
+            token.timezone = 'UTC';
           }
         }
         return token;
@@ -182,6 +196,7 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
           session.user.tenantId = (token.tenantId as string | null) ?? null;
           session.user.role = (token.role as string | null) ?? null;
           session.user.isSuperAdmin = (token.isSuperAdmin as boolean) ?? false;
+          session.user.timezone = (token.timezone as string) ?? 'UTC';
         }
         return session;
       },

@@ -1,16 +1,11 @@
-import { getPrismaClient } from '@chatbot/shared';
+import { getPrismaClient, conversationSummaryJobSchema } from '@chatbot/shared';
 import { streamChat } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('conversation-summary');
 
-interface ConversationSummaryData {
-  conversationId: string;
-  fromMessageIndex: number;
-}
-
 export async function handleConversationSummary(data: unknown): Promise<void> {
-  const { conversationId, fromMessageIndex } = data as ConversationSummaryData;
+  const { conversationId, fromMessageIndex } = conversationSummaryJobSchema.parse(data);
   log.info('Generating summary', { conversationId, fromMessageIndex });
 
   const prisma = getPrismaClient();

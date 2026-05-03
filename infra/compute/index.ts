@@ -256,7 +256,7 @@ const taskRole = new aws.iam.Role(`${appName}-task-role`, {
 
 new aws.iam.RolePolicy(`${appName}-task-policy`, {
   role: taskRole.id,
-  policy: appBucket.arn.apply((bucketArn) =>
+  policy: pulumi.all([appBucket.arn, userPool.arn]).apply(([bucketArn, userPoolArn]) =>
     JSON.stringify({
       Version: '2012-10-17',
       Statement: [
@@ -269,6 +269,15 @@ new aws.iam.RolePolicy(`${appName}-task-policy`, {
           Effect: 'Allow',
           Action: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
           Resource: ['*'],
+        },
+        {
+          Effect: 'Allow',
+          Action: [
+            'cognito-idp:AdminCreateUser',
+            'cognito-idp:AdminDeleteUser',
+            'cognito-idp:AdminDisableUser',
+          ],
+          Resource: [userPoolArn],
         },
       ],
     }),
@@ -305,8 +314,16 @@ const webUiTaskDef = new aws.ecs.TaskDefinition(`${appName}-web-ui-task`, {
   taskRoleArn: taskRole.arn,
   runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
   containerDefinitions: pulumi
-    .all([webUiRepo.repositoryUrl, nextauthSecretSm.arn, databaseUrlSm.arn, webUiLogGroup.name])
-    .apply(([repoUrl, nsArn, dbArn, logGroup]) =>
+    .all([
+      webUiRepo.repositoryUrl,
+      nextauthSecretSm.arn,
+      databaseUrlSm.arn,
+      webUiLogGroup.name,
+      userPool.id,
+      userPoolClient.id,
+      userPoolClient.clientSecret,
+    ])
+    .apply(([repoUrl, nsArn, dbArn, logGroup, poolId, clientId, clientSecret]) =>
       JSON.stringify([
         {
           name: 'web-ui',
@@ -320,6 +337,10 @@ const webUiTaskDef = new aws.ecs.TaskDefinition(`${appName}-web-ui-task`, {
           environment: [
             { name: 'NEXTAUTH_URL', value: appUrl },
             { name: 'AWS_REGION', value: region },
+            { name: 'COGNITO_USER_POOL_ID', value: poolId },
+            { name: 'COGNITO_APP_CLIENT_ID', value: clientId },
+            { name: 'COGNITO_APP_CLIENT_SECRET', value: clientSecret },
+            { name: 'COGNITO_ISSUER', value: `https://cognito-idp.${region}.amazonaws.com/${poolId}` },
           ],
           logConfiguration: {
             logDriver: 'awslogs',

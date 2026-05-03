@@ -1,15 +1,11 @@
-import { getPrismaClient } from '@chatbot/shared';
+import { getPrismaClient, messageEmbeddingJobSchema } from '@chatbot/shared';
 import { generateEmbedding } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('message-embedding');
 
-interface MessageEmbeddingData {
-  messageId: string;
-}
-
 export async function handleMessageEmbedding(data: unknown): Promise<void> {
-  const { messageId } = data as MessageEmbeddingData;
+  const { messageId } = messageEmbeddingJobSchema.parse(data);
   log.info('Generating embedding', { messageId });
 
   const prisma = getPrismaClient();

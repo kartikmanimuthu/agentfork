@@ -1,15 +1,18 @@
+import { createLogger as createPinoLogger } from '@chatbot/shared';
+import { env } from '../env';
+
 export function createLogger(context: string) {
-  const prefix = `[${context}]`;
+  const logger = createPinoLogger(context);
   return {
     info: (msg: string, data?: Record<string, unknown>) =>
-      console.log(JSON.stringify({ level: 'info', context, msg, ...data, ts: new Date().toISOString() })),
+      logger.info(data ?? {}, msg),
     warn: (msg: string, data?: Record<string, unknown>) =>
-      console.warn(JSON.stringify({ level: 'warn', context, msg, ...data, ts: new Date().toISOString() })),
+      logger.warn(data ?? {}, msg),
     error: (msg: string, data?: Record<string, unknown>) =>
-      console.error(JSON.stringify({ level: 'error', context, msg, ...data, ts: new Date().toISOString() })),
+      logger.error(data ?? {}, msg),
     debug: (msg: string, data?: Record<string, unknown>) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug(JSON.stringify({ level: 'debug', context, msg, ...data, ts: new Date().toISOString() }));
+      if (env.NODE_ENV !== 'production') {
+        logger.debug(data ?? {}, msg);
       }
     },
   };

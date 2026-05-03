@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Trash2 } from 'lucide-react';
+import { formatShortDateTime, useTenantTimezone } from '@/lib/date-utils';
 
 interface Conversation {
   id: string;
@@ -15,6 +16,7 @@ interface Conversation {
 export default function ConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const timezone = useTenantTimezone();
 
   useEffect(() => {
     fetch('/api/conversations?limit=50')
@@ -48,7 +50,7 @@ export default function ConversationsPage() {
                 <div>
                   <p className="text-sm font-medium">{conv.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {conv.messageCount} messages &middot; {new Date(conv.updatedAt).toLocaleDateString()}
+                    {conv.messageCount} messages &middot; {formatShortDateTime(conv.updatedAt, timezone)}
                   </p>
                 </div>
               </Link>

@@ -1,5 +1,25 @@
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { getPrismaClient } from '../db/prisma-client';
+import { createLogger } from '../logging/logger';
 import { AuditService } from './audit-service';
+
+const logger = createLogger('invitation-service');
+import {
+  AdminCreateUserCommand,
+  AdminDeleteUserCommand,
+  AdminDisableUserCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
+import { getCognitoClient, COGNITO_USER_POOL_ID } from '../auth/cognito-client';
+
+function generateTempPassword(): string {
+  const base = crypto.randomBytes(9).toString('base64url');
+  return base + 'A1!';
+}
+
+function isCognitoConfigured(): boolean {
+  return !!COGNITO_USER_POOL_ID;
+}
 
 export class InvitationService {
   static async createInvitation(
@@ -15,6 +35,14 @@ export class InvitationService {
     });
     if (existingInvitation) {
       throw new Error('An invitation is already pending for this email');
+    }
+
+    // Remove any previous non-pending invitation to satisfy the unique constraint
+    const previousInvitation = await prisma.invitation.findFirst({
+      where: { tenantId, email },
+    });
+    if (previousInvitation) {
+      await prisma.invitation.delete({ where: { id: previousInvitation.id } });
     }
 
     const existingMember = await prisma.userTenantRole.findFirst({
@@ -61,6 +89,77 @@ export class InvitationService {
       });
 
       return { invitation, autoJoined: true };
+    }
+
+    // New user path: generate temp password, create AuthUser, and call Cognito to send email
+    const tempPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    const existingAuthUser = await prisma.authUser.findUnique({ where: { email } });
+    if (existingAuthUser) {
+      await prisma.authUser.update({
+        where: { email },
+        data: { passwordHash },
+      });
+    } else {
+      await prisma.authUser.create({
+        data: { email, passwordHash, isSuperAdmin: false },
+      });
+    }
+
+    if (isCognitoConfigured()) {
+      try {
+        const cognitoClient = getCognitoClient();
+        try {
+          await cognitoClient.send(
+            new AdminCreateUserCommand({
+              UserPoolId: COGNITO_USER_POOL_ID,
+              Username: email,
+              TemporaryPassword: tempPassword,
+              UserAttributes: [
+                { Name: 'email', Value: email },
+                { Name: 'email_verified', Value: 'true' },
+              ],
+              DesiredDeliveryMediums: ['EMAIL'],
+            }),
+          );
+        } catch (cognitoErr: unknown) {
+          const errType = (cognitoErr as { __type?: string }).__type;
+          if (errType === 'UsernameExistsException') {
+            await cognitoClient.send(
+              new AdminDeleteUserCommand({
+                UserPoolId: COGNITO_USER_POOL_ID,
+                Username: email,
+              }),
+            );
+            await cognitoClient.send(
+              new AdminCreateUserCommand({
+                UserPoolId: COGNITO_USER_POOL_ID,
+                Username: email,
+                TemporaryPassword: tempPassword,
+                UserAttributes: [
+                  { Name: 'email', Value: email },
+                  { Name: 'email_verified', Value: 'true' },
+                ],
+                DesiredDeliveryMediums: ['EMAIL'],
+              }),
+            );
+          } else {
+            throw cognitoErr;
+          }
+        }
+      } catch (err) {
+        // Roll back AuthUser changes if Cognito call fails unrecoverably
+        if (!existingAuthUser) {
+          await prisma.authUser.delete({ where: { email } }).catch(() => {});
+        }
+        throw err;
+      }
+    } else {
+      logger.warn(
+        { email },
+        'InvitationService.createInvitation: Cognito is not configured — no invitation email was sent. Set COGNITO_USER_POOL_ID (or COGNITO_ISSUER) in your environment to enable email delivery.',
+      );
     }
 
     const invitation = await prisma.invitation.create({
@@ -117,6 +216,51 @@ export class InvitationService {
       throw new Error('Invitation not found or not in pending status');
     }
 
+    const tempPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    await prisma.authUser.upsert({
+      where: { email: invitation.email },
+      update: { passwordHash },
+      create: { email: invitation.email, passwordHash, isSuperAdmin: false },
+    });
+
+    if (isCognitoConfigured()) {
+      try {
+        const cognitoClient = getCognitoClient();
+        try {
+          await cognitoClient.send(
+            new AdminDeleteUserCommand({
+              UserPoolId: COGNITO_USER_POOL_ID,
+              Username: invitation.email,
+            }),
+          );
+        } catch {
+          // User may not exist in Cognito — continue to create
+        }
+        await cognitoClient.send(
+          new AdminCreateUserCommand({
+            UserPoolId: COGNITO_USER_POOL_ID,
+            Username: invitation.email,
+            TemporaryPassword: tempPassword,
+            UserAttributes: [
+              { Name: 'email', Value: invitation.email },
+              { Name: 'email_verified', Value: 'true' },
+            ],
+            DesiredDeliveryMediums: ['EMAIL'],
+          }),
+        );
+      } catch (err) {
+        logger.error({ err }, 'InvitationService.resendInvitation: Cognito error');
+        throw new Error('Failed to resend invitation via Cognito');
+      }
+    } else {
+      logger.warn(
+        { email: invitation.email },
+        'InvitationService.resendInvitation: Cognito is not configured — no email was resent.',
+      );
+    }
+
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const updated = await prisma.invitation.update({
       where: { id: invitationId },
@@ -134,6 +278,22 @@ export class InvitationService {
     });
     if (!invitation) {
       throw new Error('Invitation not found or not in pending status');
+    }
+
+    if (isCognitoConfigured()) {
+      try {
+        await getCognitoClient().send(
+          new AdminDisableUserCommand({
+            UserPoolId: COGNITO_USER_POOL_ID,
+            Username: invitation.email,
+          }),
+        );
+      } catch (err: unknown) {
+        logger.warn(
+          { err, email: invitation.email },
+          'InvitationService.revokeInvitation: AdminDisableUser failed',
+        );
+      }
     }
 
     const updated = await prisma.invitation.update({
@@ -194,9 +354,9 @@ export class InvitationService {
           tenantId: invitation.tenantId,
         }).catch(() => {});
       } catch (err) {
-        console.error(
-          `InvitationService.acceptPendingInvitation: failed for invitation ${invitation.id}:`,
-          err,
+        logger.error(
+          { err, invitationId: invitation.id },
+          'InvitationService.acceptPendingInvitation: failed',
         );
       }
     }

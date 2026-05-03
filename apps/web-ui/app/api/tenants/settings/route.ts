@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getPrismaClient, getSessionTenantId, authorize, TenantConfigService, AuditService } from '@chatbot/shared';
+import { getPrismaClient, getSessionTenantId, authorize, TenantConfigService, AuditService, updateTenantSettingsSchema, parseJson, ValidationError } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { z } from 'zod';
-
-const updateSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  timezone: z.string().optional(),
-  notifications: z.object({
-    scheduleExecutions: z.boolean().optional(),
-    memberInvites: z.boolean().optional(),
-    systemAlerts: z.boolean().optional(),
-  }).optional(),
-});
 
 export async function GET(req: NextRequest) {
   try {
@@ -59,20 +48,12 @@ export async function PUT(req: NextRequest) {
     const authError = await authorize('update', 'Settings', authOptions);
     if (authError) return authError;
 
-    const body = await req.json();
-    const parsed = updateSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 },
-      );
-    }
+    const { name, timezone, notifications } = await parseJson(req, updateTenantSettingsSchema);
 
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id ?? 'system';
 
     const prisma = getPrismaClient();
-    const { name, timezone, notifications } = parsed.data;
 
     const currentTenant = name ? await prisma.tenant.findUnique({ where: { id: tenantId } }) : null;
     const currentName = currentTenant?.name;
@@ -130,6 +111,9 @@ export async function PUT(req: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

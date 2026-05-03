@@ -16,7 +16,7 @@ export class TenantConfigService {
 
   async set(key: string, value: any, updatedBy = 'system'): Promise<void> {
     await this.db.tenantConfig.upsert({
-      where: { tenantId: this.tenantId, configKey: key },
+      where: { tenantId_configKey: { tenantId: this.tenantId, configKey: key } },
       create: { configKey: key, data: value, updatedBy },
       update: { data: value, updatedBy },
     });

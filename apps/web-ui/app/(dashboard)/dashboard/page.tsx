@@ -16,6 +16,7 @@ import {
   Settings,
   Clock,
 } from 'lucide-react';
+import { formatShortDateTime, useTenantTimezone } from '@/lib/date-utils';
 
 interface Conversation {
   id: string;
@@ -34,12 +35,14 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const timezone = useTenantTimezone();
 
   useEffect(() => {
     async function fetchData() {
       try {
         const [convRes] = await Promise.all([fetch('/api/conversations?limit=50')]);
-        const conversations = convRes.ok ? await convRes.json() : [];
+        const convData = convRes.ok ? await convRes.json() : { items: [] };
+        const conversations = Array.isArray(convData) ? convData : convData.items ?? [];
 
         const totalMessages = conversations.reduce(
           (sum: number, c: Conversation) => sum + (c.messageCount || 0),
@@ -63,16 +66,7 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return 'Unknown';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatDateLocal = (dateStr: string) => formatShortDateTime(dateStr, timezone);
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background">
@@ -199,7 +193,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary" className="text-xs">
                       <Clock className="h-3 w-3 mr-1" />
-                      {formatDate(conv.updatedAt)}
+                      {formatDateLocal(conv.updatedAt)}
                     </Badge>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </div>

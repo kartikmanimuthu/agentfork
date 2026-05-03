@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaClient, getSessionTenantId, authorize, AuditService, getAuthSession } from '@chatbot/shared';
+import { getPrismaClient, getSessionTenantId, authorize, AuditService, getAuthSession, updateMemberSchema, memberIdQuerySchema, parseJson, parseSearchParams, ValidationError } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 // GET /api/members - List tenant members
@@ -24,22 +24,18 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/members - Update member role
 export async function PUT(req: NextRequest) {
-  const tenantId = await getSessionTenantId(authOptions);
-  if (!tenantId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  try {
+    const tenantId = await getSessionTenantId(authOptions);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const authError = await authorize('update', 'Users', authOptions);
-  if (authError) return authError;
+    const authError = await authorize('update', 'Users', authOptions);
+    if (authError) return authError;
 
-  const body = await req.json();
-  const { userId, role } = body;
+    const { userId, role } = await parseJson(req, updateMemberSchema);
 
-  if (!userId || !role) {
-    return NextResponse.json({ error: 'Missing userId or role' }, { status: 400 });
-  }
-
-  const prisma = getPrismaClient();
+    const prisma = getPrismaClient();
 
   // Prevent self-role changes (optional safety)
   // const session = await getAuthSession();
@@ -75,27 +71,29 @@ export async function PUT(req: NextRequest) {
     tenantId,
   }).catch(() => {});
 
-  return NextResponse.json(updated);
+    return NextResponse.json(updated);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
 }
 
 // DELETE /api/members - Remove member from tenant
 export async function DELETE(req: NextRequest) {
-  const tenantId = await getSessionTenantId(authOptions);
-  if (!tenantId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  try {
+    const tenantId = await getSessionTenantId(authOptions);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const authError = await authorize('delete', 'Users', authOptions);
-  if (authError) return authError;
+    const authError = await authorize('delete', 'Users', authOptions);
+    if (authError) return authError;
 
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId');
+    const { userId } = parseSearchParams(new URL(req.url).searchParams, memberIdQuerySchema);
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
-  }
-
-  const prisma = getPrismaClient();
+    const prisma = getPrismaClient();
   await prisma.userTenantRole.delete({
     where: { userId_tenantId: { userId, tenantId } },
   });
@@ -118,5 +116,11 @@ export async function DELETE(req: NextRequest) {
     tenantId,
   }).catch(() => {});
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
 }

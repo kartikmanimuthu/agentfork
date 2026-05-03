@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, auditLogQuerySchema, parseSearchParams, ValidationError } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api-audit');
 
 function computeStats(logs: any[]) {
   return {
@@ -42,13 +45,14 @@ export async function GET(req: NextRequest) {
     const authError = await authorize('read', 'Settings', authOptions);
     if (authError) return authError;
 
-    const { searchParams } = new URL(req.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100);
-    const offset = parseInt(searchParams.get('offset') ?? '0', 10);
-    const eventType = searchParams.get('eventType') ?? undefined;
-    const severity = searchParams.get('severity') ?? undefined;
-    const startDate = searchParams.get('startDate') ?? undefined;
-    const endDate = searchParams.get('endDate') ?? undefined;
+    const {
+      limit,
+      offset,
+      eventType,
+      severity,
+      startDate,
+      endDate,
+    } = parseSearchParams(new URL(req.url).searchParams, auditLogQuerySchema);
 
     const prisma = getPrismaClient();
 
@@ -76,7 +80,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items, total, limit, offset, stats });
   } catch (error) {
-    console.error('Audit API error:', error);
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    logger.error({ error }, 'Audit API error');
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

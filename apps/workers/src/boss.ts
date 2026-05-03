@@ -1,13 +1,9 @@
 import PgBoss from 'pg-boss';
+import { env } from './env';
 
 export function createBoss(): PgBoss {
-  const DATABASE_URL = process.env.DATABASE_URL;
-  if (!DATABASE_URL) {
-    throw new Error('DATABASE_URL environment variable is required');
-  }
-
   return new PgBoss({
-    connectionString: DATABASE_URL,
+    connectionString: env.DATABASE_URL,
     retryLimit: 3,
     retryDelay: 30,
     retryBackoff: true,

@@ -1,6 +1,7 @@
 import { getPrismaClient } from '../db/prisma-client';
 import type { PermissionSet } from './types';
 import { getAutoLevel } from './permissions';
+import { createRoleSchema } from '../validation/schemas/role';
 
 const MAX_CUSTOM_ROLES = 10;
 const PREDEFINED_NAMES = new Set(['owner', 'admin', 'member', 'viewer']);
@@ -33,12 +34,12 @@ function castRole(raw: {
 }
 
 function validateInput(input: CustomRoleInput): void {
+  const parsed = createRoleSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? 'Invalid role input');
+  }
   if (PREDEFINED_NAMES.has(input.name.toLowerCase())) {
     throw new Error(`Cannot use predefined role name: ${input.name}`);
-  }
-  const totalActions = Object.values(input.permissions).flat().length;
-  if (totalActions === 0) {
-    throw new Error('At least one permission action is required');
   }
 }
 
