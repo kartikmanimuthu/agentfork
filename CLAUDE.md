@@ -5,6 +5,7 @@ Multi-tenant AI chatbot. Bun + Nx monorepo, Next.js frontend, TypeScript workers
 ## Commands
 
 ```bash
+bun run setup                        # Copy .env.example, generate Prisma client, run migrations
 bun install                          # Install deps + generate Prisma client (prepare script)
 bun run dev                          # Next.js dev server (web-ui)
 bun run dev:workers                  # Workers dev server
@@ -55,6 +56,7 @@ prisma/              Schema + migrations (PostgreSQL 16 with pgvector)
 ### Path Aliases
 
 - `@chatbot/shared` → `libs/shared/src/index.ts`
+- `@chatbot/shared/client` → `libs/shared/src/client.ts`
 - `@chatbot/ai` → `libs/ai/src/index.ts`
 
 ## Local Setup
@@ -64,14 +66,20 @@ prisma/              Schema + migrations (PostgreSQL 16 with pgvector)
 3. `bun install` — deps + Prisma client generation
 4. `bunx prisma db push` — apply schema to local DB
 
-Workers `.env` is auto-created from `apps/workers/.env.example` on `nx serve workers`.
+Or run `bun run setup` to do steps 2–4 in one command.
 
 ### Required Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection string
+- `NEXTAUTH_SECRET` — session signing key (generate with `openssl rand -base64 32`)
+- `NEXTAUTH_URL` — app base URL (default: http://localhost:3001)
 - `AWS_REGION` — AWS region (default: ap-south-1)
-- `AWS_ACCOUNT_ID` — for Bedrock access
-- `APP_URL` — app base URL (default: http://localhost:3001)
+
+### Optional Environment Variables
+
+- **Cognito SSO**: `COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_ID`, `COGNITO_APP_CLIENT_SECRET`, `COGNITO_ISSUER` — enable SSO login alongside credentials auth.
+- **Bedrock models**: `BEDROCK_CHAT_MODEL`, `BEDROCK_EMBEDDING_MODEL` — override default AI models.
+- **Workers**: `WORKER_ARCH` — `vertical` (default, single process) or `horizontal` (multi-process via ECS).
 
 ## Architecture Notes
 
@@ -88,7 +96,7 @@ Workers `.env` is auto-created from `apps/workers/.env.example` on `nx serve wor
 - `libs/ai/src/` and `libs/shared/src/` contain compiled `.js`/`.d.ts` alongside `.ts` sources — these are build output, don't delete them.
 - Prisma client must be regenerated after schema changes (`bunx prisma generate`).
 - E2e tests depend on `web-ui:build` (configured in `nx.json` targetDefaults).
-- `serverExternalPackages` in `next.config.ts` excludes `@prisma/client` and `bcryptjs` from bundling.
+- `serverExternalPackages` in `next.config.ts` excludes `@prisma/client`, `bcryptjs`, `pino`, and `thread-stream` from bundling.
 - Fumadocs v14 is pinned for Tailwind v3 compatibility. Import its CSS in `layout.tsx`, not `globals.css`.
 
 ## Testing
