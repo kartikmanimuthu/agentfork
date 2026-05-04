@@ -1,4 +1,4 @@
-export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants';
+export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -16,6 +16,9 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   Tenant: 'Tenants',
   Settings: 'Settings',
   all: 'Settings',
+  Agent: 'Agents',
+  AgentVersion: 'Agents',
+  AgentExecution: 'Agents',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

@@ -14,6 +14,7 @@ describe('ROLE_PERMISSIONS', () => {
     expect(owner.Settings).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Users).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Tenants).toEqual(['create', 'read', 'update', 'delete']);
+    expect(owner.Agents).toEqual(['create', 'read', 'update', 'delete']);
   });
 
   it('Viewer has read-only on all modules', () => {
@@ -23,6 +24,7 @@ describe('ROLE_PERMISSIONS', () => {
     expect(viewer.Settings).toEqual(['read']);
     expect(viewer.Users).toEqual(['read']);
     expect(viewer.Tenants).toEqual(['read']);
+    expect(viewer.Agents).toEqual(['read']);
   });
 
   it('Admin cannot delete Settings', () => {
@@ -71,17 +73,17 @@ describe('hasPermission', () => {
 
 describe('hasCustomPermission', () => {
   it('returns true when custom set includes the action', () => {
-    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [] };
+    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
     expect(hasCustomPermission(custom, 'read', 'Conversations')).toBe(true);
   });
 
   it('returns false when custom set lacks the action', () => {
-    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [] };
+    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
     expect(hasCustomPermission(custom, 'create', 'Conversations')).toBe(false);
   });
 
   it('returns false for empty module actions', () => {
-    const custom: PermissionSet = { Conversations: [], Messages: [], Settings: [], Users: [], Tenants: [] };
+    const custom: PermissionSet = { Conversations: [], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
     expect(hasCustomPermission(custom, 'read', 'Conversations')).toBe(false);
   });
 });

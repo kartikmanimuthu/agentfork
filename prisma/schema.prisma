@@ -18,12 +18,14 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  configs       TenantConfig[]
-  conversations Conversation[]
-  auditLogs     AuditLog[]
-  customRoles   CustomRole[]
-  invitations   Invitation[]
-  userRoles     UserTenantRole[]
+  configs         TenantConfig[]
+  conversations   Conversation[]
+  auditLogs       AuditLog[]
+  customRoles     CustomRole[]
+  invitations     Invitation[]
+  userRoles       UserTenantRole[]
+  agents          Agent[]
+  agentExecutions AgentExecution[]
 
   @@index([status])
   @@map("tenants")
@@ -242,4 +244,71 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([ttl])
   @@map("audit_logs")
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   @default("simple")
+  status      String   @default("draft")
+  config      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions   AgentVersion[]
+  executions AgentExecution[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+  @@index([tenantId, updatedAt])
+  @@map("agents")
+}
+
+model AgentVersion {
+  id        String   @id @default(cuid())
+  agentId   String
+  version   Int
+  status    String   @default("draft")
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent      Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  executions AgentExecution[]
+
+  @@unique([agentId, version])
+  @@index([agentId])
+  @@index([agentId, status])
+  @@map("agent_versions")
+}
+
+model AgentExecution {
+  id             String    @id @default(cuid())
+  agentId        String
+  agentVersionId String
+  tenantId       String
+  userId         String
+  status         String    @default("pending")
+  input          Json
+  output         Json?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  agent        Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion @relation(fields: [agentVersionId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([agentVersionId])
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+  @@map("agent_executions")
 }
