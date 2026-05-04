@@ -1,4 +1,4 @@
-import { getPrismaClient, messageEmbeddingJobSchema } from '@chatbot/shared';
+import { getPrismaClient, messageEmbeddingJobSchema } from '@chatbot/shared/workers';
 import { generateEmbedding } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 

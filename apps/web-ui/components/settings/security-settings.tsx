@@ -1,13 +1,197 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Shield, KeyRound, Smartphone, LogOut } from 'lucide-react';
+
+const changePasswordFormSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string().min(1, 'Confirm password is required'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+});
+
+type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
+
+function ChangePasswordDialog() {
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    } as ChangePasswordFormValues,
+    validators: {
+      onChange: changePasswordFormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const res = await fetch('/api/user/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            currentPassword: value.currentPassword,
+            newPassword: value.newPassword,
+            confirmPassword: value.confirmPassword,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Failed to change password' }));
+          toast.error(err.error || 'Failed to change password');
+          return;
+        }
+
+        toast.success('Password changed successfully');
+        form.reset();
+        setOpen(false);
+      } catch {
+        toast.error('Failed to change password');
+      }
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <Button variant="outline" size="sm">
+          Change Password
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>
+            Enter your current password and a new password below.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+          className="space-y-4 pt-2"
+        >
+          <form.Field
+            name="currentPassword"
+            children={(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>Current Password</Label>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  placeholder="Enter current password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={!field.state.meta.isValid}
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-sm text-destructive">
+                    {field.state.meta.errors
+                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+          <form.Field
+            name="newPassword"
+            children={(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>New Password</Label>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  placeholder="Enter new password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={!field.state.meta.isValid}
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-sm text-destructive">
+                    {field.state.meta.errors
+                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+          <form.Field
+            name="confirmPassword"
+            children={(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>Confirm New Password</Label>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={!field.state.meta.isValid}
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-sm text-destructive">
+                    {field.state.meta.errors
+                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                form.reset();
+                setOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <form.Subscribe
+              selector={(state) => [state.canSubmit, state.isSubmitting]}
+              children={([canSubmit, isSubmitting]) => (
+                <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                  {isSubmitting ? 'Updating...' : 'Update Password'}
+                </Button>
+              )}
+            />
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function SecuritySettings() {
   const [twoFactor, setTwoFactor] = useState(false);
@@ -29,9 +213,7 @@ export function SecuritySettings() {
               </div>
               <p className="text-sm text-muted-foreground">Last changed 3 months ago.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info('Password change coming soon')}>
-              Change Password
-            </Button>
+            <ChangePasswordDialog />
           </div>
 
           <Separator />

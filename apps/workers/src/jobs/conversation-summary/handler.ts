@@ -1,4 +1,4 @@
-import { getPrismaClient, conversationSummaryJobSchema } from '@chatbot/shared';
+import { getPrismaClient, conversationSummaryJobSchema } from '@chatbot/shared/workers';
 import { streamChat } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 

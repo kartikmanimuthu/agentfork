@@ -1,7 +1,6 @@
 'use client';
 
 import { useForm } from '@tanstack/react-form';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -17,41 +16,42 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from '@/components/ui/field';
 
-const loginSchema = z.object({
+const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
 });
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
 
   const form = useForm({
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '' },
     onSubmit: async ({ value }) => {
-      const result = await signIn('credentials', {
-        email: value.email,
-        password: value.password,
-        redirect: false,
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value.email }),
       });
 
-      if (result?.error) {
-        toast.error('Invalid email or password');
-      } else {
-        router.push('/dashboard');
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to send reset link');
+        return;
       }
+
+      toast.success('If an account exists, a reset link has been sent');
+      router.push('/login');
     },
     validators: {
       onSubmit: ({ value }) => {
-        const result = loginSchema.safeParse(value);
+        const result = forgotPasswordSchema.safeParse(value);
         if (!result.success) {
           const fieldErrors = result.error.flatten().fieldErrors;
           return {
             fields: {
               email: fieldErrors.email?.[0],
-              password: fieldErrors.password?.[0],
             },
           };
         }
@@ -72,8 +72,10 @@ export default function LoginPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Welcome back</CardTitle>
-              <CardDescription>Sign in to your account</CardDescription>
+              <CardTitle className="text-xl">Forgot your password?</CardTitle>
+              <CardDescription>
+                Enter your email and we&apos;ll send you a reset link
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form
@@ -84,19 +86,6 @@ export default function LoginPage() {
                 }}
               >
                 <FieldGroup>
-                  <Field>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      className="w-full"
-                      onClick={() => signIn('cognito', { callbackUrl: '/dashboard' })}
-                    >
-                      Sign in with SSO
-                    </Button>
-                  </Field>
-                  <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-                    Or continue with
-                  </FieldSeparator>
                   <form.Field name="email">
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
@@ -106,34 +95,6 @@ export default function LoginPage() {
                           name={field.name}
                           type="email"
                           placeholder="you@company.com"
-                          value={field.state.value}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          onBlur={field.handleBlur}
-                          aria-invalid={!!field.state.meta.errors.length}
-                        />
-                        <FieldError
-                          errors={field.state.meta.errors.map((e) => ({ message: String(e) }))}
-                        />
-                      </Field>
-                    )}
-                  </form.Field>
-                  <form.Field name="password">
-                    {(field) => (
-                      <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
-                        <div className="flex items-center">
-                          <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-                          <Link
-                            href="/forgot-password"
-                            className="ml-auto text-sm underline-offset-4 hover:underline"
-                          >
-                            Forgot your password?
-                          </Link>
-                        </div>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          type="password"
-                          placeholder="••••••••"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
                           onBlur={field.handleBlur}
@@ -156,27 +117,23 @@ export default function LoginPage() {
                           {isSubmitting ? (
                             <>
                               <Spinner className="mr-2 size-3" />
-                              Signing in...
+                              Sending...
                             </>
                           ) : (
-                            'Sign in'
+                            'Send reset link'
                           )}
                         </Button>
                       )}
                     </form.Subscribe>
                     <FieldDescription className="text-center">
-                      Don&apos;t have an account?{' '}
-                      <Link href="/register">Create one</Link>
+                      Remember your password?{' '}
+                      <Link href="/login">Sign in</Link>
                     </FieldDescription>
                   </Field>
                 </FieldGroup>
               </form>
             </CardContent>
           </Card>
-          <FieldDescription className="px-6 text-center">
-            By clicking continue, you agree to our{' '}
-            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
-          </FieldDescription>
         </div>
       </div>
     </div>
