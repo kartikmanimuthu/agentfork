@@ -66,12 +66,24 @@ export default function ChatPage() {
     sendMessage({ text: content });
   };
 
+  const handleRegenerate = () => {
+    const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
+    if (lastUserMessage) {
+      const text = lastUserMessage.parts
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join('');
+      sendMessage({ text });
+    }
+  };
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center border-b px-4 py-3">
-        <h2 className="text-lg font-semibold">Chat</h2>
-      </div>
-      <ChatMessages messages={messages} isLoading={isLoading} />
+    <div className="flex h-full flex-col overflow-hidden">
+      <ChatMessages
+        messages={messages}
+        isLoading={isLoading}
+        onRegenerate={handleRegenerate}
+      />
       <ChatInput onSend={handleSend} isLoading={isLoading} />
     </div>
   );

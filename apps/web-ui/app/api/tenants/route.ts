@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getPrismaClient, AuditService, createTenantSchema, parseJson, ValidationError } from '@chatbot/shared';
+import { getPrismaClient, AuditService } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { createLogger } from '@/lib/logger';
+import { z } from 'zod';
 
-const logger = createLogger('api-tenants');
+const createTenantSchema = z.object({
+  name: z.string().min(1, 'Organization name is required').max(100),
+  slug: z
+    .string()
+    .min(3, 'Slug must be at least 3 characters')
+    .max(50, 'Slug must be at most 50 characters')
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase letters, numbers, or hyphens'),
+});
 
 export async function POST(req: NextRequest) {
   let session: any = null;
@@ -14,7 +21,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { name, slug } = await parseJson(req, createTenantSchema);
+    const body = await req.json();
+    const parsed = createTenantSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 },
+      );
+    }
+
+    const { name, slug } = parsed.data;
     const prisma = getPrismaClient();
 
     const result = await prisma.$transaction(async (tx) => {
@@ -67,23 +83,20 @@ export async function POST(req: NextRequest) {
       tenantId: result.id,
     }).catch(() => {});
 
-    logger.info({ tenantId: result.id, slug: result.slug }, 'API - POST /api/tenants - Created tenant');
+    console.log(`API - POST /api/tenants - Created tenant ${result.id} (slug: ${result.slug})`);
 
     return NextResponse.json(
       { success: true, tenantId: result.id, slug: result.slug },
       { status: 201 },
     );
   } catch (error: unknown) {
-    if (error instanceof ValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
     if (error instanceof Error && error.message === 'SLUG_TAKEN') {
       return NextResponse.json(
         { error: 'This slug is already taken. Try another.' },
         { status: 409 },
       );
     }
-    logger.error({ error }, 'API - POST /api/tenants - Error');
+    console.error('API - POST /api/tenants - Error:', error);
     return NextResponse.json(
       { error: 'Failed to create organization. Please try again.' },
       { status: 500 },

@@ -1,87 +1,183 @@
 'use client';
 
+import { useForm } from '@tanstack/react-form';
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema } from '@chatbot/shared/client';
-import type { z } from 'zod';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { GalleryVerticalEnd } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from '@/components/ui/field';
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
 
 export default function LoginPage() {
   const router = useRouter();
-  const [serverError, setServerError] = useState('');
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm({
     defaultValues: { email: '', password: '' },
-    mode: 'onChange',
+    onSubmit: async ({ value }) => {
+      const result = await signIn('credentials', {
+        email: value.email,
+        password: value.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        toast.error('Invalid email or password');
+      } else {
+        router.push('/dashboard');
+      }
+    },
+    validators: {
+      onSubmit: ({ value }) => {
+        const result = loginSchema.safeParse(value);
+        if (!result.success) {
+          const fieldErrors = result.error.flatten().fieldErrors;
+          return {
+            fields: {
+              email: fieldErrors.email?.[0],
+              password: fieldErrors.password?.[0],
+            },
+          };
+        }
+        return undefined;
+      },
+    },
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setServerError('');
-    const result = await signIn('credentials', {
-      email: data.email,
-      password: data.password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setServerError('Invalid email or password');
-    } else {
-      router.push('/dashboard');
-    }
-  };
-
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 p-6">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold">Sign in</h1>
-          <p className="text-sm text-muted-foreground">Enter your credentials to continue</p>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <span className="flex items-center gap-2 self-center font-medium">
+          <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <GalleryVerticalEnd className="size-4" />
+          </div>
+          Chatbot
+        </span>
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl">Welcome back</CardTitle>
+              <CardDescription>Sign in to your account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+              >
+                <FieldGroup>
+                  <Field>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      className="w-full"
+                      onClick={() => signIn('cognito', { callbackUrl: '/dashboard' })}
+                    >
+                      Sign in with SSO
+                    </Button>
+                  </Field>
+                  <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+                    Or continue with
+                  </FieldSeparator>
+                  <form.Field name="email">
+                    {(field) => (
+                      <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
+                        <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="email"
+                          placeholder="you@company.com"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          aria-invalid={!!field.state.meta.errors.length}
+                        />
+                        <FieldError
+                          errors={field.state.meta.errors.map((e) => ({ message: String(e) }))}
+                        />
+                      </Field>
+                    )}
+                  </form.Field>
+                  <form.Field name="password">
+                    {(field) => (
+                      <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
+                        <div className="flex items-center">
+                          <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+                          <a
+                            href="#"
+                            className="ml-auto text-sm underline-offset-4 hover:underline"
+                          >
+                            Forgot your password?
+                          </a>
+                        </div>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="password"
+                          placeholder="••••••••"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          aria-invalid={!!field.state.meta.errors.length}
+                        />
+                        <FieldError
+                          errors={field.state.meta.errors.map((e) => ({ message: String(e) }))}
+                        />
+                      </Field>
+                    )}
+                  </form.Field>
+                  <Field>
+                    <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+                      {([canSubmit, isSubmitting]) => (
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={!canSubmit || isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Spinner className="mr-2 size-3" />
+                              Signing in...
+                            </>
+                          ) : (
+                            'Sign in'
+                          )}
+                        </Button>
+                      )}
+                    </form.Subscribe>
+                    <FieldDescription className="text-center">
+                      Don&apos;t have an account?{' '}
+                      <Link href="/register">Create one</Link>
+                    </FieldDescription>
+                  </Field>
+                </FieldGroup>
+              </form>
+            </CardContent>
+          </Card>
+          <FieldDescription className="px-6 text-center">
+            By clicking continue, you agree to our{' '}
+            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+          </FieldDescription>
         </div>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Email"
-              {...form.register('email')}
-            />
-            {form.formState.errors.email && (
-              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Password"
-              {...form.register('password')}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
-            )}
-          </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={form.formState.isSubmitting || !form.formState.isValid}
-          >
-            {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
-          </Button>
-        </form>
-        <Button variant="outline" className="w-full" onClick={() => signIn('cognito', { callbackUrl: '/dashboard' })}>
-          Sign in with SSO
-        </Button>
       </div>
     </div>
   );

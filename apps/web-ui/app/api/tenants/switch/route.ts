@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getPrismaClient, AuditService, tenantSwitchSchema, parseJson, ValidationError } from '@chatbot/shared';
+import { getPrismaClient, AuditService } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('api-tenants-switch');
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +10,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const { tenantId } = await parseJson(req, tenantSwitchSchema);
+    const { tenantId } = await req.json();
+    if (!tenantId || typeof tenantId !== 'string') {
+      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+    }
 
     const prisma = getPrismaClient();
 
@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
       data: { activeTenantId: tenantId },
     });
 
-    logger.info({ userId: session.user.id, tenantId }, 'API - POST /api/tenants/switch - Switched tenant');
+    console.log(
+      `API - POST /api/tenants/switch - User ${session.user.id} switched to tenant ${tenantId}`,
+    );
 
     // Fire-and-forget audit log
     AuditService.logUserAction({
@@ -53,10 +55,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    logger.error({ error }, 'API - POST /api/tenants/switch - Error');
+    console.error('API - POST /api/tenants/switch - Error:', error);
     return NextResponse.json(
       { error: 'Failed to switch organization' },
       { status: 500 },

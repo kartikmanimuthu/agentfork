@@ -1,22 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { ColumnDef } from '@tanstack/react-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { DataTable } from '@/components/ui/data-table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Users, ArrowLeft, Plus, Trash2, RefreshCw } from 'lucide-react';
-import { formatDate, useTenantTimezone } from '@/lib/date-utils';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { createInvitationSchema } from '@chatbot/shared/client';
-import type { z } from 'zod';
 
 interface Member {
   userId: string;
@@ -36,107 +45,15 @@ interface Invitation {
 
 const ROLE_OPTIONS = ['Owner', 'Admin', 'Member', 'Viewer'];
 
-type InviteFormValues = z.infer<typeof createInvitationSchema>;
-
-function InviteDialog({
-  open,
-  onOpenChange,
-  onSent,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  onSent: () => void;
-}) {
-  const form = useForm<InviteFormValues>({
-    resolver: zodResolver(createInvitationSchema),
-    defaultValues: { email: '', role: 'Member' },
-    mode: 'onChange',
-  });
-
-  useEffect(() => {
-    if (open) {
-      form.reset({ email: '', role: 'Member' });
-    }
-  }, [open, form]);
-
-  const onSubmit = async (data: InviteFormValues) => {
-    try {
-      const res = await fetch('/api/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        toast.success('Invitation sent');
-        onOpenChange(false);
-        onSent();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to send invitation');
-      }
-    } catch {
-      toast.error('Failed to send invitation');
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Invite Member</DialogTitle>
-          <DialogDescription>Send an invitation to join your organization.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="invite-email">Email</Label>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="colleague@company.com"
-                {...form.register('email')}
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="invite-role">Role</Label>
-              <Select
-                value={form.watch('role')}
-                onValueChange={(v) => form.setValue('role', v, { shouldValidate: true })}
-              >
-                <SelectTrigger id="invite-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="submit"
-              disabled={!form.formState.isValid || form.formState.isSubmitting}
-            >
-              {form.formState.isSubmitting ? 'Sending...' : 'Send Invitation'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const timezone = useTenantTimezone();
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Member');
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<Member | null>(null);
+  const [revokeInviteTarget, setRevokeInviteTarget] = useState<Invitation | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -171,42 +88,70 @@ export default function MembersPage() {
       } else {
         toast.error('Failed to update role');
       }
-    } catch {
+    } catch (e) {
       toast.error('Failed to update role');
     }
   }
 
   async function removeMember(userId: string) {
-    if (!confirm('Are you sure you want to remove this member?')) return;
     try {
       const res = await fetch(`/api/members?userId=${userId}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Member removed');
+        setRemoveMemberTarget(null);
         fetchData();
       } else {
         toast.error('Failed to remove member');
       }
-    } catch {
+    } catch (e) {
       toast.error('Failed to remove member');
     }
   }
 
+  async function sendInvite() {
+    try {
+      const res = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
+      if (res.ok) {
+        toast.success('Invitation sent');
+        setInviteOpen(false);
+        setInviteEmail('');
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to send invitation');
+      }
+    } catch (e) {
+      toast.error('Failed to send invitation');
+    }
+  }
+
   async function revokeInvite(id: string) {
-    if (!confirm('Revoke this invitation?')) return;
     try {
       const res = await fetch(`/api/invitations?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Invitation revoked');
+        setRevokeInviteTarget(null);
         fetchData();
       } else {
         toast.error('Failed to revoke invitation');
       }
-    } catch {
+    } catch (e) {
       toast.error('Failed to revoke invitation');
     }
   }
 
-  const formatDateLocal = (dateStr: string) => formatDate(dateStr, timezone);
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -220,6 +165,118 @@ export default function MembersPage() {
         return 'outline';
     }
   };
+
+  const memberColumns: ColumnDef<Member>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'user.email',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
+        cell: ({ row }) => {
+          const email = row.original.user?.email || row.original.userId;
+          return (
+            <div className="flex items-center gap-3">
+              <Avatar size="sm">
+                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${email}`} />
+                <AvatarFallback>{email?.slice(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">{email}</span>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'role',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
+        cell: ({ row }) => (
+          <Select
+            value={row.original.role}
+            onValueChange={(value) => updateRole(row.original.userId, value)}
+          >
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((r) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
+        accessorKey: 'assignedAt',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">{formatDate(row.original.assignedAt)}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive"
+              onClick={() => setRemoveMemberTarget(row.original)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  const inviteColumns: ColumnDef<Invitation>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'email',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+        cell: ({ row }) => <span className="text-sm">{row.original.email}</span>,
+      },
+      {
+        accessorKey: 'role',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
+        cell: ({ row }) => (
+          <Badge variant="outline">{row.original.role}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => (
+          <Badge variant="secondary">{row.original.status}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'expiresAt',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Expires" />,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">{formatDate(row.original.expiresAt)}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => setRevokeInviteTarget(row.original)}
+            >
+              Revoke
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
@@ -261,54 +318,17 @@ export default function MembersPage() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No members found.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3 font-medium">User</th>
-                    <th className="text-left py-2 px-3 font-medium">Role</th>
-                    <th className="text-left py-2 px-3 font-medium">Joined</th>
-                    <th className="text-right py-2 px-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((member) => (
-                    <tr key={member.userId} className="border-b last:border-0 hover:bg-accent/50">
-                      <td className="py-2 px-3">{member.user?.email || member.userId}</td>
-                      <td className="py-2 px-3">
-                        <Select
-                          value={member.role}
-                          onValueChange={(value) => updateRole(member.userId, value)}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLE_OPTIONS.map((r) => (
-                              <SelectItem key={r} value={r}>{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="py-2 px-3 text-muted-foreground">{formatDateLocal(member.assignedAt)}</td>
-                      <td className="py-2 px-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => removeMember(member.userId)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={memberColumns}
+              data={members}
+              loading={false}
+              enablePagination
+              enableSorting
+              enableFiltering={false}
+              defaultPageSize={25}
+              emptyMessage="No members found."
+            />
           )}
         </CardContent>
       </Card>
@@ -321,48 +341,97 @@ export default function MembersPage() {
             <CardDescription>{invitations.length} pending invitation{invitations.length !== 1 ? 's' : ''}.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3 font-medium">Email</th>
-                    <th className="text-left py-2 px-3 font-medium">Role</th>
-                    <th className="text-left py-2 px-3 font-medium">Status</th>
-                    <th className="text-left py-2 px-3 font-medium">Expires</th>
-                    <th className="text-right py-2 px-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invitations.map((invite) => (
-                    <tr key={invite.id} className="border-b last:border-0 hover:bg-accent/50">
-                      <td className="py-2 px-3">{invite.email}</td>
-                      <td className="py-2 px-3">
-                        <Badge variant="outline">{invite.role}</Badge>
-                      </td>
-                      <td className="py-2 px-3">
-                        <Badge variant="secondary">{invite.status}</Badge>
-                      </td>
-                      <td className="py-2 px-3 text-muted-foreground">{formatDateLocal(invite.expiresAt)}</td>
-                      <td className="py-2 px-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() => revokeInvite(invite.id)}
-                        >
-                          Revoke
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={inviteColumns}
+              data={invitations}
+              loading={false}
+              enablePagination
+              enableSorting
+              enableFiltering={false}
+              defaultPageSize={10}
+              emptyMessage="No pending invitations."
+            />
           </CardContent>
         </Card>
       )}
 
-      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} onSent={fetchData} />
+      {/* Invite Dialog */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite Member</DialogTitle>
+            <DialogDescription>Send an invitation to join your organization.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={sendInvite}>Send Invitation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Remove Member Confirmation */}
+      <AlertDialog open={!!removeMemberTarget} onOpenChange={(open) => !open && setRemoveMemberTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{removeMemberTarget?.user?.email}</strong> from your organization? They will lose access immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => removeMemberTarget && removeMember(removeMemberTarget.userId)}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke Invitation Confirmation */}
+      <AlertDialog open={!!revokeInviteTarget} onOpenChange={(open) => !open && setRevokeInviteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke the invitation for <strong>{revokeInviteTarget?.email}</strong>? They will no longer be able to join using this invite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => revokeInviteTarget && revokeInvite(revokeInviteTarget.id)}
+            >
+              Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

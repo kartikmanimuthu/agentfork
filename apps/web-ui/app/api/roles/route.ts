@@ -10,12 +10,6 @@ import {
   ROLE_LEVELS,
   AuditService,
   getAuthSession,
-  createRoleSchema,
-  updateRoleSchema,
-  roleIdQuerySchema,
-  parseJson,
-  parseSearchParams,
-  ValidationError,
 } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
@@ -52,8 +46,14 @@ export async function POST(req: NextRequest) {
   const authError = await authorize('create', 'Users', authOptions);
   if (authError) return authError;
 
+  const body = await req.json();
+  const { name, permissions } = body;
+
+  if (!name || !permissions) {
+    return NextResponse.json({ error: 'Missing name or permissions' }, { status: 400 });
+  }
+
   try {
-    const { name, permissions } = await parseJson(req, createRoleSchema);
     const role = await createCustomRole(tenantId, { name, permissions });
     const session = await getAuthSession();
     AuditService.logUserAction({
@@ -74,9 +74,6 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
     return NextResponse.json(role, { status: 201 });
   } catch (err: any) {
-    if (err instanceof ValidationError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
@@ -91,8 +88,14 @@ export async function PUT(req: NextRequest) {
   const authError = await authorize('update', 'Users', authOptions);
   if (authError) return authError;
 
+  const body = await req.json();
+  const { id, name, permissions } = body;
+
+  if (!id || !name || !permissions) {
+    return NextResponse.json({ error: 'Missing id, name, or permissions' }, { status: 400 });
+  }
+
   try {
-    const { id, name, permissions } = await parseJson(req, updateRoleSchema);
     const role = await updateCustomRole(tenantId, id, { name, permissions });
     const session = await getAuthSession();
     AuditService.logUserAction({
@@ -113,9 +116,6 @@ export async function PUT(req: NextRequest) {
     }).catch(() => {});
     return NextResponse.json(role);
   } catch (err: any) {
-    if (err instanceof ValidationError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
@@ -130,8 +130,14 @@ export async function DELETE(req: NextRequest) {
   const authError = await authorize('delete', 'Users', authOptions);
   if (authError) return authError;
 
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  }
+
   try {
-    const { id } = parseSearchParams(new URL(req.url).searchParams, roleIdQuerySchema);
     await deleteCustomRole(tenantId, id);
     const session = await getAuthSession();
     AuditService.logUserAction({
@@ -152,9 +158,6 @@ export async function DELETE(req: NextRequest) {
     }).catch(() => {});
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    if (err instanceof ValidationError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }

@@ -2,20 +2,60 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Shield, ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { createRoleSchema } from '@chatbot/shared/client';
-import type { z } from 'zod';
+import {
+  Shield,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Pencil,
+  MoreHorizontal,
+} from 'lucide-react';
 
 interface PredefinedRole {
   id: string;
@@ -35,148 +75,15 @@ interface CustomRole {
 const MODULES = ['Conversations', 'Messages', 'Settings', 'Users', 'Tenants'];
 const ACTIONS = ['create', 'read', 'update', 'delete'];
 
-type RoleFormValues = z.input<typeof createRoleSchema>;
-
-function RoleDialog({
-  open,
-  onOpenChange,
-  editingRole,
-  onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  editingRole: CustomRole | null;
-  onSaved: () => void;
-}) {
-  const form = useForm<RoleFormValues>({
-    resolver: zodResolver(createRoleSchema),
-    defaultValues: { name: '', permissions: {} },
-    mode: 'onChange',
-  });
-
-  useEffect(() => {
-    if (open) {
-      if (editingRole) {
-        form.reset({
-          name: editingRole.name,
-          permissions: editingRole.permissions || {},
-        });
-      } else {
-        form.reset({ name: '', permissions: {} });
-      }
-    }
-  }, [open, editingRole, form]);
-
-  const perms = (form.watch('permissions') || {}) as Record<string, string[]>;
-
-  function togglePermission(module: string, action: string) {
-    const current = (perms as Record<string, string[]>)[module] || [];
-    const next = current.includes(action)
-      ? current.filter((a) => a !== action)
-      : [...current, action];
-    form.setValue('permissions', { ...perms, [module]: next } as RoleFormValues['permissions'], { shouldValidate: true });
-  }
-
-  const onSubmit = async (data: RoleFormValues) => {
-    const payload = editingRole ? { ...data, id: editingRole.id } : data;
-    const method = editingRole ? 'PUT' : 'POST';
-    try {
-      const res = await fetch('/api/roles', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        toast.success(editingRole ? 'Role updated' : 'Role created');
-        onOpenChange(false);
-        onSaved();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to save role');
-      }
-    } catch {
-      toast.error('Failed to save role');
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{editingRole ? 'Edit Role' : 'Create Custom Role'}</DialogTitle>
-          <DialogDescription>Configure permissions for this role.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="role-name">Role Name</Label>
-              <Input
-                id="role-name"
-                placeholder="e.g. Content Manager"
-                {...form.register('name')}
-              />
-              {form.formState.errors.name && (
-                <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Permissions</Label>
-              <div className="border rounded-md">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted">
-                      <th className="text-left py-2 px-3 font-medium">Module</th>
-                      {ACTIONS.map((action) => (
-                        <th key={action} className="text-center py-2 px-2 font-medium capitalize">{action}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MODULES.map((mod) => (
-                      <tr key={mod} className="border-b last:border-0">
-                        <td className="py-2 px-3 font-medium">{mod}</td>
-                        {ACTIONS.map((action) => (
-                          <td key={action} className="text-center py-2 px-2">
-                            <Switch
-                              checked={perms[mod]?.includes(action) || false}
-                              onCheckedChange={() => togglePermission(mod, action)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {form.formState.errors.permissions && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.permissions.message || 'At least one permission is required'}
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="submit"
-              disabled={!form.formState.isValid || form.formState.isSubmitting}
-            >
-              {form.formState.isSubmitting
-                ? 'Saving...'
-                : editingRole ? 'Save Changes' : 'Create Role'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function RolesPage() {
   const [predefined, setPredefined] = useState<PredefinedRole[]>([]);
   const [custom, setCustom] = useState<CustomRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [rolePerms, setRolePerms] = useState<Record<string, string[]>>({});
+  const [deleteTarget, setDeleteTarget] = useState<CustomRole | null>(null);
 
   useEffect(() => {
     fetchRoles();
@@ -198,22 +105,65 @@ export default function RolesPage() {
     }
   }
 
+  function togglePermission(module: string, action: string) {
+    setRolePerms((prev) => {
+      const current = prev[module] || [];
+      const next = current.includes(action)
+        ? current.filter((a) => a !== action)
+        : [...current, action];
+      return { ...prev, [module]: next };
+    });
+  }
+
   function initDialog(role?: CustomRole) {
-    setEditingRole(role ?? null);
+    if (role) {
+      setEditingRole(role);
+      setRoleName(role.name);
+      setRolePerms(role.permissions || {});
+    } else {
+      setEditingRole(null);
+      setRoleName('');
+      setRolePerms({});
+    }
     setDialogOpen(true);
   }
 
+  async function saveRole() {
+    const payload = {
+      id: editingRole?.id,
+      name: roleName,
+      permissions: rolePerms,
+    };
+    try {
+      const res = await fetch('/api/roles', {
+        method: editingRole ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(editingRole ? 'Role updated' : 'Role created');
+        setDialogOpen(false);
+        fetchRoles();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to save role');
+      }
+    } catch (e) {
+      toast.error('Failed to save role');
+    }
+  }
+
   async function deleteRole(id: string) {
-    if (!confirm('Are you sure you want to delete this custom role? Affected users will be reassigned to Viewer.')) return;
     try {
       const res = await fetch(`/api/roles?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Role deleted');
+        setDeleteTarget(null);
         fetchRoles();
       } else {
         toast.error('Failed to delete role');
       }
-    } catch {
+    } catch (e) {
       toast.error('Failed to delete role');
     }
   }
@@ -228,7 +178,9 @@ export default function RolesPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Shield className="h-6 w-6" />
-          <h2 className="text-3xl font-bold tracking-tight">Roles & Permissions</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Roles & Permissions
+          </h2>
         </div>
         <Link href="/settings">
           <Button variant="outline">
@@ -237,7 +189,9 @@ export default function RolesPage() {
           </Button>
         </Link>
       </div>
-      <p className="text-muted-foreground">Manage predefined and custom roles for your organization.</p>
+      <p className="text-muted-foreground">
+        Manage predefined and custom roles for your organization.
+      </p>
 
       <div className="flex justify-end">
         <Button onClick={() => initDialog()} disabled={custom.length >= 10}>
@@ -261,7 +215,9 @@ export default function RolesPage() {
               <Card key={role.id}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{role.name}</CardTitle>
-                  <CardDescription>{permissionSummary(role.permissions)}</CardDescription>
+                  <CardDescription>
+                    {permissionSummary(role.permissions)}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   {MODULES.map((mod) => (
@@ -300,21 +256,38 @@ export default function RolesPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{role.name}</CardTitle>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => initDialog(role)}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => deleteRole(role.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => initDialog(role)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setDeleteTarget(role)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <CardDescription>{permissionSummary(role.permissions)}</CardDescription>
+                  <CardDescription>
+                    {permissionSummary(role.permissions)}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   {MODULES.map((mod) => (
@@ -343,7 +316,94 @@ export default function RolesPage() {
         </div>
       )}
 
-      <RoleDialog open={dialogOpen} onOpenChange={setDialogOpen} editingRole={editingRole} onSaved={fetchRoles} />
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingRole ? 'Edit Role' : 'Create Custom Role'}
+            </DialogTitle>
+            <DialogDescription>
+              Configure permissions for this role.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Role Name</Label>
+              <Input
+                value={roleName}
+                onChange={(e) => setRoleName(e.target.value)}
+                placeholder="e.g. Content Manager"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Permissions</Label>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Module</TableHead>
+                      {ACTIONS.map((action) => (
+                        <TableHead
+                          key={action}
+                          className="text-center capitalize"
+                        >
+                          {action}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {MODULES.map((mod) => (
+                      <TableRow key={mod}>
+                        <TableCell className="font-medium">{mod}</TableCell>
+                        {ACTIONS.map((action) => (
+                          <TableCell key={action} className="text-center">
+                            <Switch
+                              checked={
+                                rolePerms[mod]?.includes(action) || false
+                              }
+                              onCheckedChange={() =>
+                                togglePermission(mod, action)
+                              }
+                            />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={saveRole}>
+              {editingRole ? 'Save Changes' : 'Create Role'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete custom role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? Affected users
+              will be reassigned to Viewer. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteRole(deleteTarget.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
