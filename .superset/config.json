@@ -1,0 +1,11 @@
+{
+  "setup": [
+    "chmod +x ./.superset/setup.sh",
+    "./.superset/setup.sh",
+    "bun install"
+  ],
+  "teardown": [],
+  "run": [
+    "bun run dev:all"
+  ]
+}
