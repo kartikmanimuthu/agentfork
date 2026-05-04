@@ -5,4 +5,7 @@ export * from './parsers/index';
 export * from './chunkers/index';
 export * from './embeddings/index';
 export * from './preprocessing/index';
+export * from './search/index';
+export * from './services/index';
+export * from './umap/index';
 export { kbEnv } from './env';
