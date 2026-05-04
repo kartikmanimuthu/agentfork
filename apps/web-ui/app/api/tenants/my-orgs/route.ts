@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { getPrismaClient, TenantConfigService } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('api-tenants-my-orgs');
 
 export async function GET() {
   try {
@@ -49,11 +46,13 @@ export async function GET() {
       }),
     );
 
-    logger.info({ userId: session.user.id, count: orgs.length }, 'API - GET /api/tenants/my-orgs - Fetched orgs');
+    console.log(
+      `API - GET /api/tenants/my-orgs - User ${session.user.id} fetched ${orgs.length} orgs`,
+    );
 
     return NextResponse.json({ orgs });
   } catch (error) {
-    logger.error({ error }, 'API - GET /api/tenants/my-orgs - Error');
+    console.error('API - GET /api/tenants/my-orgs - Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch organizations' },
       { status: 500 },

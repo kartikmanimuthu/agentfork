@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getSessionTenantId, authorize, AuditService, ConversationService, updateConversationSchema, parseJson, ValidationError } from '@chatbot/shared';
+import { getSessionTenantId, authorize, AuditService, ConversationService } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (authError) return authError;
 
     const { id } = await params;
-    const body = await parseJson(req, updateConversationSchema);
+    const body = await req.json();
     const service = new ConversationService(tenantId);
     const conversation = await service.update(id, body);
 
@@ -56,9 +56,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(conversation);
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

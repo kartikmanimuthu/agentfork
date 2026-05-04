@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaClient, AuditService, signupSchema, parseJson, ValidationError } from '@chatbot/shared';
+import { getPrismaClient, AuditService } from '@chatbot/shared';
 import bcrypt from 'bcryptjs';
-import { createLogger } from '@/lib/logger';
+import { z } from 'zod';
 
-const logger = createLogger('api-auth-signup');
+const signupSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await parseJson(req, signupSchema);
+    const body = await req.json();
+    const parsed = signupSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 },
+      );
+    }
 
+    const { email, password } = parsed.data;
     const prisma = getPrismaClient();
 
     const existing = await prisma.authUser.findUnique({ where: { email } });
@@ -45,17 +56,14 @@ export async function POST(req: NextRequest) {
       metadata: { email, userId: user.id },
     }).catch(() => {});
 
-    logger.info({ userId: user.id }, 'API - POST /api/auth/signup - Created user');
+    console.log(`API - POST /api/auth/signup - Created user ${user.id}`);
 
     return NextResponse.json(
       { success: true, userId: user.id },
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    logger.error({ error }, 'API - POST /api/auth/signup - Error');
+    console.error('API - POST /api/auth/signup - Error:', error);
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 },

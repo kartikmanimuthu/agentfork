@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Moon, Sun, Check } from 'lucide-react';
+import { Moon, Sun, Check, Monitor } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { useThemeConfig } from '@/components/theme-config-provider';
@@ -69,7 +69,7 @@ export function ThemeSettings() {
                 onClick={() => setMode('system')}
                 className={cn(mode === 'system' && 'border-2 border-primary')}
               >
-                <span className="mr-2">💻</span>
+                <Monitor className="mr-2 h-4 w-4" />
                 System
               </Button>
             </div>
@@ -113,11 +113,11 @@ export function ThemeSettings() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setConfig({ ...config, font: 'inter' })}
-                className={cn(config.font === 'inter' && 'border-2 border-primary')}
-                style={{ fontFamily: 'var(--font-inter)' }}
+                onClick={() => setConfig({ ...config, font: 'geist' })}
+                className={cn(config.font === 'geist' && 'border-2 border-primary')}
+                style={{ fontFamily: 'var(--font-geist-sans)' }}
               >
-                Inter
+                Geist
               </Button>
               <Button
                 variant="outline"

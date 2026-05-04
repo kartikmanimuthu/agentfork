@@ -1,83 +1,160 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm } from '@tanstack/react-form';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { useSession } from 'next-auth/react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
-import { profileUpdateSchema } from '@chatbot/shared/client';
-import type { z } from 'zod';
+import { Save, User, Mail, FileText } from 'lucide-react';
 
-type ProfileFormValues = z.infer<typeof profileUpdateSchema>;
+const profileFormSchema = z.object({
+  displayName: z.string().min(2, 'Display name must be at least 2 characters.').max(30),
+  email: z.string().email(),
+  bio: z.string().max(160).optional(),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export function ProfileForm() {
   const { data: session } = useSession();
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileUpdateSchema),
+  const form = useForm({
     defaultValues: {
-      username: '',
+      displayName: '',
       email: '',
-      role: '',
       bio: '',
+    } as ProfileFormValues,
+    validators: {
+      onChange: profileFormSchema,
     },
-    mode: 'onChange',
+    onSubmit: ({ value }) => {
+      toast.success('Profile updated successfully');
+      console.log('Profile update:', value);
+    },
   });
 
   useEffect(() => {
     if (session?.user) {
-      form.setValue('username', (session.user as any).name || '');
-      form.setValue('email', (session.user as any).email || '');
-      form.setValue('role', (session.user as any).role || 'Member');
+      const user = session.user as any;
+      form.setFieldValue('displayName', user.name || '');
+      form.setFieldValue('email', user.email || '');
     }
   }, [session, form]);
 
-  function onSubmit(data: ProfileFormValues) {
-    toast.success('Profile updated successfully');
-    console.log('Profile update:', data);
-  }
-
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="username">Username</Label>
-        <Input id="username" placeholder="Your username" {...form.register('username')} />
-        {form.formState.errors.username && (
-          <p className="text-sm text-destructive">{form.formState.errors.username.message}</p>
-        )}
-        <p className="text-sm text-muted-foreground">This is your public display name.</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" placeholder="Your email" {...form.register('email')} disabled />
-        <p className="text-sm text-muted-foreground">Managed by your identity provider.</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="role">Role</Label>
-        <Input id="role" {...form.register('role')} disabled />
-        <p className="text-sm text-muted-foreground">Your assigned role in the organization.</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="bio">Bio</Label>
-        <Textarea
-          id="bio"
-          placeholder="Tell us a little bit about yourself"
-          className="resize-none"
-          {...form.register('bio')}
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        form.handleSubmit();
+      }}
+      className="space-y-6"
+    >
+      {/* Display Name */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Display Name</h3>
+        </div>
+        <form.Field
+          name="displayName"
+          children={(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name}>Name</Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                placeholder="Your display name"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                aria-invalid={!field.state.meta.isValid}
+              />
+              {field.state.meta.errors.length > 0 && (
+                <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+              )}
+              <p className="text-xs text-muted-foreground">This is your public display name.</p>
+            </div>
+          )}
         />
-        {form.formState.errors.bio && (
-          <p className="text-sm text-destructive">{form.formState.errors.bio.message}</p>
-        )}
       </div>
 
-      <Button type="submit">Update profile</Button>
+      <Separator />
+
+      {/* Email */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Email Address</h3>
+        </div>
+        <form.Field
+          name="email"
+          children={(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name}>Email</Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                placeholder="Your email"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">Managed by your identity provider.</p>
+            </div>
+          )}
+        />
+      </div>
+
+      <Separator />
+
+      {/* Bio */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Bio</h3>
+        </div>
+        <form.Field
+          name="bio"
+          children={(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name}>About</Label>
+              <Textarea
+                id={field.name}
+                name={field.name}
+                placeholder="Tell us a little bit about yourself"
+                className="resize-none min-h-[100px]"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                aria-invalid={!field.state.meta.isValid}
+              />
+              {field.state.meta.errors.length > 0 && (
+                <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+              )}
+              <p className="text-xs text-muted-foreground">Maximum 160 characters.</p>
+            </div>
+          )}
+        />
+      </div>
+
+      <div className="pt-2">
+        <form.Subscribe
+          selector={(state) => [state.canSubmit, state.isSubmitting, state.isDirty]}
+          children={([canSubmit, isSubmitting, isDirty]) => (
+            <Button type="submit" disabled={!canSubmit || !isSubmitting}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSubmitting ? 'Updating...' : 'Update Profile'}
+            </Button>
+          )}
+        />
+      </div>
     </form>
   );
 }

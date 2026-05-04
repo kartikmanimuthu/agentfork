@@ -4,113 +4,152 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ThemeSettings } from '@/components/settings/theme-settings';
 import { ProfileForm } from '@/components/settings/profile-form';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { useRouter } from 'next/navigation';
-import { Settings, Palette, Bell, Shield, User, Building2 } from 'lucide-react';
+import { NotificationsForm } from '@/components/settings/notifications-form';
+import { SecuritySettings } from '@/components/settings/security-settings';
+import { Button } from '@/components/ui/button';
+import { Settings, Palette, Bell, Shield, User, Building2, ArrowRight, Users, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+
+const tabVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' as const } },
+};
 
 export default function SettingsPage() {
-  const router = useRouter();
-
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
-      <div className="flex items-center space-x-2">
-        <Settings className="h-6 w-6" />
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+    <div className="flex-1 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Settings className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+            <p className="text-sm text-muted-foreground">Manage your account and application preferences.</p>
+          </div>
+        </div>
       </div>
-      <p className="text-muted-foreground">Manage your account settings and application preferences.</p>
 
-      <Tabs defaultValue="appearance" className="space-y-4">
-        <TabsList className="bg-muted">
-          <TabsTrigger value="appearance" className="data-[state=active]:bg-background">
-            <Palette className="mr-2 h-4 w-4" />
-            Appearance
+      <Tabs defaultValue="appearance" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 h-auto p-1 bg-muted/60">
+          <TabsTrigger value="appearance" className="gap-2 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Palette className="h-4 w-4 hidden sm:inline" />
+            <span>Appearance</span>
           </TabsTrigger>
-          <TabsTrigger value="profile" className="data-[state=active]:bg-background">
-            <User className="mr-2 h-4 w-4" />
-            Profile
+          <TabsTrigger value="profile" className="gap-2 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <User className="h-4 w-4 hidden sm:inline" />
+            <span>Profile</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-background">
-            <Bell className="mr-2 h-4 w-4" />
-            Notifications
+          <TabsTrigger value="notifications" className="gap-2 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Bell className="h-4 w-4 hidden sm:inline" />
+            <span>Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-background">
-            <Shield className="mr-2 h-4 w-4" />
-            Security
+          <TabsTrigger value="security" className="gap-2 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Shield className="h-4 w-4 hidden sm:inline" />
+            <span>Security</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="organization"
-            className="data-[state=active]:bg-background"
-            onClick={() => router.push('/settings/organization')}
-          >
-            <Building2 className="mr-2 h-4 w-4" />
-            Organization
+          <TabsTrigger value="organization" className="gap-2 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Building2 className="h-4 w-4 hidden sm:inline" />
+            <span>Organization</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="appearance" className="space-y-4">
-          <ThemeSettings />
+          <motion.div initial="hidden" animate="visible" variants={tabVariants}>
+            <ThemeSettings />
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="profile" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>Manage your profile information and preferences.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
+          <motion.div initial="hidden" animate="visible" variants={tabVariants}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Settings</CardTitle>
+                <CardDescription>Manage your profile information and preferences.</CardDescription>
+              </CardHeader>
+              <CardContent>
                 <ProfileForm />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Configure how you receive notifications.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="email-notifications">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Receive updates via email.</p>
-                </div>
-                <Switch id="email-notifications" />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="push-notifications">Push Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Receive push notifications in browser.</p>
-                </div>
-                <Switch id="push-notifications" />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="marketing-emails">Marketing Emails</Label>
-                  <p className="text-sm text-muted-foreground">Receive product updates and offers.</p>
-                </div>
-                <Switch id="marketing-emails" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div initial="hidden" animate="visible" variants={tabVariants}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+                <CardDescription>Configure how you receive notifications.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <NotificationsForm />
+              </CardContent>
+            </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
-              <CardDescription>Manage your security preferences and access controls.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Security settings will be implemented here.</p>
-            </CardContent>
-          </Card>
+          <motion.div initial="hidden" animate="visible" variants={tabVariants}>
+            <SecuritySettings />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="organization" className="space-y-4">
+          <motion.div initial="hidden" animate="visible" variants={tabVariants}>
+            <div className="grid gap-4">
+              <Card className="hover:bg-accent/30 transition-colors">
+                <Link href="/settings/organization" className="block">
+                  <CardContent className="flex items-center justify-between p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Organization Settings</p>
+                        <p className="text-xs text-muted-foreground">Update name, timezone, and notification preferences.</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </CardContent>
+                </Link>
+              </Card>
+
+              <Card className="hover:bg-accent/30 transition-colors">
+                <Link href="/settings/members" className="block">
+                  <CardContent className="flex items-center justify-between p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Members</p>
+                        <p className="text-xs text-muted-foreground">Manage team members and invitations.</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </CardContent>
+                </Link>
+              </Card>
+
+              <Card className="hover:bg-accent/30 transition-colors">
+                <Link href="/settings/roles" className="block">
+                  <CardContent className="flex items-center justify-between p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Shield className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Roles & Permissions</p>
+                        <p className="text-xs text-muted-foreground">Configure role-based access control.</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </CardContent>
+                </Link>
+              </Card>
+            </div>
+          </motion.div>
         </TabsContent>
       </Tabs>
     </div>

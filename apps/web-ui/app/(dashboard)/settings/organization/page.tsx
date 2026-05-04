@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { updateTenantSettingsSchema } from '@chatbot/shared/client';
-import type { z } from 'zod';
+import { useForm } from '@tanstack/react-form';
+import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +27,16 @@ interface TenantSettings {
     systemAlerts: boolean;
   };
 }
+
+const orgFormSchema = z.object({
+  name: z.string().min(1, 'Organization name is required.'),
+  timezone: z.string(),
+  scheduleExecutions: z.boolean(),
+  memberInvites: z.boolean(),
+  systemAlerts: z.boolean(),
+});
+
+type OrgFormValues = z.infer<typeof orgFormSchema>;
 
 const TIMEZONES = (() => {
   try {
@@ -59,26 +67,61 @@ const TIMEZONES = (() => {
   }
 })();
 
-type OrgSettingsFormValues = z.infer<typeof updateTenantSettingsSchema>;
-
 export default function OrganizationSettingsPage() {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const user = session?.user as any;
   const role = user?.role as string | undefined;
   const canEdit = role === 'Owner' || role === 'Admin';
 
-  const form = useForm<OrgSettingsFormValues>({
-    resolver: zodResolver(updateTenantSettingsSchema),
+  const [settings, setSettings] = useState<TenantSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const form = useForm({
     defaultValues: {
       name: '',
       timezone: 'UTC',
-      notifications: {
-        scheduleExecutions: true,
-        memberInvites: true,
-        systemAlerts: true,
-      },
+      scheduleExecutions: true,
+      memberInvites: true,
+      systemAlerts: true,
+    } as OrgFormValues,
+    validators: {
+      onChange: orgFormSchema,
     },
-    mode: 'onChange',
+    onSubmit: async ({ value }) => {
+      if (!canEdit) return;
+      try {
+        const res = await fetch('/api/tenants/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: value.name.trim(),
+            timezone: value.timezone,
+            notifications: {
+              scheduleExecutions: value.scheduleExecutions,
+              memberInvites: value.memberInvites,
+              systemAlerts: value.systemAlerts,
+            },
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to save settings');
+          return;
+        }
+        const updated: TenantSettings = await res.json();
+        setSettings(updated);
+        form.reset({
+          name: updated.name,
+          timezone: updated.timezone,
+          scheduleExecutions: updated.notifications.scheduleExecutions,
+          memberInvites: updated.notifications.memberInvites,
+          systemAlerts: updated.notifications.systemAlerts,
+        });
+        toast.success('Organization settings saved');
+      } catch {
+        toast.error('Failed to save settings');
+      }
+    },
   });
 
   useEffect(() => {
@@ -86,6 +129,7 @@ export default function OrganizationSettingsPage() {
   }, []);
 
   async function fetchSettings() {
+    setLoading(true);
     try {
       const res = await fetch('/api/tenants/settings');
       if (!res.ok) {
@@ -93,46 +137,23 @@ export default function OrganizationSettingsPage() {
         return;
       }
       const data: TenantSettings = await res.json();
+      setSettings(data);
       form.reset({
         name: data.name,
         timezone: data.timezone,
-        notifications: data.notifications,
+        scheduleExecutions: data.notifications.scheduleExecutions,
+        memberInvites: data.notifications.memberInvites,
+        systemAlerts: data.notifications.systemAlerts,
       });
     } catch {
       toast.error('Failed to load organization settings');
+    } finally {
+      setLoading(false);
     }
   }
 
-  const onSubmit = async (data: OrgSettingsFormValues) => {
-    if (!canEdit) return;
-    try {
-      const res = await fetch('/api/tenants/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to save settings');
-        return;
-      }
-      const updated: TenantSettings = await res.json();
-      form.reset({
-        name: updated.name,
-        timezone: updated.timezone,
-        notifications: updated.notifications,
-      });
-      await update();
-      toast.success('Organization settings saved');
-    } catch {
-      toast.error('Failed to save settings');
-    }
-  };
-
-  const loading = !form.formState.isDirty && form.getValues('name') === '' && !form.formState.errors.name;
-
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
+    <div className="flex-1 space-y-4">
       <div className="flex items-center space-x-2">
         <Building2 className="h-6 w-6" />
         <h2 className="text-3xl font-bold tracking-tight">Organization</h2>
@@ -140,125 +161,164 @@ export default function OrganizationSettingsPage() {
       <p className="text-muted-foreground">Manage your organization details and preferences.</p>
 
       <div className="max-w-2xl space-y-4">
-        {!form.getValues('name') && !form.formState.isDirty ? (
+        {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-48 w-full" />
           </div>
         ) : (
-          <>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Organization Details</CardTitle>
-                  <CardDescription>Update your organization name and view identifiers.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="org-name">Organization Name</Label>
-                    <Input
-                      id="org-name"
-                      {...form.register('name')}
-                      disabled={!canEdit || form.formState.isSubmitting}
-                    />
-                    {form.formState.errors.name && (
-                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              form.handleSubmit();
+            }}
+            className="space-y-4"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle>Organization Details</CardTitle>
+                <CardDescription>Update your organization name and view identifiers.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form.Field
+                  name="name"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Organization Name</Label>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        disabled={!canEdit}
+                        aria-invalid={!field.state.meta.isValid}
+                      />
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+                      )}
+                    </div>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <Label htmlFor="org-slug">Slug</Label>
+                  <Input id="org-slug" value={settings?.slug ?? '—'} disabled />
+                  <p className="text-xs text-muted-foreground">Used in URLs. Contact support to change.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tenant-id">Tenant ID</Label>
+                  <Input id="tenant-id" value={settings?.id ?? '—'} disabled />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Preferences</CardTitle>
+                <CardDescription>Set timezone and notification preferences for your organization.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form.Field
+                  name="timezone"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Timezone</Label>
+                      <Select
+                        value={field.state.value}
+                        onValueChange={(value) => field.handleChange(value)}
+                        disabled={!canEdit}
+                      >
+                        <SelectTrigger id={field.name} className="w-full">
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {TIMEZONES.map((tz) => (
+                            <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                />
+
+                <div className="space-y-3 pt-2">
+                  <p className="text-sm font-medium">Notifications</p>
+
+                  <form.Field
+                    name="scheduleExecutions"
+                    children={(field) => (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="text-sm">Schedule Executions</label>
+                          <p className="text-xs text-muted-foreground">Alerts when scheduled jobs run.</p>
+                        </div>
+                        <Switch
+                          checked={field.state.value}
+                          onCheckedChange={(checked) => field.handleChange(checked)}
+                          disabled={!canEdit}
+                        />
+                      </div>
                     )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="org-slug">Slug</Label>
-                    <Input id="org-slug" value="—" disabled />
-                    <p className="text-xs text-muted-foreground">Used in URLs. Contact support to change.</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Preferences</CardTitle>
-                  <CardDescription>Set timezone and notification preferences for your organization.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select
-                      value={form.watch('timezone')}
-                      onValueChange={(v) => form.setValue('timezone', v, { shouldDirty: true })}
-                      disabled={!canEdit || form.formState.isSubmitting}
-                    >
-                      <SelectTrigger id="timezone" className="w-full">
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {TIMEZONES.map((tz) => (
-                          <SelectItem key={tz} value={tz}>{tz}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <form.Field
+                    name="memberInvites"
+                    children={(field) => (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="text-sm">Member Invites</label>
+                          <p className="text-xs text-muted-foreground">Alerts when members are invited or removed.</p>
+                        </div>
+                        <Switch
+                          checked={field.state.value}
+                          onCheckedChange={(checked) => field.handleChange(checked)}
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    )}
+                  />
 
-                  <div className="space-y-3 pt-2">
-                    <p className="text-sm font-medium">Notifications</p>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-sm">Schedule Executions</label>
-                        <p className="text-xs text-muted-foreground">Alerts when scheduled jobs run.</p>
+                  <form.Field
+                    name="systemAlerts"
+                    children={(field) => (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="text-sm">System Alerts</label>
+                          <p className="text-xs text-muted-foreground">Critical system and security alerts.</p>
+                        </div>
+                        <Switch
+                          checked={field.state.value}
+                          onCheckedChange={(checked) => field.handleChange(checked)}
+                          disabled={!canEdit}
+                        />
                       </div>
-                      <Switch
-                        checked={form.watch('notifications.scheduleExecutions')}
-                        onCheckedChange={(v) =>
-                          form.setValue('notifications.scheduleExecutions', v, { shouldDirty: true })
-                        }
-                        disabled={!canEdit || form.formState.isSubmitting}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-sm">Member Invites</label>
-                        <p className="text-xs text-muted-foreground">Alerts when members are invited or removed.</p>
-                      </div>
-                      <Switch
-                        checked={form.watch('notifications.memberInvites')}
-                        onCheckedChange={(v) =>
-                          form.setValue('notifications.memberInvites', v, { shouldDirty: true })
-                        }
-                        disabled={!canEdit || form.formState.isSubmitting}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <label className="text-sm">System Alerts</label>
-                        <p className="text-xs text-muted-foreground">Critical system and security alerts.</p>
-                      </div>
-                      <Switch
-                        checked={form.watch('notifications.systemAlerts')}
-                        onCheckedChange={(v) =>
-                          form.setValue('notifications.systemAlerts', v, { shouldDirty: true })
-                        }
-                        disabled={!canEdit || form.formState.isSubmitting}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="flex items-center gap-3">
-                <Button
-                  type="submit"
-                  disabled={!canEdit || !form.formState.isDirty || form.formState.isSubmitting}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {form.formState.isSubmitting ? 'Saving...' : 'Save Changes'}
-                </Button>
-                <Link href="/settings">
-                  <Button variant="outline">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Settings
+            <div className="flex items-center gap-3">
+              <form.Subscribe
+                selector={(state) => [state.isDirty, state.isSubmitting]}
+                children={([isDirty, isSubmitting]) => (
+                  <Button type="submit" disabled={!canEdit || !isDirty || isSubmitting}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
                   </Button>
-                </Link>
-              </div>
-            </form>
-          </>
+                )}
+              />
+              <Link href="/settings">
+                <Button variant="outline">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Settings
+                </Button>
+              </Link>
+            </div>
+          </form>
         )}
       </div>
     </div>

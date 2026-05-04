@@ -1,16 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { ColumnDef } from '@tanstack/react-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { Activity, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { formatTimestamp, useTenantTimezone } from '@/lib/date-utils';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { Activity, ArrowLeft, RefreshCw, Search, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface AuditLogRecord {
   id: string;
@@ -59,9 +64,8 @@ export default function AuditPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const timezone = useTenantTimezone();
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -71,8 +75,8 @@ export default function AuditPage() {
       params.set('offset', String(offset));
       if (eventTypeFilter !== 'all') params.set('eventType', eventTypeFilter);
       if (severityFilter !== 'all') params.set('severity', severityFilter);
-      if (startDate) params.set('startDate', startDate);
-      if (endDate) params.set('endDate', endDate);
+      if (startDate) params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+      if (endDate) params.set('endDate', format(endDate, 'yyyy-MM-dd'));
 
       const res = await fetch(`/api/audit?${params.toString()}`);
       if (!res.ok) {
@@ -99,24 +103,26 @@ export default function AuditPage() {
     }
   };
 
-  const filteredItems = data?.items.filter((item) => {
-    if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const haystack = [
-        item.eventType,
-        item.action,
-        item.userId ?? '',
-        item.resource ?? '',
-        item.status,
-        item.severity,
-      ]
-        .join(' ')
-        .toLowerCase();
-      if (!haystack.includes(term)) return false;
-    }
-    return true;
-  }) ?? [];
+  const filteredItems = useMemo(() => {
+    return data?.items.filter((item) => {
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const haystack = [
+          item.eventType,
+          item.action,
+          item.userId ?? '',
+          item.resource ?? '',
+          item.status,
+          item.severity,
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      return true;
+    }) ?? [];
+  }, [data, statusFilter, searchTerm]);
 
   const stats = data?.stats;
   const eventTypes = stats ? Object.keys(stats.byEventType) : [];
@@ -151,7 +157,205 @@ export default function AuditPage() {
     }
   };
 
-  const formatTimestampLocal = (dateStr: string) => formatTimestamp(dateStr, timezone);
+  const formatTimestamp = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  const columns: ColumnDef<AuditLogRecord>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'createdAt',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Timestamp" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground whitespace-nowrap text-xs">
+            {formatTimestamp(row.original.createdAt)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'eventType',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Event" />,
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium text-sm">{row.original.eventType}</div>
+            <div className="text-xs text-muted-foreground">{row.original.action}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'userId',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.userId ?? 'system'}</span>
+        ),
+      },
+      {
+        accessorKey: 'resource',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Resource" />,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">{row.original.resource ?? '—'}</span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => getStatusBadge(row.original.status),
+      },
+      {
+        accessorKey: 'severity',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Severity" />,
+        cell: ({ row }) => getSeverityBadge(row.original.severity),
+      },
+    ],
+    []
+  );
+
+  const header = (
+    <div className="flex flex-wrap gap-3 items-end">
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Event Type</label>
+        <Select value={eventTypeFilter} onValueChange={(v) => { setEventTypeFilter(v); setOffset(0); }}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {eventTypes.map((et) => (
+              <SelectItem key={et} value={et}>{et}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Severity</label>
+        <Select value={severityFilter} onValueChange={(v) => { setSeverityFilter(v); setOffset(0); }}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All severities" />
+          </SelectTrigger>
+          <SelectContent>
+            {SEVERITY_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>{s === 'all' ? 'All severities' : s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Status</label>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setOffset(0); }}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>{s === 'all' ? 'All statuses' : s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Start Date</label>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                className="w-40 justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {startDate ? format(startDate, 'PPP') : 'Pick a date'}
+              </Button>
+            }
+          />
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={startDate}
+              onSelect={(d) => {
+                setStartDate(d);
+                setOffset(0);
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium">End Date</label>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                className="w-40 justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {endDate ? format(endDate, 'PPP') : 'Pick a date'}
+              </Button>
+            }
+          />
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={endDate}
+              onSelect={(d) => {
+                setEndDate(d);
+                setOffset(0);
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="space-y-1 flex-1 min-w-[200px]">
+        <label className="text-xs font-medium">Search</label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search events, users, resources..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      <Button variant="outline" size="sm" onClick={fetchData}>
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Refresh
+      </Button>
+    </div>
+  );
+
+  const footer = (
+    <div className="flex items-center justify-between">
+      <p className="text-sm text-muted-foreground">
+        {data ? `Showing ${offset + 1}–${Math.min(offset + PAGE_SIZE, data.total)} of ${data.total}` : ''}
+      </p>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={handlePrev} disabled={offset === 0 || loading}>
+          Previous
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleNext} disabled={!data || offset + PAGE_SIZE >= data.total || loading}>
+          Next
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
@@ -222,99 +426,6 @@ export default function AuditPage() {
         </div>
       ) : null}
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
-          <CardDescription>Narrow down audit events by type, severity, date, or keyword.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Event Type</label>
-              <Select value={eventTypeFilter} onValueChange={(v) => { setEventTypeFilter(v); setOffset(0); }}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  {eventTypes.map((et) => (
-                    <SelectItem key={et} value={et}>{et}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Severity</label>
-              <Select value={severityFilter} onValueChange={(v) => { setSeverityFilter(v); setOffset(0); }}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All severities" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SEVERITY_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>{s === 'all' ? 'All severities' : s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setOffset(0); }}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>{s === 'all' ? 'All statuses' : s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Start Date</label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => { setStartDate(e.target.value); setOffset(0); }}
-                className="w-40"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">End Date</label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => { setEndDate(e.target.value); setOffset(0); }}
-                className="w-40"
-              />
-            </div>
-
-            <div className="space-y-1 flex-1 min-w-[200px]">
-              <label className="text-xs font-medium">Search</label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search events, users, resources..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <Button variant="outline" size="sm" onClick={fetchData}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Table */}
       <Card>
         <CardHeader>
@@ -324,7 +435,7 @@ export default function AuditPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {loading && !data ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
@@ -332,59 +443,18 @@ export default function AuditPage() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : filteredItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No audit events match your filters.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3 font-medium">Timestamp</th>
-                    <th className="text-left py-2 px-3 font-medium">Event</th>
-                    <th className="text-left py-2 px-3 font-medium">User</th>
-                    <th className="text-left py-2 px-3 font-medium">Resource</th>
-                    <th className="text-left py-2 px-3 font-medium">Status</th>
-                    <th className="text-left py-2 px-3 font-medium">Severity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => (
-                    <tr key={item.id} className="border-b last:border-0 hover:bg-accent/50">
-                      <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
-                        {formatTimestampLocal(item.createdAt)}
-                      </td>
-                      <td className="py-2 px-3">
-                        <div className="font-medium">{item.eventType}</div>
-                        <div className="text-xs text-muted-foreground">{item.action}</div>
-                      </td>
-                      <td className="py-2 px-3">{item.userId ?? 'system'}</td>
-                      <td className="py-2 px-3">{item.resource ?? '—'}</td>
-                      <td className="py-2 px-3">{getStatusBadge(item.status)}</td>
-                      <td className="py-2 px-3">{getSeverityBadge(item.severity)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {data && data.total > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, data.total)} of {data.total}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrev} disabled={offset === 0 || loading}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleNext} disabled={!data || offset + PAGE_SIZE >= data.total || loading}>
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
+            <DataTable
+              columns={columns}
+              data={filteredItems}
+              loading={loading}
+              enablePagination={false}
+              enableSorting
+              enableFiltering={false}
+              emptyMessage="No audit events match your filters."
+              header={header}
+              footer={footer}
+            />
           )}
         </CardContent>
       </Card>

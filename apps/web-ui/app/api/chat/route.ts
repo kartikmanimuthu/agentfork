@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService, sendMessageSchema, parseJson, ValidationError } from '@chatbot/shared';
+import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService } from '@chatbot/shared';
 import { streamChat } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('api-chat');
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +12,7 @@ export async function POST(req: NextRequest) {
     const authError = await authorize('create', 'Chat', authOptions);
     if (authError) return authError;
 
-    const { conversationId, content, model } = await parseJson(req, sendMessageSchema);
+    const { conversationId, content, model } = await req.json();
 
     const conversationService = new ConversationService(tenantId);
     const messageService = new MessageService(tenantId);
@@ -84,13 +81,10 @@ export async function POST(req: NextRequest) {
       headers: { 'x-conversation-id': conversation.id },
     });
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
-    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return new Response(JSON.stringify({ error: 'Unauthenticated' }), { status: 401 });
     }
-    logger.error({ error }, 'Chat error');
+    console.error('Chat error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 }

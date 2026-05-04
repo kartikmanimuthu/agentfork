@@ -13,7 +13,7 @@ export interface ThemeConfig {
 const defaultConfig: ThemeConfig = {
   theme: 'zinc',
   radius: 0.5,
-  font: 'inter',
+  font: 'geist',
 };
 
 type ThemeConfigContextType = {
@@ -63,8 +63,8 @@ export function ThemeConfigProvider({ children }: { children: React.ReactNode })
 
     root.style.setProperty('--radius', `${config.radius}rem`);
 
-    let fontVar = 'system-ui';
-    if (config.font === 'inter') fontVar = 'var(--font-inter)';
+    let fontVar = 'var(--font-geist-sans)';
+    if (config.font === 'system') fontVar = 'system-ui';
     root.style.setProperty('--font-sans', fontVar);
   }, [config, mode]);
 
