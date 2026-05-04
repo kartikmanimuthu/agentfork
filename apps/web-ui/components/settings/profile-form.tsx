@@ -76,7 +76,11 @@ export function ProfileForm() {
                 aria-invalid={!field.state.meta.isValid}
               />
               {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+                <p className="text-sm text-destructive">
+                  {field.state.meta.errors
+                    .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                    .join(', ')}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">This is your public display name.</p>
             </div>
@@ -136,7 +140,11 @@ export function ProfileForm() {
                 aria-invalid={!field.state.meta.isValid}
               />
               {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+                <p className="text-sm text-destructive">
+                  {field.state.meta.errors
+                    .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                    .join(', ')}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">Maximum 160 characters.</p>
             </div>

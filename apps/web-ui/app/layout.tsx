@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={cn(geistSans.variable, geistMono.variable)}>
       <body className="font-sans antialiased">
         <Providers>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} disableTransitionOnChange>
             <ThemeConfigProvider>
               {children}
               <Toaster richColors position="top-center" />

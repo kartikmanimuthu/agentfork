@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaClient, AuditService } from '@chatbot/shared';
+import { getPrismaClient, AuditService, createLogger } from '@chatbot/shared';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+
+const logger = createLogger('api:auth:signup');
 
 const signupSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -56,14 +58,14 @@ export async function POST(req: NextRequest) {
       metadata: { email, userId: user.id },
     }).catch(() => {});
 
-    console.log(`API - POST /api/auth/signup - Created user ${user.id}`);
+    logger.info({ userId: user.id }, 'Created user');
 
     return NextResponse.json(
       { success: true, userId: user.id },
       { status: 201 },
     );
   } catch (error) {
-    console.error('API - POST /api/auth/signup - Error:', error);
+    logger.error({ error }, 'Error creating user');
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 },

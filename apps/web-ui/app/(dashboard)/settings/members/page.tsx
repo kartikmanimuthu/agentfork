@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useForm } from '@tanstack/react-form';
 import { ColumnDef } from '@tanstack/react-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,10 @@ import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { Spinner } from '@/components/ui/spinner';
+import { createInvitationSchema } from '@chatbot/shared/client';
 import { Users, ArrowLeft, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { formatDate, useTenantTimezone } from '@/lib/date-utils';
 
 interface Member {
   userId: string;
@@ -50,10 +54,35 @@ export default function MembersPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('Member');
   const [removeMemberTarget, setRemoveMemberTarget] = useState<Member | null>(null);
   const [revokeInviteTarget, setRevokeInviteTarget] = useState<Invitation | null>(null);
+  const timezone = useTenantTimezone();
+
+  const inviteForm = useForm({
+    defaultValues: {
+      email: '',
+      role: 'Member',
+    },
+    validators: {
+      onChange: createInvitationSchema,
+    },
+    onSubmit: async ({ value }) => {
+      const res = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value),
+      });
+      if (res.ok) {
+        toast.success('Invitation sent');
+        setInviteOpen(false);
+        inviteForm.reset();
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to send invitation');
+      }
+    },
+  });
 
   useEffect(() => {
     fetchData();
@@ -108,27 +137,6 @@ export default function MembersPage() {
     }
   }
 
-  async function sendInvite() {
-    try {
-      const res = await fetch('/api/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-      });
-      if (res.ok) {
-        toast.success('Invitation sent');
-        setInviteOpen(false);
-        setInviteEmail('');
-        fetchData();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to send invitation');
-      }
-    } catch (e) {
-      toast.error('Failed to send invitation');
-    }
-  }
-
   async function revokeInvite(id: string) {
     try {
       const res = await fetch(`/api/invitations?id=${id}`, { method: 'DELETE' });
@@ -144,13 +152,9 @@ export default function MembersPage() {
     }
   }
 
-  const formatDate = (dateStr: string) => {
+  const formatDateLocal = (dateStr: string) => {
     if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDate(dateStr, timezone);
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -207,7 +211,7 @@ export default function MembersPage() {
         accessorKey: 'assignedAt',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Joined" />,
         cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">{formatDate(row.original.assignedAt)}</span>
+          <span className="text-sm text-muted-foreground">{formatDateLocal(row.original.assignedAt)}</span>
         ),
       },
       {
@@ -255,7 +259,7 @@ export default function MembersPage() {
         accessorKey: 'expiresAt',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Expires" />,
         cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">{formatDate(row.original.expiresAt)}</span>
+          <span className="text-sm text-muted-foreground">{formatDateLocal(row.original.expiresAt)}</span>
         ),
       },
       {
@@ -356,39 +360,85 @@ export default function MembersPage() {
       )}
 
       {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={inviteOpen} onOpenChange={(open) => {
+        setInviteOpen(open);
+        if (!open) inviteForm.reset();
+      }}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
-            <DialogDescription>Send an invitation to join your organization.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="colleague@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              inviteForm.handleSubmit();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Invite Member</DialogTitle>
+              <DialogDescription>Send an invitation to join your organization.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <inviteForm.Field name="email">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Email</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="email"
+                      placeholder="colleague@company.com"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      aria-invalid={!field.state.meta.isValid}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-sm text-destructive">
+                        {field.state.meta.errors
+                          .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </inviteForm.Field>
+              <inviteForm.Field name="role">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Role</Label>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(value) => field.handleChange(value)}
+                    >
+                      <SelectTrigger id={field.name}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map((r) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </inviteForm.Field>
             </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={sendInvite}>Send Invitation</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <inviteForm.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+                {([canSubmit, isSubmitting]) => (
+                  <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Spinner className="mr-2 size-3" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Send Invitation'
+                    )}
+                  </Button>
+                )}
+              </inviteForm.Subscribe>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       {/* Remove Member Confirmation */}

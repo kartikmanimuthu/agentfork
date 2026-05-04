@@ -1,6 +1,17 @@
 import { env } from '../env';
 
-const noopLogger = {
+interface Logger {
+  trace: (obj: unknown, msg?: string) => void;
+  debug: (obj: unknown, msg?: string) => void;
+  info: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
+  error: (obj: unknown, msg?: string) => void;
+  fatal: (obj: unknown, msg?: string) => void;
+  child: (bindings: Record<string, unknown>) => Logger;
+  flush: () => void;
+}
+
+const noopLogger: Logger = {
   trace: () => {},
   debug: () => {},
   info: () => {},
@@ -10,8 +21,6 @@ const noopLogger = {
   child: () => noopLogger,
   flush: () => {},
 };
-
-type Logger = typeof noopLogger;
 
 let baseLogger: Logger | undefined;
 

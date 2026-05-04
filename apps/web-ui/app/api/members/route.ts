@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaClient, getSessionTenantId, authorize, AuditService, getAuthSession } from '@chatbot/shared';
+import {
+  getPrismaClient,
+  getSessionTenantId,
+  authorize,
+  AuditService,
+  getAuthSession,
+  parseJson,
+  parseSearchParams,
+  updateMemberSchema,
+  memberIdQuerySchema,
+  ValidationError,
+} from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 // GET /api/members - List tenant members
@@ -32,12 +43,16 @@ export async function PUT(req: NextRequest) {
   const authError = await authorize('update', 'Users', authOptions);
   if (authError) return authError;
 
-  const body = await req.json();
-  const { userId, role } = body;
-
-  if (!userId || !role) {
-    return NextResponse.json({ error: 'Missing userId or role' }, { status: 400 });
+  let body;
+  try {
+    body = await parseJson(req, updateMemberSchema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    throw error;
   }
+  const { userId, role } = body;
 
   const prisma = getPrismaClient();
 
@@ -88,12 +103,16 @@ export async function DELETE(req: NextRequest) {
   const authError = await authorize('delete', 'Users', authOptions);
   if (authError) return authError;
 
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+  let query;
+  try {
+    query = parseSearchParams(new URL(req.url).searchParams, memberIdQuerySchema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    throw error;
   }
+  const { userId } = query;
 
   const prisma = getPrismaClient();
   await prisma.userTenantRole.delete({

@@ -22,8 +22,6 @@ interface TenantSettings {
   status: string;
   timezone: string;
   notifications: {
-    scheduleExecutions: boolean;
-    memberInvites: boolean;
     systemAlerts: boolean;
   };
 }
@@ -31,8 +29,6 @@ interface TenantSettings {
 const orgFormSchema = z.object({
   name: z.string().min(1, 'Organization name is required.'),
   timezone: z.string(),
-  scheduleExecutions: z.boolean(),
-  memberInvites: z.boolean(),
   systemAlerts: z.boolean(),
 });
 
@@ -68,7 +64,7 @@ const TIMEZONES = (() => {
 })();
 
 export default function OrganizationSettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const user = session?.user as any;
   const role = user?.role as string | undefined;
   const canEdit = role === 'Owner' || role === 'Admin';
@@ -80,8 +76,6 @@ export default function OrganizationSettingsPage() {
     defaultValues: {
       name: '',
       timezone: 'UTC',
-      scheduleExecutions: true,
-      memberInvites: true,
       systemAlerts: true,
     } as OrgFormValues,
     validators: {
@@ -97,8 +91,6 @@ export default function OrganizationSettingsPage() {
             name: value.name.trim(),
             timezone: value.timezone,
             notifications: {
-              scheduleExecutions: value.scheduleExecutions,
-              memberInvites: value.memberInvites,
               systemAlerts: value.systemAlerts,
             },
           }),
@@ -110,13 +102,10 @@ export default function OrganizationSettingsPage() {
         }
         const updated: TenantSettings = await res.json();
         setSettings(updated);
-        form.reset({
-          name: updated.name,
-          timezone: updated.timezone,
-          scheduleExecutions: updated.notifications.scheduleExecutions,
-          memberInvites: updated.notifications.memberInvites,
-          systemAlerts: updated.notifications.systemAlerts,
-        });
+        form.setFieldValue('name', updated.name);
+        form.setFieldValue('timezone', updated.timezone);
+        form.setFieldValue('systemAlerts', updated.notifications.systemAlerts);
+        await update();
         toast.success('Organization settings saved');
       } catch {
         toast.error('Failed to save settings');
@@ -138,13 +127,9 @@ export default function OrganizationSettingsPage() {
       }
       const data: TenantSettings = await res.json();
       setSettings(data);
-      form.reset({
-        name: data.name,
-        timezone: data.timezone,
-        scheduleExecutions: data.notifications.scheduleExecutions,
-        memberInvites: data.notifications.memberInvites,
-        systemAlerts: data.notifications.systemAlerts,
-      });
+      form.setFieldValue('name', data.name);
+      form.setFieldValue('timezone', data.timezone);
+      form.setFieldValue('systemAlerts', data.notifications.systemAlerts);
     } catch {
       toast.error('Failed to load organization settings');
     } finally {
@@ -196,7 +181,11 @@ export default function OrganizationSettingsPage() {
                         aria-invalid={!field.state.meta.isValid}
                       />
                       {field.state.meta.errors.length > 0 && (
-                        <p className="text-sm text-destructive">{field.state.meta.errors.join(', ')}</p>
+                        <p className="text-sm text-destructive">
+                          {field.state.meta.errors
+                            .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                            .join(', ')}
+                        </p>
                       )}
                     </div>
                   )}
@@ -246,40 +235,6 @@ export default function OrganizationSettingsPage() {
 
                 <div className="space-y-3 pt-2">
                   <p className="text-sm font-medium">Notifications</p>
-
-                  <form.Field
-                    name="scheduleExecutions"
-                    children={(field) => (
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <label className="text-sm">Schedule Executions</label>
-                          <p className="text-xs text-muted-foreground">Alerts when scheduled jobs run.</p>
-                        </div>
-                        <Switch
-                          checked={field.state.value}
-                          onCheckedChange={(checked) => field.handleChange(checked)}
-                          disabled={!canEdit}
-                        />
-                      </div>
-                    )}
-                  />
-
-                  <form.Field
-                    name="memberInvites"
-                    children={(field) => (
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <label className="text-sm">Member Invites</label>
-                          <p className="text-xs text-muted-foreground">Alerts when members are invited or removed.</p>
-                        </div>
-                        <Switch
-                          checked={field.state.value}
-                          onCheckedChange={(checked) => field.handleChange(checked)}
-                          disabled={!canEdit}
-                        />
-                      </div>
-                    )}
-                  />
 
                   <form.Field
                     name="systemAlerts"

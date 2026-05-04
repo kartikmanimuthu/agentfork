@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useForm } from '@tanstack/react-form';
 import {
   Card,
   CardContent,
@@ -47,7 +48,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { createRoleSchema, updateRoleSchema } from '@chatbot/shared/client';
 import {
   Shield,
   ArrowLeft,
@@ -81,9 +84,52 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
-  const [roleName, setRoleName] = useState('');
-  const [rolePerms, setRolePerms] = useState<Record<string, string[]>>({});
   const [deleteTarget, setDeleteTarget] = useState<CustomRole | null>(null);
+
+  const roleForm = useForm({
+    defaultValues: {
+      name: '',
+      permissions: {} as Record<string, string[]>,
+    },
+    validators: {
+      onSubmit: ({ value }) => {
+        const payload = editingRole
+          ? { id: editingRole.id, ...value }
+          : value;
+        const schema = editingRole ? updateRoleSchema : createRoleSchema;
+        const result = schema.safeParse(payload);
+        if (!result.success) {
+          const flat = result.error.flatten();
+          return {
+            fields: {
+              name: flat.fieldErrors.name?.[0],
+              permissions: flat.fieldErrors.permissions?.[0] || flat.formErrors[0],
+            },
+          };
+        }
+        return undefined;
+      },
+    },
+    onSubmit: async ({ value }) => {
+      const payload = editingRole
+        ? { id: editingRole.id, ...value }
+        : value;
+      const res = await fetch('/api/roles', {
+        method: editingRole ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(editingRole ? 'Role updated' : 'Role created');
+        setDialogOpen(false);
+        roleForm.reset();
+        fetchRoles();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to save role');
+      }
+    },
+  });
 
   useEffect(() => {
     fetchRoles();
@@ -105,52 +151,13 @@ export default function RolesPage() {
     }
   }
 
-  function togglePermission(module: string, action: string) {
-    setRolePerms((prev) => {
-      const current = prev[module] || [];
-      const next = current.includes(action)
-        ? current.filter((a) => a !== action)
-        : [...current, action];
-      return { ...prev, [module]: next };
-    });
-  }
-
   function initDialog(role?: CustomRole) {
-    if (role) {
-      setEditingRole(role);
-      setRoleName(role.name);
-      setRolePerms(role.permissions || {});
-    } else {
-      setEditingRole(null);
-      setRoleName('');
-      setRolePerms({});
-    }
+    setEditingRole(role || null);
+    roleForm.reset({
+      name: role?.name || '',
+      permissions: role?.permissions || {},
+    });
     setDialogOpen(true);
-  }
-
-  async function saveRole() {
-    const payload = {
-      id: editingRole?.id,
-      name: roleName,
-      permissions: rolePerms,
-    };
-    try {
-      const res = await fetch('/api/roles', {
-        method: editingRole ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        toast.success(editingRole ? 'Role updated' : 'Role created');
-        setDialogOpen(false);
-        fetchRoles();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to save role');
-      }
-    } catch (e) {
-      toast.error('Failed to save role');
-    }
   }
 
   async function deleteRole(id: string) {
@@ -317,70 +324,128 @@ export default function RolesPage() {
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setEditingRole(null);
+          roleForm.reset({ name: '', permissions: {} });
+        }
+      }}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingRole ? 'Edit Role' : 'Create Custom Role'}
-            </DialogTitle>
-            <DialogDescription>
-              Configure permissions for this role.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Role Name</Label>
-              <Input
-                value={roleName}
-                onChange={(e) => setRoleName(e.target.value)}
-                placeholder="e.g. Content Manager"
-              />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              roleForm.handleSubmit();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {editingRole ? 'Edit Role' : 'Create Custom Role'}
+              </DialogTitle>
+              <DialogDescription>
+                Configure permissions for this role.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <roleForm.Field name="name">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Role Name</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      placeholder="e.g. Content Manager"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      aria-invalid={!field.state.meta.isValid}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-sm text-destructive">
+                        {field.state.meta.errors
+                          .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </roleForm.Field>
+              <roleForm.Field name="permissions">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label>Permissions</Label>
+                    <div className="border rounded-md">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Module</TableHead>
+                            {ACTIONS.map((action) => (
+                              <TableHead
+                                key={action}
+                                className="text-center capitalize"
+                              >
+                                {action}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {MODULES.map((mod) => (
+                            <TableRow key={mod}>
+                              <TableCell className="font-medium">{mod}</TableCell>
+                              {ACTIONS.map((action) => (
+                                <TableCell key={action} className="text-center">
+                                  <Switch
+                                    checked={
+                                      field.state.value[mod]?.includes(action) || false
+                                    }
+                                    onCheckedChange={() => {
+                                      const current = field.state.value[mod] || [];
+                                      const next = current.includes(action)
+                                        ? current.filter((a) => a !== action)
+                                        : [...current, action];
+                                      field.handleChange({
+                                        ...field.state.value,
+                                        [mod]: next,
+                                      });
+                                    }}
+                                  />
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-sm text-destructive">
+                        {field.state.meta.errors
+                          .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </roleForm.Field>
             </div>
-            <div className="space-y-2">
-              <Label>Permissions</Label>
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Module</TableHead>
-                      {ACTIONS.map((action) => (
-                        <TableHead
-                          key={action}
-                          className="text-center capitalize"
-                        >
-                          {action}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {MODULES.map((mod) => (
-                      <TableRow key={mod}>
-                        <TableCell className="font-medium">{mod}</TableCell>
-                        {ACTIONS.map((action) => (
-                          <TableCell key={action} className="text-center">
-                            <Switch
-                              checked={
-                                rolePerms[mod]?.includes(action) || false
-                              }
-                              onCheckedChange={() =>
-                                togglePermission(mod, action)
-                              }
-                            />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={saveRole}>
-              {editingRole ? 'Save Changes' : 'Create Role'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <roleForm.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+                {([canSubmit, isSubmitting]) => (
+                  <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Spinner className="mr-2 size-3" />
+                        {editingRole ? 'Saving...' : 'Creating...'}
+                      </>
+                    ) : (
+                      editingRole ? 'Save Changes' : 'Create Role'
+                    )}
+                  </Button>
+                )}
+              </roleForm.Subscribe>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       {/* Delete Confirmation */}
