@@ -18,12 +18,13 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  configs       TenantConfig[]
-  conversations Conversation[]
-  auditLogs     AuditLog[]
-  customRoles   CustomRole[]
-  invitations   Invitation[]
-  userRoles     UserTenantRole[]
+  configs        TenantConfig[]
+  conversations  Conversation[]
+  auditLogs      AuditLog[]
+  customRoles    CustomRole[]
+  invitations    Invitation[]
+  userRoles      UserTenantRole[]
+  knowledgeBases KnowledgeBase[]
 
   @@index([status])
   @@map("tenants")
@@ -242,4 +243,90 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([ttl])
   @@map("audit_logs")
+}
+
+model KnowledgeBase {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  name                String
+  description         String?
+  embeddingProvider   String   @default("BEDROCK_TITAN")
+  embeddingModel      String   @default("amazon.titan-embed-text-v2:0")
+  embeddingDimensions Int      @default(1024)
+  chunkStrategy       String   @default("RECURSIVE_CHARACTER")
+  chunkSize           Int      @default(512)
+  chunkOverlap        Int      @default(50)
+  preProcessing       Json     @default("{\"htmlStripping\":true,\"piiRedaction\":false,\"ocrEnabled\":false,\"tableExtraction\":true}")
+  retrievalConfig     Json     @default("{\"topK\":10,\"similarityThreshold\":0.7,\"searchMode\":\"HYBRID\",\"hybridAlpha\":0.7,\"rerankProvider\":\"NONE\",\"useCompression\":false}")
+  status              String   @default("active")
+  documentCount       Int      @default(0)
+  chunkCount          Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sources DataSource[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("knowledge_bases")
+}
+
+model DataSource {
+  id              String    @id @default(cuid())
+  knowledgeBaseId String
+  type            String
+  config          Json
+  status          String    @default("active")
+  lastSyncAt      DateTime?
+  syncSchedule    String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  documents     Document[]
+
+  @@index([knowledgeBaseId])
+  @@map("data_sources")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  dataSourceId  String
+  sourceKey     String
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  metadata      Json?
+  processedText String?  @db.Text
+  status        String   @default("PENDING")
+  errorMessage  String?
+  tokenCount    Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  dataSource DataSource      @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  chunks     DocumentChunk[]
+
+  @@index([dataSourceId])
+  @@index([dataSourceId, status])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String                    @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String
+  tokenCount Int
+  metadata   Json?
+  searchText Unsupported("tsvector")?
+  createdAt  DateTime                  @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([documentId, chunkIndex])
+  @@map("document_chunks")
 }

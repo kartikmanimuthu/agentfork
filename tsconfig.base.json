@@ -22,7 +22,8 @@
       "@chatbot/shared": ["libs/shared/src/index.ts"],
       "@chatbot/shared/client": ["libs/shared/src/client.ts"],
       "@chatbot/shared/workers": ["libs/shared/src/workers.ts"],
-      "@chatbot/ai": ["libs/ai/src/index.ts"]
+      "@chatbot/ai": ["libs/ai/src/index.ts"],
+      "@chatbot/knowledge-base": ["libs/knowledge-base/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "dist"]
