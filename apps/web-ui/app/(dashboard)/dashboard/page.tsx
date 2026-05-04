@@ -17,6 +17,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { ActivityChart } from '@/components/dashboard/activity-chart';
+import { formatShortDateTime, useTenantTimezone } from '@/lib/date-utils';
 
 interface Conversation {
   id: string;
@@ -51,6 +52,7 @@ export default function DashboardPage() {
   const [allConversations, setAllConversations] = useState<Conversation[]>([]);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const timezone = useTenantTimezone();
 
   useEffect(() => {
     async function fetchData() {
@@ -82,15 +84,9 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const formatDate = (dateStr: string) => {
+  const formatDateLocal = (dateStr: string) => {
     if (!dateStr) return 'Unknown';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatShortDateTime(dateStr, timezone);
   };
 
   const statCards = [
@@ -232,7 +228,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3 shrink-0">
                         <Badge variant="secondary" className="text-xs font-normal">
                           <Clock className="h-3 w-3 mr-1" />
-                          {formatDate(conv.updatedAt)}
+                          {formatDateLocal(conv.updatedAt)}
                         </Badge>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </div>

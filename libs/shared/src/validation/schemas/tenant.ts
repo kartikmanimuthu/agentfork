@@ -15,8 +15,6 @@ export const updateTenantSettingsSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   timezone: z.string().optional(),
   notifications: z.object({
-    scheduleExecutions: z.boolean().optional(),
-    memberInvites: z.boolean().optional(),
     systemAlerts: z.boolean().optional(),
   }).optional(),
 });

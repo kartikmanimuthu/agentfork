@@ -16,6 +16,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Activity, ArrowLeft, RefreshCw, Search, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatTimestamp, useTenantTimezone } from '@/lib/date-utils';
 
 interface AuditLogRecord {
   id: string;
@@ -66,6 +67,7 @@ export default function AuditPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const timezone = useTenantTimezone();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -157,17 +159,9 @@ export default function AuditPage() {
     }
   };
 
-  const formatTimestamp = (dateStr: string) => {
+  const formatTimestampLocal = (dateStr: string) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+    return formatTimestamp(dateStr, timezone);
   };
 
   const columns: ColumnDef<AuditLogRecord>[] = useMemo(
@@ -177,7 +171,7 @@ export default function AuditPage() {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Timestamp" />,
         cell: ({ row }) => (
           <span className="text-muted-foreground whitespace-nowrap text-xs">
-            {formatTimestamp(row.original.createdAt)}
+            {formatTimestampLocal(row.original.createdAt)}
           </span>
         ),
       },

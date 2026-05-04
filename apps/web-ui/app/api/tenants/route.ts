@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getPrismaClient, AuditService } from '@chatbot/shared';
+import { getPrismaClient, AuditService, createLogger } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
+
+const logger = createLogger('api:tenants');
 
 const createTenantSchema = z.object({
   name: z.string().min(1, 'Organization name is required').max(100),
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
       tenantId: result.id,
     }).catch(() => {});
 
-    console.log(`API - POST /api/tenants - Created tenant ${result.id} (slug: ${result.slug})`);
+    logger.info({ tenantId: result.id, slug: result.slug }, 'Created tenant');
 
     return NextResponse.json(
       { success: true, tenantId: result.id, slug: result.slug },
@@ -96,7 +98,7 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
-    console.error('API - POST /api/tenants - Error:', error);
+    logger.error({ error }, 'Error creating tenant');
     return NextResponse.json(
       { error: 'Failed to create organization. Please try again.' },
       { status: 500 },

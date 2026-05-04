@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService } from '@chatbot/shared';
+import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService, createLogger } from '@chatbot/shared';
 import { streamChat } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:chat');
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return new Response(JSON.stringify({ error: 'Unauthenticated' }), { status: 401 });
     }
-    console.error('Chat error:', error);
+    logger.error({ error }, 'Chat error');
     return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 }

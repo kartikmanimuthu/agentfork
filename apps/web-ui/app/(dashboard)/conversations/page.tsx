@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { MessageSquare, Trash2, Search } from 'lucide-react';
+import { formatDate, useTenantTimezone } from '@/lib/date-utils';
 
 interface Conversation {
   id: string;
@@ -29,6 +30,7 @@ export default function ConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const timezone = useTenantTimezone();
 
   useEffect(() => {
     fetch('/api/conversations?limit=50')
@@ -87,18 +89,11 @@ export default function ConversationsPage() {
       {
         accessorKey: 'updatedAt',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Last Updated" />,
-        cell: ({ row }) => {
-          const date = new Date(row.original.updatedAt);
-          return (
-            <span className="text-muted-foreground">
-              {date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
-          );
-        },
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {formatDate(row.original.updatedAt, timezone)}
+          </span>
+        ),
       },
       {
         id: 'actions',

@@ -10,6 +10,12 @@ import {
   ROLE_LEVELS,
   AuditService,
   getAuthSession,
+  parseJson,
+  parseSearchParams,
+  createRoleSchema,
+  updateRoleSchema,
+  roleIdQuerySchema,
+  ValidationError,
 } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
@@ -46,12 +52,16 @@ export async function POST(req: NextRequest) {
   const authError = await authorize('create', 'Users', authOptions);
   if (authError) return authError;
 
-  const body = await req.json();
-  const { name, permissions } = body;
-
-  if (!name || !permissions) {
-    return NextResponse.json({ error: 'Missing name or permissions' }, { status: 400 });
+  let body;
+  try {
+    body = await parseJson(req, createRoleSchema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    throw error;
   }
+  const { name, permissions } = body;
 
   try {
     const role = await createCustomRole(tenantId, { name, permissions });
@@ -88,12 +98,16 @@ export async function PUT(req: NextRequest) {
   const authError = await authorize('update', 'Users', authOptions);
   if (authError) return authError;
 
-  const body = await req.json();
-  const { id, name, permissions } = body;
-
-  if (!id || !name || !permissions) {
-    return NextResponse.json({ error: 'Missing id, name, or permissions' }, { status: 400 });
+  let body;
+  try {
+    body = await parseJson(req, updateRoleSchema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    throw error;
   }
+  const { id, name, permissions } = body;
 
   try {
     const role = await updateCustomRole(tenantId, id, { name, permissions });
@@ -130,12 +144,16 @@ export async function DELETE(req: NextRequest) {
   const authError = await authorize('delete', 'Users', authOptions);
   if (authError) return authError;
 
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-
-  if (!id) {
-    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  let query;
+  try {
+    query = parseSearchParams(new URL(req.url).searchParams, roleIdQuerySchema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    throw error;
   }
+  const { id } = query;
 
   try {
     await deleteCustomRole(tenantId, id);

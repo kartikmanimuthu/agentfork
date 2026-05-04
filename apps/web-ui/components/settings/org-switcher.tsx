@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -129,9 +130,11 @@ export function OrgSwitcher({ collapsed = false }: OrgSwitcherProps) {
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-60">
-          <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-            Organization
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+              Organization
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="flex items-center gap-2">
             <Avatar className="h-6 w-6 rounded-md shrink-0">
@@ -177,9 +180,11 @@ export function OrgSwitcher({ collapsed = false }: OrgSwitcherProps) {
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-          Switch organization
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+            Switch organization
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {orgs.map((org) => (
           <DropdownMenuItem

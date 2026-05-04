@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getPrismaClient, AuditService } from '@chatbot/shared';
+import { getPrismaClient, AuditService, createLogger } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:tenants:switch');
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,9 +33,7 @@ export async function POST(req: NextRequest) {
       data: { activeTenantId: tenantId },
     });
 
-    console.log(
-      `API - POST /api/tenants/switch - User ${session.user.id} switched to tenant ${tenantId}`,
-    );
+    logger.info({ userId: session.user.id, tenantId }, 'Switched tenant');
 
     // Fire-and-forget audit log
     AuditService.logUserAction({
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('API - POST /api/tenants/switch - Error:', error);
+    logger.error({ error }, 'Error switching tenant');
     return NextResponse.json(
       { error: 'Failed to switch organization' },
       { status: 500 },

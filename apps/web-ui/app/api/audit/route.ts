@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:audit');
 
 function computeStats(logs: any[]) {
   return {
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items, total, limit, offset, stats });
   } catch (error) {
-    console.error('Audit API error:', error);
+    logger.error({ error }, 'Audit API error');
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

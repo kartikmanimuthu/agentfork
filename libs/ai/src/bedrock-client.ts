@@ -1,11 +1,12 @@
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { env } from './env';
 
 let bedrockInstance: ReturnType<typeof createAmazonBedrock> | undefined;
 
 export function getBedrockProvider() {
   if (!bedrockInstance) {
     bedrockInstance = createAmazonBedrock({
-      region: process.env.AWS_REGION ?? 'ap-south-1',
+      region: env.AWS_REGION,
     });
   }
   return bedrockInstance;
