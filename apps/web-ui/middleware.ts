@@ -20,6 +20,8 @@ export default withAuth(
       pathname.startsWith('/api/') ||
       pathname === '/login' ||
       pathname === '/register' ||
+      pathname === '/forgot-password' ||
+      pathname === '/reset-password' ||
       pathname === '/signup' ||
       pathname === '/' ||
       pathname.startsWith('/docs');
@@ -42,6 +44,8 @@ export default withAuth(
         if (
           pathname === '/login' ||
           pathname === '/register' ||
+          pathname === '/forgot-password' ||
+          pathname === '/reset-password' ||
           pathname === '/signup' ||
           pathname === '/' ||
           pathname.startsWith('/docs')
@@ -56,6 +60,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|login|register|signup|docs).*)',
+    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|login|register|forgot-password|reset-password|signup|docs).*)',
   ],
 };

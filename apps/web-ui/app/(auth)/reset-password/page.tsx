@@ -1,8 +1,7 @@
 'use client';
 
 import { useForm } from '@tanstack/react-form';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { GalleryVerticalEnd } from 'lucide-react';
@@ -17,41 +16,60 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from '@/components/ui/field';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
+const resetPasswordSchema = z
+  .object({
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
 
   const form = useForm({
-    defaultValues: { email: '', password: '' },
+    defaultValues: { password: '', confirmPassword: '' },
     onSubmit: async ({ value }) => {
-      const result = await signIn('credentials', {
-        email: value.email,
-        password: value.password,
-        redirect: false,
+      if (!token) {
+        toast.error('Invalid or missing reset token');
+        return;
+      }
+
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          password: value.password,
+          confirmPassword: value.confirmPassword,
+        }),
       });
 
-      if (result?.error) {
-        toast.error('Invalid email or password');
-      } else {
-        router.push('/dashboard');
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to reset password');
+        return;
       }
+
+      toast.success('Password reset successfully. Please sign in.');
+      router.push('/login');
     },
     validators: {
       onSubmit: ({ value }) => {
-        const result = loginSchema.safeParse(value);
+        const result = resetPasswordSchema.safeParse(value);
         if (!result.success) {
           const fieldErrors = result.error.flatten().fieldErrors;
           return {
             fields: {
-              email: fieldErrors.email?.[0],
               password: fieldErrors.password?.[0],
+              confirmPassword: fieldErrors.confirmPassword?.[0],
             },
           };
         }
@@ -59,6 +77,38 @@ export default function LoginPage() {
       },
     },
   });
+
+  if (!token) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+        <div className="flex w-full max-w-sm flex-col gap-6">
+          <span className="flex items-center gap-2 self-center font-medium">
+            <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <GalleryVerticalEnd className="size-4" />
+            </div>
+            Chatbot
+          </span>
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl">Invalid link</CardTitle>
+              <CardDescription>
+                This password reset link is invalid or has expired.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => router.push('/forgot-password')}
+              >
+                Request a new link
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
@@ -72,8 +122,8 @@ export default function LoginPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Welcome back</CardTitle>
-              <CardDescription>Sign in to your account</CardDescription>
+              <CardTitle className="text-xl">Reset your password</CardTitle>
+              <CardDescription>Enter your new password below</CardDescription>
             </CardHeader>
             <CardContent>
               <form
@@ -84,28 +134,15 @@ export default function LoginPage() {
                 }}
               >
                 <FieldGroup>
-                  <Field>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      className="w-full"
-                      onClick={() => signIn('cognito', { callbackUrl: '/dashboard' })}
-                    >
-                      Sign in with SSO
-                    </Button>
-                  </Field>
-                  <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-                    Or continue with
-                  </FieldSeparator>
-                  <form.Field name="email">
+                  <form.Field name="password">
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
-                        <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+                        <FieldLabel htmlFor={field.name}>New password</FieldLabel>
                         <Input
                           id={field.name}
                           name={field.name}
-                          type="email"
-                          placeholder="you@company.com"
+                          type="password"
+                          placeholder="••••••••"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
                           onBlur={field.handleBlur}
@@ -117,18 +154,10 @@ export default function LoginPage() {
                       </Field>
                     )}
                   </form.Field>
-                  <form.Field name="password">
+                  <form.Field name="confirmPassword">
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
-                        <div className="flex items-center">
-                          <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-                          <Link
-                            href="/forgot-password"
-                            className="ml-auto text-sm underline-offset-4 hover:underline"
-                          >
-                            Forgot your password?
-                          </Link>
-                        </div>
+                        <FieldLabel htmlFor={field.name}>Confirm password</FieldLabel>
                         <Input
                           id={field.name}
                           name={field.name}
@@ -156,27 +185,23 @@ export default function LoginPage() {
                           {isSubmitting ? (
                             <>
                               <Spinner className="mr-2 size-3" />
-                              Signing in...
+                              Resetting...
                             </>
                           ) : (
-                            'Sign in'
+                            'Reset password'
                           )}
                         </Button>
                       )}
                     </form.Subscribe>
                     <FieldDescription className="text-center">
-                      Don&apos;t have an account?{' '}
-                      <Link href="/register">Create one</Link>
+                      Remember your password?{' '}
+                      <Link href="/login">Sign in</Link>
                     </FieldDescription>
                   </Field>
                 </FieldGroup>
               </form>
             </CardContent>
           </Card>
-          <FieldDescription className="px-6 text-center">
-            By clicking continue, you agree to our{' '}
-            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
-          </FieldDescription>
         </div>
       </div>
     </div>

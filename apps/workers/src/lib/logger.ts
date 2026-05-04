@@ -1,4 +1,4 @@
-import { createLogger as createPinoLogger } from '@chatbot/shared';
+import { createLogger as createPinoLogger } from '@chatbot/shared/workers';
 import { env } from '../env';
 
 export function createLogger(context: string) {

@@ -21,6 +21,12 @@ export const env = createEnv({
     // Bedrock
     BEDROCK_CHAT_MODEL: z.string().optional(),
     BEDROCK_EMBEDDING_MODEL: z.string().optional(),
+
+    // App URL (used for reset links, etc.)
+    APP_URL: z.string().url().optional(),
+
+    // SES (optional — when set, enables SES email delivery instead of console logging)
+    SES_FROM_EMAIL: z.string().email().optional(),
   },
   client: {},
   clientPrefix: "NEXT_PUBLIC_",
