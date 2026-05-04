@@ -248,7 +248,7 @@ export class IngestionService {
    * Enqueue a document ingestion job via pg-boss.
    * The boss instance must be passed in to avoid a circular dependency.
    */
-  async enqueueIngestion(boss: { send: (name: string, data: unknown) => Promise<string | null> }, payload: IngestionJobPayload): Promise<string | null> {
+  async enqueueIngestion(boss: { send: (name: string, data: object) => Promise<string | null> }, payload: IngestionJobPayload): Promise<string | null> {
     return boss.send('document-ingestion', payload);
   }
 }

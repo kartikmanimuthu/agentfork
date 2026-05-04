@@ -30,6 +30,9 @@
       ],
       "@chatbot/ai": [
         "../../libs/ai/src/index.ts"
+      ],
+      "@chatbot/knowledge-base": [
+        "../../libs/knowledge-base/src/index.ts"
       ]
     },
     "isolatedModules": true
