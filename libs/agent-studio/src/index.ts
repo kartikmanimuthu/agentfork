@@ -25,3 +25,7 @@ export type {
   SchemaField,
   ValidationError,
 } from './types/nodes';
+
+// Registry
+export { NodeRegistry } from './registry/node-registry';
+export type { NodeDefinition } from './registry/node-registry';
