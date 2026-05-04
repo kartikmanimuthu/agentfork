@@ -59,6 +59,7 @@ export class RecursiveCharacterChunker implements Chunker {
   }
 
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
+    if (!text.trim()) return [];
     const rawChunks = this._split(text, chunkSize, chunkOverlap, this.separators);
     return rawChunks.map((content, idx) => ({
       content,
