@@ -1,5 +1,7 @@
 import { embed, embedMany } from 'ai';
 import { getBedrockProvider } from '@chatbot/ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createCohere } from '@ai-sdk/cohere';
 import type { EmbeddingProvider } from '../types';
 
 // ─── Bedrock Titan ────────────────────────────────────────────────────────────
@@ -56,18 +58,12 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    // @ts-ignore — @ai-sdk/openai is an optional peer dependency
-    const { createOpenAI } = await import('@ai-sdk/openai').catch(() => {
-      throw new Error(
-        'OpenAI embedding requires "@ai-sdk/openai". Install with: bun add @ai-sdk/openai'
-      );
-    });
     const apiKey = process.env['OPENAI_API_KEY'];
     if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is required');
 
     const openai = createOpenAI({ apiKey });
     const { embeddings } = await embedMany({
-      model: openai.textEmbeddingModel(this.model, { dimensions: this.dimensions }),
+      model: openai.textEmbeddingModel(this.model),
       values: texts,
     });
     return embeddings;
@@ -93,12 +89,6 @@ export class CohereEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    // @ts-ignore — @ai-sdk/cohere is an optional peer dependency
-    const { createCohere } = await import('@ai-sdk/cohere').catch(() => {
-      throw new Error(
-        'Cohere embedding requires "@ai-sdk/cohere". Install with: bun add @ai-sdk/cohere'
-      );
-    });
     const apiKey = process.env['COHERE_API_KEY'];
     if (!apiKey) throw new Error('COHERE_API_KEY environment variable is required');
 

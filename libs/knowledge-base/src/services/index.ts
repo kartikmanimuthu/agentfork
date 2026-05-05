@@ -1,4 +1,6 @@
 import { getPrismaClient } from '@chatbot/shared';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   createKnowledgeBaseRepository,
   createDataSourceRepository,
@@ -179,19 +181,6 @@ export class DocumentService {
   ): Promise<{ uploadUrl: string; s3Key: string }> {
     await this.assertDataSourceOwnership(dataSourceId);
 
-    // @ts-ignore — @aws-sdk/client-s3 is an optional peer dependency
-    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3').catch(() => {
-      throw new Error(
-        'S3 upload requires "@aws-sdk/client-s3". Install with: bun add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner'
-      );
-    });
-    // @ts-ignore — @aws-sdk/s3-request-presigner is an optional peer dependency
-    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner').catch(() => {
-      throw new Error(
-        'S3 presigning requires "@aws-sdk/s3-request-presigner". Install with: bun add @aws-sdk/s3-request-presigner'
-      );
-    });
-
     const bucket = process.env['KB_S3_BUCKET'] ?? 'chatbot-knowledge-base-dev';
     const region = process.env['AWS_REGION'] ?? 'ap-south-1';
     const s3Key = `${this.tenantId}/${dataSourceId}/${Date.now()}-${fileName}`;
@@ -211,11 +200,6 @@ export class DocumentService {
    * Download a document from S3 and return its buffer.
    */
   async downloadFromS3(s3Key: string): Promise<Buffer> {
-    // @ts-ignore — @aws-sdk/client-s3 is an optional peer dependency
-    const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3').catch(() => {
-      throw new Error('S3 download requires "@aws-sdk/client-s3".');
-    });
-
     const bucket = process.env['KB_S3_BUCKET'] ?? 'chatbot-knowledge-base-dev';
     const region = process.env['AWS_REGION'] ?? 'ap-south-1';
     const client = new S3Client({ region });

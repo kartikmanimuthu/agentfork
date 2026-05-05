@@ -7,7 +7,7 @@ const withMDX = createMDX();
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@chatbot/shared', '@chatbot/ai', '@chatbot/knowledge-base', '@t3-oss/env-nextjs', '@t3-oss/env-core'],
-  serverExternalPackages: ['@prisma/client', 'bcryptjs', 'pino', 'thread-stream'],
+  serverExternalPackages: ['@prisma/client', 'bcryptjs', 'pino', 'thread-stream', '@ai-sdk/openai', '@ai-sdk/cohere', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
 };
 
 export default withMDX(nextConfig);

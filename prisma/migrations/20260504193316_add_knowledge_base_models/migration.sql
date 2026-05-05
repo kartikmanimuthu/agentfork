@@ -103,14 +103,14 @@ ALTER TABLE "documents" ADD CONSTRAINT "documents_dataSourceId_fkey" FOREIGN KEY
 -- AddForeignKey
 ALTER TABLE "document_chunks" ADD CONSTRAINT "document_chunks_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Add vector column for embeddings (max 3072 dims for OpenAI large)
-ALTER TABLE document_chunks ADD COLUMN embedding vector(3072);
+-- Add vector column for embeddings (max 2000 dims for HNSW index compatibility)
+ALTER TABLE document_chunks ADD COLUMN embedding vector(2000);
 
 -- HNSW index for dense search
 CREATE INDEX idx_document_chunks_embedding ON document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- GIN index for sparse search
-CREATE INDEX idx_document_chunks_search_text ON document_chunks USING gin (search_text);
+CREATE INDEX idx_document_chunks_search_text ON document_chunks USING gin ("searchText");
 
 -- GIN index for metadata filtering
 CREATE INDEX idx_document_chunks_metadata ON document_chunks USING gin (metadata jsonb_path_ops);
