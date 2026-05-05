@@ -49,6 +49,9 @@ import {
   ChevronsUpDown,
   FileText,
   Bot,
+  Database,
+  Plus,
+  FolderOpen,
 } from 'lucide-react';
 
 const mainNav = [
@@ -57,6 +60,11 @@ const mainNav = [
   { name: 'History', href: '/conversations', icon: History },
   { name: 'Agent Studio', href: '/agents', icon: Bot },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
+];
+
+const knowledgeBaseNav = [
+  { name: 'All Bases', href: '/knowledge-bases', icon: FolderOpen },
+  { name: 'Create New', href: '/knowledge-bases/new', icon: Plus },
 ];
 
 const settingsNav = [
@@ -73,6 +81,9 @@ export function AppSidebar() {
 
   const isSettingsActive = pathname === '/settings' || pathname.startsWith('/settings/');
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
+
+  const isKbActive = pathname === '/knowledge-bases' || pathname.startsWith('/knowledge-bases/');
+  const [kbOpen, setKbOpen] = useState(isKbActive);
 
   const getUserInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -113,6 +124,46 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               );
             })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Knowledge</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={kbOpen} onOpenChange={setKbOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton
+                      isActive={isKbActive}
+                      tooltip="Knowledge Base"
+                    >
+                      <Database className="size-4" />
+                      <span>Knowledge Base</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {knowledgeBaseNav.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton
+                            isActive={isActive}
+                            onClick={() => router.push(item.href)}
+                          >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
           </SidebarMenu>
         </SidebarGroup>
 

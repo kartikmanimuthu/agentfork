@@ -8,6 +8,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
     Agents: ['create', 'read', 'update', 'delete'],
+    KnowledgeBases: ['create', 'read', 'update', 'delete'],
   },
   Admin: {
     Conversations: ['create', 'read', 'update', 'delete'],
@@ -16,6 +17,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
     Agents: ['create', 'read', 'update', 'delete'],
+    KnowledgeBases: ['create', 'read', 'update', 'delete'],
   },
   Member: {
     Conversations: ['create', 'read', 'update'],
@@ -24,6 +26,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Users: ['read'],
     Tenants: ['read'],
     Agents: ['create', 'read', 'update'],
+    KnowledgeBases: ['create', 'read', 'update'],
   },
   Viewer: {
     Conversations: ['read'],
@@ -32,6 +35,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Users: ['read'],
     Tenants: ['read'],
     Agents: ['read'],
+    KnowledgeBases: ['read'],
   },
 };
 

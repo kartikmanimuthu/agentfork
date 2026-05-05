@@ -1,4 +1,4 @@
-export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents';
+export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -10,11 +10,14 @@ export type PermissionSet = Record<Module, Action[]>;
 
 export const SUBJECT_TO_MODULE: Record<string, Module> = {
   Conversation: 'Conversations',
+  Conversations: 'Conversations',
   Message: 'Messages',
   User: 'Users',
   Role: 'Users',
   Tenant: 'Tenants',
   Settings: 'Settings',
+  KnowledgeBases: 'KnowledgeBases',
+  KnowledgeBase: 'KnowledgeBases',
   all: 'Settings',
   Agent: 'Agents',
   AgentVersion: 'Agents',

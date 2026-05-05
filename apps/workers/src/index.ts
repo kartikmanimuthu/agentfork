@@ -3,6 +3,7 @@ import { createExecutor } from './executor/factory.js';
 import { createLogger } from './lib/logger.js';
 import { register as registerMessageEmbedding } from './jobs/message-embedding/register.js';
 import { register as registerConversationSummary } from './jobs/conversation-summary/register.js';
+import { register as registerDocumentIngestion } from './jobs/document-ingestion/register.js';
 import { env } from './env';
 
 const log = createLogger('workers');
@@ -21,6 +22,7 @@ async function main() {
 
   await registerMessageEmbedding(boss, executor);
   await registerConversationSummary(boss, executor);
+  await registerDocumentIngestion(boss, executor);
 
   log.info('All jobs registered. Waiting for work...');
 
