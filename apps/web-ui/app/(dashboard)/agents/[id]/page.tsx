@@ -1,0 +1,182 @@
+'use client';
+
+import { useParams, useRouter } from 'next/navigation';
+import { useAgent } from '@/hooks/use-agents';
+import { usePublishAgent } from '@/hooks/use-agent-versions';
+import { AgentCanvas } from '@/components/agents/canvas/agent-canvas';
+import { SimpleAgentForm } from '@/components/agents/config/simple-agent-form';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Bot, Settings, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
+
+export default function AgentDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const agentId = params.id;
+
+  const { data: agent, isLoading, error, refetch } = useAgent(agentId);
+  const publishMutation = usePublishAgent(agentId);
+  const [saving, setSaving] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (error || !agent) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="text-center space-y-3">
+          <p className="text-muted-foreground">Agent not found.</p>
+          <Button variant="outline" onClick={() => router.push('/agents')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Agents
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Graph agent: full-height canvas ──────────────────────────────────────
+
+  if (agent.type === 'graph') {
+    const graphConfig = agent.config as { nodes?: GraphNode[]; edges?: GraphEdge[] };
+    const initialNodes: GraphNode[] = graphConfig.nodes ?? [];
+    const initialEdges: GraphEdge[] = graphConfig.edges ?? [];
+
+    const handleSave = async (nodes: GraphNode[], edges: GraphEdge[]) => {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: { nodes, edges } }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      await fetch(`/api/agents/${agentId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: { nodes, edges } }),
+      });
+      refetch();
+    };
+
+    const handlePublish = async () => {
+      await publishMutation.mutateAsync();
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-3 px-4 py-2 border-b bg-background shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            render={<Link href="/agents" aria-label="Back to agents" />}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Bot className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{agent.name}</span>
+          <Badge variant="outline" className="capitalize text-[10px]">{agent.status}</Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 ml-auto"
+            render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+        <AgentCanvas
+          agentId={agentId}
+          agentName={agent.name}
+          initialNodes={initialNodes}
+          initialEdges={initialEdges}
+          onSave={handleSave}
+          onPublish={handlePublish}
+        />
+      </div>
+    );
+  }
+
+  // ─── Simple agent: form layout ─────────────────────────────────────────────
+
+  const simpleConfig = agent.config as unknown as SimpleAgentConfig;
+
+  const handleSimpleSave = async (config: SimpleAgentConfig) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      await fetch(`/api/agents/${agentId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      });
+      toast.success('Agent saved');
+      refetch();
+    } catch {
+      toast.error('Failed to save agent');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          render={<Link href="/agents" aria-label="Back to agents" />}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <Bot className="h-5 w-5" />
+        <h2 className="text-2xl font-bold tracking-tight">{agent.name}</h2>
+        <Badge variant="outline" className="capitalize">{agent.status}</Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 ml-auto"
+          render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {agent.description && (
+        <p className="text-muted-foreground">{agent.description}</p>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuration</CardTitle>
+          <CardDescription>Configure the model and system prompt for this agent.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SimpleAgentForm
+            config={simpleConfig}
+            onSave={handleSimpleSave}
+            saving={saving}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

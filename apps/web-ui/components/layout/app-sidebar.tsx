@@ -48,12 +48,14 @@ import {
   ChevronRight,
   ChevronsUpDown,
   FileText,
+  Bot,
 } from 'lucide-react';
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Chat', href: '/chat', icon: MessageSquare },
   { name: 'History', href: '/conversations', icon: History },
+  { name: 'Agent Studio', href: '/agents', icon: Bot },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
