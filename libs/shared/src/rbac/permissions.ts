@@ -7,6 +7,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Settings: ['create', 'read', 'update', 'delete'],
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
+    Agents: ['create', 'read', 'update', 'delete'],
     KnowledgeBases: ['create', 'read', 'update', 'delete'],
   },
   Admin: {
@@ -15,6 +16,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Settings: ['create', 'read', 'update'],
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
+    Agents: ['create', 'read', 'update', 'delete'],
     KnowledgeBases: ['create', 'read', 'update', 'delete'],
   },
   Member: {
@@ -23,6 +25,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Settings: ['read'],
     Users: ['read'],
     Tenants: ['read'],
+    Agents: ['create', 'read', 'update'],
     KnowledgeBases: ['create', 'read', 'update'],
   },
   Viewer: {
@@ -31,6 +34,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Settings: ['read'],
     Users: ['read'],
     Tenants: ['read'],
+    Agents: ['read'],
     KnowledgeBases: ['read'],
   },
 };
@@ -65,7 +69,7 @@ export function getAutoLevel(permissions: PermissionSet): RoleLevel {
   const totalActions = Object.values(permissions).flat().length;
   const maxPossible = 24; // 6 modules * 4 actions
   if (totalActions >= maxPossible) return 4;
-  if (totalActions >= 15) return 3;
-  if (totalActions >= 8) return 2;
+  if (totalActions >= 18) return 3;
+  if (totalActions >= 10) return 2;
   return 1;
 }

@@ -1,4 +1,4 @@
-export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'KnowledgeBases';
+export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -19,6 +19,9 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   KnowledgeBases: 'KnowledgeBases',
   KnowledgeBase: 'KnowledgeBases',
   all: 'Settings',
+  Agent: 'Agents',
+  AgentVersion: 'Agents',
+  AgentExecution: 'Agents',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

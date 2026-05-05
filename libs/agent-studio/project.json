@@ -1,0 +1,24 @@
+{
+  "name": "agent-studio",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/agent-studio/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/agent-studio",
+        "tsConfig": "libs/agent-studio/tsconfig.lib.json",
+        "main": "libs/agent-studio/src/index.ts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vitest run",
+        "cwd": "libs/agent-studio"
+      }
+    }
+  }
+}
