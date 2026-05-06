@@ -42,6 +42,10 @@ export async function GET(req: NextRequest) {
       configService.get<TenantLLMConfig>('llmConfig'),
     ]);
 
+    const sanitizedLlmConfig = llmConfig
+      ? { ...llmConfig, apiKey: llmConfig.apiKey ? '••••••' : undefined }
+      : null;
+
     return NextResponse.json({
       id: tenant.id,
       name: tenant.name,
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest) {
         systemAlerts: true,
         ...notifications,
       },
-      llmConfig: llmConfig ?? null,
+      llmConfig: sanitizedLlmConfig,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -108,8 +112,9 @@ export async function PUT(req: NextRequest) {
         ...existingLlmConfig,
         ...parsed.data.llmConfig,
       };
-      // If apiKey is empty or masked, keep existing
+      // If apiKey is missing, empty, or masked, keep existing
       if (
+        !parsed.data.llmConfig.apiKey ||
         parsed.data.llmConfig.apiKey === '' ||
         parsed.data.llmConfig.apiKey === '••••••'
       ) {
@@ -124,6 +129,10 @@ export async function PUT(req: NextRequest) {
       configService.get<Record<string, boolean>>('notifications'),
       configService.get<TenantLLMConfig>('llmConfig'),
     ]);
+
+    const sanitizedLlmConfig = savedLlmConfig
+      ? { ...savedLlmConfig, apiKey: savedLlmConfig.apiKey ? '••••••' : undefined }
+      : null;
 
     AuditService.logUserAction({
       eventType: 'tenant.organization.updated',
@@ -155,7 +164,7 @@ export async function PUT(req: NextRequest) {
         systemAlerts: true,
         ...savedNotifications,
       },
-      llmConfig: savedLlmConfig ?? null,
+      llmConfig: sanitizedLlmConfig,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
