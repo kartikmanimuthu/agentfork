@@ -1,7 +1,16 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getSessionTenantId, getSessionUserId, authorize, AuditService, MessageService, ConversationService, createLogger } from '@chatbot/shared';
-import { streamChat } from '@chatbot/ai';
+import {
+  getSessionTenantId,
+  getSessionUserId,
+  authorize,
+  AuditService,
+  MessageService,
+  ConversationService,
+  createLogger,
+  TenantConfigService,
+} from '@chatbot/shared';
+import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:chat');
@@ -63,7 +72,13 @@ export async function POST(req: NextRequest) {
       content: m.content,
     }));
 
+    // Resolve tenant LLM config
+    const configService = new TenantConfigService(tenantId);
+    const llmConfig = await configService.get<TenantLLMConfig>('llmConfig');
+    const provider = createLLMProvider(llmConfig);
+
     const result = streamChat({
+      provider,
       messages: coreMessages,
       model,
       onFinish: async ({ text, usage }) => {
