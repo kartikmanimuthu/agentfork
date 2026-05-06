@@ -109,7 +109,7 @@ export async function PUT(req: NextRequest) {
     if (parsed.data.llmConfig !== undefined) {
       const existingLlmConfig = await configService.get<TenantLLMConfig>('llmConfig');
       const merged: TenantLLMConfig = {
-        ...existingLlmConfig,
+        ...(existingLlmConfig ?? {}),
         ...parsed.data.llmConfig,
       };
       // If apiKey is missing, empty, or masked, keep existing
