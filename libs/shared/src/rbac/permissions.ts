@@ -10,6 +10,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Agents: ['create', 'read', 'update', 'delete'],
     KnowledgeBases: ['create', 'read', 'update', 'delete'],
     McpServers: ['create', 'read', 'update', 'delete'],
+    LlmProviders: ['create', 'read', 'update', 'delete'],
   },
   Admin: {
     Conversations: ['create', 'read', 'update', 'delete'],
@@ -20,6 +21,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Agents: ['create', 'read', 'update', 'delete'],
     KnowledgeBases: ['create', 'read', 'update', 'delete'],
     McpServers: ['create', 'read', 'update', 'delete'],
+    LlmProviders: ['create', 'read', 'update', 'delete'],
   },
   Member: {
     Conversations: ['create', 'read', 'update'],
@@ -30,6 +32,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Agents: ['create', 'read', 'update'],
     KnowledgeBases: ['create', 'read', 'update'],
     McpServers: ['create', 'read', 'update'],
+    LlmProviders: ['create', 'read', 'update'],
   },
   Viewer: {
     Conversations: ['read'],
@@ -40,6 +43,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     Agents: ['read'],
     KnowledgeBases: ['read'],
     McpServers: ['read'],
+    LlmProviders: ['read'],
   },
 };
 
@@ -71,7 +75,7 @@ export function canAssignRole(assignerRole: PredefinedRole, targetRole: Predefin
 
 export function getAutoLevel(permissions: PermissionSet): RoleLevel {
   const totalActions = Object.values(permissions).flat().length;
-  const maxPossible = 32; // 8 modules * 4 actions
+  const maxPossible = 36; // 8 modules * 4 actions
   if (totalActions >= maxPossible) return 4;
   if (totalActions >= 24) return 3;
   if (totalActions >= 14) return 2;

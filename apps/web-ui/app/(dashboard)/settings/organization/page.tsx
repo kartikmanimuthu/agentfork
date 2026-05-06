@@ -24,22 +24,12 @@ interface TenantSettings {
   notifications: {
     systemAlerts: boolean;
   };
-  llmConfig: {
-    provider: 'bedrock' | 'openai';
-    chatModel?: string;
-    baseUrl?: string;
-    apiKey?: string;
-  } | null;
 }
 
 const orgFormSchema = z.object({
   name: z.string().min(1, 'Organization name is required.'),
   timezone: z.string(),
   systemAlerts: z.boolean(),
-  llmProvider: z.enum(['bedrock', 'openai']),
-  llmChatModel: z.string().optional(),
-  llmBaseUrl: z.string().optional(),
-  llmApiKey: z.string().optional(),
 });
 
 type OrgFormValues = z.infer<typeof orgFormSchema>;
@@ -87,10 +77,6 @@ export default function OrganizationSettingsPage() {
       name: '',
       timezone: 'UTC',
       systemAlerts: true,
-      llmProvider: 'bedrock',
-      llmChatModel: '',
-      llmBaseUrl: '',
-      llmApiKey: '',
     } as OrgFormValues,
     validators: {
       onChange: orgFormSchema,
@@ -106,12 +92,6 @@ export default function OrganizationSettingsPage() {
             timezone: value.timezone,
             notifications: {
               systemAlerts: value.systemAlerts,
-            },
-            llmConfig: {
-              provider: value.llmProvider,
-              chatModel: value.llmChatModel || undefined,
-              baseUrl: value.llmBaseUrl || undefined,
-              apiKey: value.llmApiKey && value.llmApiKey !== '••••••' ? value.llmApiKey : undefined,
             },
           }),
         });
@@ -150,11 +130,6 @@ export default function OrganizationSettingsPage() {
       form.setFieldValue('name', data.name);
       form.setFieldValue('timezone', data.timezone);
       form.setFieldValue('systemAlerts', data.notifications.systemAlerts);
-      const llm = data.llmConfig;
-      form.setFieldValue('llmProvider', llm?.provider ?? 'bedrock');
-      form.setFieldValue('llmChatModel', llm?.chatModel ?? '');
-      form.setFieldValue('llmBaseUrl', llm?.baseUrl ?? '');
-      form.setFieldValue('llmApiKey', llm?.apiKey ? '••••••' : '');
     } catch {
       toast.error('Failed to load organization settings');
     } finally {
@@ -226,119 +201,6 @@ export default function OrganizationSettingsPage() {
                   <Label htmlFor="tenant-id">Tenant ID</Label>
                   <Input id="tenant-id" value={settings?.id ?? '—'} disabled />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Provider</CardTitle>
-                <CardDescription>Configure the LLM provider used for chat inference in your organization.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <form.Field
-                  name="llmProvider"
-                  children={(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor={field.name}>Provider</Label>
-                      <Select
-                        value={field.state.value}
-                        onValueChange={(value) => {
-                          field.handleChange(value as 'bedrock' | 'openai');
-                          if (value === 'bedrock') {
-                            form.setFieldValue('llmBaseUrl', '');
-                            form.setFieldValue('llmApiKey', '');
-                          }
-                        }}
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger id={field.name} className="w-full">
-                          <SelectValue placeholder="Select provider" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="bedrock">Amazon Bedrock</SelectItem>
-                          <SelectItem value="openai">OpenAI Compatible (Ollama, vLLM, etc.)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                />
-
-                <form.Subscribe
-                  selector={(state) => state.values.llmProvider}
-                  children={(provider) => (
-                    <>
-                      <form.Field
-                        name="llmChatModel"
-                        children={(field) => (
-                          <div className="space-y-2">
-                            <Label htmlFor={field.name}>Chat Model</Label>
-                            <Input
-                              id={field.name}
-                              name={field.name}
-                              value={field.state.value}
-                              onBlur={field.handleBlur}
-                              onChange={(e) => field.handleChange(e.target.value)}
-                              disabled={!canEdit}
-                              placeholder={provider === 'bedrock' ? 'anthropic.claude-sonnet-4-20250514' : 'gpt-4o'}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              {provider === 'bedrock'
-                                ? 'Bedrock model ID (e.g., anthropic.claude-sonnet-4-20250514)'
-                                : 'Model name exposed by the OpenAI-compatible endpoint'}
-                            </p>
-                          </div>
-                        )}
-                      />
-
-                      {provider === 'openai' && (
-                        <>
-                          <form.Field
-                            name="llmBaseUrl"
-                            children={(field) => (
-                              <div className="space-y-2">
-                                <Label htmlFor={field.name}>Base URL</Label>
-                                <Input
-                                  id={field.name}
-                                  name={field.name}
-                                  value={field.state.value}
-                                  onBlur={field.handleBlur}
-                                  onChange={(e) => field.handleChange(e.target.value)}
-                                  disabled={!canEdit}
-                                  placeholder="http://localhost:11434/v1"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  OpenAI-compatible API base URL (e.g., Ollama: http://localhost:11434/v1)
-                                </p>
-                              </div>
-                            )}
-                          />
-
-                          <form.Field
-                            name="llmApiKey"
-                            children={(field) => (
-                              <div className="space-y-2">
-                                <Label htmlFor={field.name}>API Key</Label>
-                                <Input
-                                  id={field.name}
-                                  name={field.name}
-                                  type="password"
-                                  value={field.state.value}
-                                  onBlur={field.handleBlur}
-                                  onChange={(e) => field.handleChange(e.target.value)}
-                                  disabled={!canEdit}
-                                  placeholder={field.state.value === '••••••' ? '••••••' : 'Optional for local endpoints'}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Leave blank to keep existing key. Not required for local endpoints like Ollama.
-                                </p>
-                              </div>
-                            )}
-                          />
-                        </>
-                      )}
-                    </>
-                  )}
-                />
               </CardContent>
             </Card>
 

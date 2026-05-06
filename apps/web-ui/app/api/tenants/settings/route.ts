@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { getPrismaClient, getSessionTenantId, authorize, TenantConfigService, AuditService } from '@chatbot/shared';
-import type { TenantLLMConfig } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -12,14 +11,6 @@ const updateSchema = z.object({
     scheduleExecutions: z.boolean().optional(),
     memberInvites: z.boolean().optional(),
     systemAlerts: z.boolean().optional(),
-  }).optional(),
-  llmConfig: z.object({
-    provider: z.enum(['bedrock', 'openai']),
-    chatModel: z.string().optional(),
-    embeddingModel: z.string().optional(),
-    embeddingDimensions: z.number().optional(),
-    baseUrl: z.string().optional(),
-    apiKey: z.string().optional(),
   }).optional(),
 });
 
@@ -36,15 +27,10 @@ export async function GET(req: NextRequest) {
     }
 
     const configService = new TenantConfigService(tenantId);
-    const [timezone, notifications, llmConfig] = await Promise.all([
+    const [timezone, notifications] = await Promise.all([
       configService.get<string>('timezone'),
       configService.get<Record<string, boolean>>('notifications'),
-      configService.get<TenantLLMConfig>('llmConfig'),
     ]);
-
-    const sanitizedLlmConfig = llmConfig
-      ? { ...llmConfig, apiKey: llmConfig.apiKey ? '••••••' : undefined }
-      : null;
 
     return NextResponse.json({
       id: tenant.id,
@@ -58,7 +44,6 @@ export async function GET(req: NextRequest) {
         systemAlerts: true,
         ...notifications,
       },
-      llmConfig: sanitizedLlmConfig,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -106,33 +91,12 @@ export async function PUT(req: NextRequest) {
     if (notifications !== undefined) {
       await configService.set('notifications', notifications, userId);
     }
-    if (parsed.data.llmConfig !== undefined) {
-      const existingLlmConfig = await configService.get<TenantLLMConfig>('llmConfig');
-      const merged: TenantLLMConfig = {
-        ...(existingLlmConfig ?? {}),
-        ...parsed.data.llmConfig,
-      };
-      // If apiKey is missing, empty, or masked, keep existing
-      if (
-        !parsed.data.llmConfig.apiKey ||
-        parsed.data.llmConfig.apiKey === '' ||
-        parsed.data.llmConfig.apiKey === '••••••'
-      ) {
-        merged.apiKey = existingLlmConfig?.apiKey;
-      }
-      await configService.set('llmConfig', merged, userId);
-    }
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    const [savedTimezone, savedNotifications, savedLlmConfig] = await Promise.all([
+    const [savedTimezone, savedNotifications] = await Promise.all([
       configService.get<string>('timezone'),
       configService.get<Record<string, boolean>>('notifications'),
-      configService.get<TenantLLMConfig>('llmConfig'),
     ]);
-
-    const sanitizedLlmConfig = savedLlmConfig
-      ? { ...savedLlmConfig, apiKey: savedLlmConfig.apiKey ? '••••••' : undefined }
-      : null;
 
     AuditService.logUserAction({
       eventType: 'tenant.organization.updated',
@@ -147,7 +111,7 @@ export async function PUT(req: NextRequest) {
       details: `Updated organization settings for ${tenantId}`,
       apiRoute: 'PUT /api/tenants/settings',
       httpMethod: 'PUT',
-      metadata: { tenantId, name, timezone, notifications, llmProvider: parsed.data.llmConfig?.provider },
+      metadata: { tenantId, name, timezone, notifications },
       tenantId,
       changeSet: { before: { name: currentName }, after: { name: tenant?.name } },
     }).catch(() => {});
@@ -164,7 +128,6 @@ export async function PUT(req: NextRequest) {
         systemAlerts: true,
         ...savedNotifications,
       },
-      llmConfig: sanitizedLlmConfig,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {

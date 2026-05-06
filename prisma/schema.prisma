@@ -29,9 +29,32 @@ model Tenant {
   playgroundSessions PlaygroundSession[]
   knowledgeBases    KnowledgeBase[]
   mcpServers        McpServer[]
+  llmProviders      LlmProvider[]
 
   @@index([status])
   @@map("tenants")
+}
+
+model LlmProvider {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  name                String
+  provider            String
+  chatModel           String?
+  embeddingModel      String?
+  embeddingDimensions Int?
+  baseUrl             String?
+  apiKey              String?
+  isDefault           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, isDefault])
+  @@unique([tenantId, name])
+  @@map("llm_providers")
 }
 
 model TenantConfig {

@@ -1,4 +1,4 @@
-export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers';
+export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -25,6 +25,8 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   PlaygroundSession: 'Agents',
   McpServer: 'McpServers',
   McpServers: 'McpServers',
+  LlmProvider: 'LlmProviders',
+  LlmProviders: 'LlmProviders',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

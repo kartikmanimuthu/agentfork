@@ -1,4 +1,4 @@
-import { getPrismaClient, conversationSummaryJobSchema, TenantConfigService } from '@chatbot/shared/workers';
+import { getPrismaClient, conversationSummaryJobSchema, TenantConfigService, LlmProviderService } from '@chatbot/shared/workers';
 import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 
@@ -30,8 +30,10 @@ export async function handleConversationSummary(data: unknown): Promise<void> {
     return;
   }
 
-  const configService = new TenantConfigService(conversation.tenantId);
-  const llmConfig = await configService.get<TenantLLMConfig>('llmConfig');
+  // Resolve tenant LLM config: new table first, then legacy tenant_configs
+  const llmProviderService = new LlmProviderService(conversation.tenantId);
+  const llmConfig = await llmProviderService.getDefaultConfig()
+    ?? await new TenantConfigService(conversation.tenantId).get<TenantLLMConfig>('llmConfig');
   const provider = createLLMProvider(llmConfig);
 
   const conversationText = messages

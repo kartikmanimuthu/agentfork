@@ -9,6 +9,7 @@ import {
   ConversationService,
   createLogger,
   TenantConfigService,
+  LlmProviderService,
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
@@ -72,9 +73,10 @@ export async function POST(req: NextRequest) {
       content: m.content,
     }));
 
-    // Resolve tenant LLM config
-    const configService = new TenantConfigService(tenantId);
-    const llmConfig = await configService.get<TenantLLMConfig>('llmConfig');
+    // Resolve tenant LLM config: new table first, then legacy tenant_configs
+    const llmProviderService = new LlmProviderService(tenantId);
+    const llmConfig = await llmProviderService.getDefaultConfig()
+      ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
     const provider = createLLMProvider(llmConfig);
 
     const result = streamChat({
