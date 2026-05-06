@@ -399,4 +399,3 @@ model DocumentChunk {
   @@index([documentId, chunkIndex])
   @@map("document_chunks")
 }
-}
