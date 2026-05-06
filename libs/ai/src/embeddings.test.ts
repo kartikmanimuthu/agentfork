@@ -1,58 +1,31 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { generateEmbedding, generateEmbeddings } from './embeddings';
+import type { LLMProvider } from './provider';
 
-const { mockEmbed, mockEmbedMany } = vi.hoisted(() => ({
-  mockEmbed: vi.fn(),
-  mockEmbedMany: vi.fn(),
-}));
-
-vi.mock('ai', () => ({
-  embed: mockEmbed,
-  embedMany: mockEmbedMany,
-}));
-
-vi.mock('./bedrock-client', () => {
-  const provider = (model: string) => ({ modelId: model });
-  provider.textEmbeddingModel = (model: string) => ({ modelId: model, type: 'embedding' });
-  return {
-    getBedrockProvider: vi.fn(() => provider),
-    DEFAULT_MODEL: 'anthropic.claude-sonnet-4-20250514',
-  };
+const createMockProvider = (): LLMProvider => ({
+  name: 'mock',
+  chatModel: 'mock-model',
+  embeddingModel: 'mock-embedding',
+  embeddingDimensions: 1024,
+  streamChat: vi.fn(),
+  embed: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+  embedBatch: vi.fn().mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]),
 });
 
-import { generateEmbedding, generateEmbeddings } from './embeddings';
-
 describe('generateEmbedding', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('returns embedding vector for a single text', async () => {
-    mockEmbed.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] });
-    const result = await generateEmbedding('hello world');
+  it('delegates to provider.embed', async () => {
+    const provider = createMockProvider();
+    const result = await generateEmbedding('hello world', provider);
+    expect(provider.embed).toHaveBeenCalledWith('hello world');
     expect(result).toEqual([0.1, 0.2, 0.3]);
-    expect(mockEmbed).toHaveBeenCalledWith({
-      model: { modelId: 'amazon.titan-embed-text-v2:0', type: 'embedding' },
-      value: 'hello world',
-    });
   });
 });
 
 describe('generateEmbeddings', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('returns embedding vectors for multiple texts', async () => {
-    mockEmbedMany.mockResolvedValue({
-      embeddings: [[0.1, 0.2], [0.3, 0.4]],
-    });
-    const result = await generateEmbeddings(['hello', 'world']);
-    expect(result).toEqual([[0.1, 0.2], [0.3, 0.4]]);
-    expect(mockEmbedMany).toHaveBeenCalledWith({
-      model: { modelId: 'amazon.titan-embed-text-v2:0', type: 'embedding' },
-      values: ['hello', 'world'],
-    });
-  });
-
-  it('handles empty array', async () => {
-    mockEmbedMany.mockResolvedValue({ embeddings: [] });
-    const result = await generateEmbeddings([]);
-    expect(result).toEqual([]);
+  it('delegates to provider.embedBatch', async () => {
+    const provider = createMockProvider();
+    const result = await generateEmbeddings(['hello', 'world'], provider);
+    expect(provider.embedBatch).toHaveBeenCalledWith(['hello', 'world']);
+    expect(result).toEqual([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
   });
 });

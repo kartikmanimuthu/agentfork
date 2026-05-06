@@ -9,11 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Settings, ArrowLeft } from 'lucide-react';
+import { Bot, Settings, ArrowLeft, Play } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
 
 export default function AgentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -91,6 +93,15 @@ export default function AgentDetailPage() {
           <Badge variant="outline" className="capitalize text-[10px]">{agent.status}</Badge>
           <Button
             variant="ghost"
+            size="sm"
+            className="ml-auto"
+            render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Playground
+          </Button>
+          <Button
+            variant="ghost"
             size="icon"
             className="h-7 w-7 ml-auto"
             nativeButton={false}
@@ -155,6 +166,15 @@ export default function AgentDetailPage() {
         <Badge variant="outline" className="capitalize">{agent.status}</Badge>
         <Button
           variant="ghost"
+          size="sm"
+          className="ml-auto"
+          render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
+        >
+          <Play className="h-4 w-4 mr-1" />
+          Playground
+        </Button>
+        <Button
+          variant="ghost"
           size="icon"
           className="h-8 w-8 ml-auto"
           nativeButton={false}
@@ -168,19 +188,46 @@ export default function AgentDetailPage() {
         <p className="text-muted-foreground">{agent.description}</p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-          <CardDescription>Configure the model and system prompt for this agent.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SimpleAgentForm
-            config={simpleConfig}
-            onSave={handleSimpleSave}
-            saving={saving}
-          />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="configuration" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
+          <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
+          <TabsTrigger value="versions">Versions</TabsTrigger>
+        </TabsList>
+        <TabsContent value="configuration">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuration</CardTitle>
+              <CardDescription>Configure the model and system prompt for this agent.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SimpleAgentForm
+                config={simpleConfig}
+                onSave={handleSimpleSave}
+                saving={saving}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="knowledge-bases">
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Knowledge base integration coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="mcp-servers">
+          <McpServersTab agentId={agentId} />
+        </TabsContent>
+        <TabsContent value="versions">
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Version history coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

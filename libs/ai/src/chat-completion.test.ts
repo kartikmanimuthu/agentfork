@@ -1,72 +1,66 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-const { mockStreamText } = vi.hoisted(() => ({
-  mockStreamText: vi.fn(() => ({ textStream: 'mock-stream' })),
-}));
-
-vi.mock('ai', () => ({
-  streamText: mockStreamText,
-}));
-
-vi.mock('./bedrock-client', () => {
-  const provider = (model: string) => ({ modelId: model });
-  provider.textEmbeddingModel = (model: string) => ({ modelId: model });
-  return {
-    getBedrockProvider: vi.fn(() => provider),
-    DEFAULT_MODEL: 'anthropic.claude-sonnet-4-20250514',
-  };
-});
+import { describe, it, expect, vi } from 'vitest';
 
 import { streamChat, type StreamChatOptions } from './chat-completion';
+import type { LLMProvider, BaseStreamChatOptions } from './provider';
+
+function createFakeProvider(): LLMProvider {
+  return {
+    name: 'bedrock',
+    chatModel: 'anthropic.claude-sonnet-4-20250514',
+    embeddingModel: 'amazon.titan-embed-text-v2:0',
+    embeddingDimensions: 1024,
+    streamChat: vi.fn((options: BaseStreamChatOptions) => {
+      return {
+        toUIMessageStreamResponse: () => ({ body: 'mock-body' }),
+      } as any;
+    }),
+    embed: vi.fn(),
+    embedBatch: vi.fn(),
+  };
+}
 
 describe('streamChat', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('calls streamText with default options', () => {
+  it('delegates to provider.streamChat with all options', () => {
+    const provider = createFakeProvider();
+    const onFinish = vi.fn();
     const options: StreamChatOptions = {
+      provider,
       messages: [{ role: 'user', content: 'hello' }] as any,
+      model: 'custom-model',
+      system: 'You are helpful.',
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+      onFinish,
     };
+
     streamChat(options);
-    expect(mockStreamText).toHaveBeenCalledWith(
+
+    expect(provider.streamChat).toHaveBeenCalledWith(
       expect.objectContaining({
         messages: options.messages,
-        temperature: 0.7,
-        maxOutputTokens: 4096,
+        model: 'custom-model',
+        system: 'You are helpful.',
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+        onFinish,
       }),
     );
   });
 
-  it('uses DEFAULT_MODEL when no model specified', () => {
-    streamChat({ messages: [] as any });
-    const call = mockStreamText.mock.calls[0][0];
-    expect(call.model).toEqual({ modelId: 'anthropic.claude-sonnet-4-20250514' });
+  it('returns the result from provider.streamChat', () => {
+    const provider = createFakeProvider();
+    const result = streamChat({ provider, messages: [] as any });
+    expect(result).toEqual(
+      expect.objectContaining({
+        toUIMessageStreamResponse: expect.any(Function),
+      }),
+    );
   });
 
-  it('uses custom model when specified', () => {
-    streamChat({ messages: [] as any, model: 'anthropic.claude-haiku-4-5-20251001' });
-    const call = mockStreamText.mock.calls[0][0];
-    expect(call.model).toEqual({ modelId: 'anthropic.claude-haiku-4-5-20251001' });
-  });
-
-  it('passes system prompt', () => {
-    streamChat({ messages: [] as any, system: 'You are helpful.' });
-    const call = mockStreamText.mock.calls[0][0];
-    expect(call.system).toBe('You are helpful.');
-  });
-
-  it('passes custom temperature and maxOutputTokens', () => {
-    streamChat({ messages: [] as any, temperature: 0.2, maxOutputTokens: 1024 });
-    const call = mockStreamText.mock.calls[0][0];
-    expect(call.temperature).toBe(0.2);
-    expect(call.maxOutputTokens).toBe(1024);
-  });
-
-  it('passes onFinish callback', () => {
-    const onFinish = vi.fn();
-    streamChat({ messages: [] as any, onFinish });
-    const call = mockStreamText.mock.calls[0][0];
-    expect(call.onFinish).toBe(onFinish);
+  it('does not pass provider to provider.streamChat', () => {
+    const provider = createFakeProvider();
+    streamChat({ provider, messages: [] as any });
+    const received = vi.mocked(provider.streamChat).mock.calls[0][0];
+    expect(received).not.toHaveProperty('provider');
   });
 });

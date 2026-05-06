@@ -44,6 +44,7 @@ export { ConversationService } from './services/conversation-service';
 export { MessageService } from './services/message-service';
 export { TenantConfigService } from './services/tenant-config-service';
 export { InvitationService } from './services/invitation-service';
+export { LlmProviderService } from './services/llm-provider-service';
 export { getEmailService, setEmailService } from './services/email-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';

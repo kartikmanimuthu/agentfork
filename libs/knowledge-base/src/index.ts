@@ -10,4 +10,5 @@ export * from './reranking/index';
 export * from './retrieval/index';
 export * from './services/index';
 export * from './umap/index';
+export * from './web-crawler/index';
 export { kbEnv } from './env';

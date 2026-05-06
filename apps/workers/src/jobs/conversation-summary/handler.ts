@@ -1,5 +1,5 @@
-import { getPrismaClient, conversationSummaryJobSchema } from '@chatbot/shared/workers';
-import { streamChat } from '@chatbot/ai';
+import { getPrismaClient, conversationSummaryJobSchema, TenantConfigService, LlmProviderService } from '@chatbot/shared/workers';
+import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('conversation-summary');
@@ -21,11 +21,27 @@ export async function handleConversationSummary(data: unknown): Promise<void> {
     return;
   }
 
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: { tenantId: true },
+  });
+  if (!conversation) {
+    log.warn('Conversation not found', { conversationId });
+    return;
+  }
+
+  // Resolve tenant LLM config: new table first, then legacy tenant_configs
+  const llmProviderService = new LlmProviderService(conversation.tenantId);
+  const llmConfig = await llmProviderService.getDefaultConfig()
+    ?? await new TenantConfigService(conversation.tenantId).get<TenantLLMConfig>('llmConfig');
+  const provider = createLLMProvider(llmConfig);
+
   const conversationText = messages
     .map((m) => `${m.role}: ${m.content}`)
     .join('\n');
 
   const result = streamChat({
+    provider,
     messages: [
       {
         role: 'user',

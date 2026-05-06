@@ -9,6 +9,9 @@ const permissionSetSchema = z.object({
   Users: actionArraySchema,
   Tenants: actionArraySchema,
   Agents: actionArraySchema,
+  KnowledgeBases: actionArraySchema,
+  McpServers: actionArraySchema,
+  LlmProviders: actionArraySchema,
 }).refine(
   (p) => Object.values(p).flat().length > 0,
   { message: 'At least one permission is required' }

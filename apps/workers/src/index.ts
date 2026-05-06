@@ -4,6 +4,8 @@ import { createLogger } from './lib/logger.js';
 import { register as registerMessageEmbedding } from './jobs/message-embedding/register.js';
 import { register as registerConversationSummary } from './jobs/conversation-summary/register.js';
 import { register as registerDocumentIngestion } from './jobs/document-ingestion/register.js';
+import { register as registerWebCrawl } from './jobs/web-crawl/register.js';
+import { registerSchedules } from './jobs/web-crawl/scheduler.js';
 import { env } from './env';
 
 const log = createLogger('workers');
@@ -23,8 +25,10 @@ async function main() {
   await registerMessageEmbedding(boss, executor);
   await registerConversationSummary(boss, executor);
   await registerDocumentIngestion(boss, executor);
+  await registerWebCrawl(boss, executor);
 
-  log.info('All jobs registered. Waiting for work...');
+  await registerSchedules(boss);
+  log.info('Schedules registered. Waiting for work...');
 
   const shutdown = async (signal: string) => {
     log.info(`Received ${signal}, shutting down...`);

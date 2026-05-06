@@ -37,3 +37,24 @@ export { AgentService } from './services/agent-service';
 export type { AgentDb } from './services/agent-service';
 export { AgentVersionService } from './services/agent-version-service';
 export type { AgentVersionDb } from './services/agent-version-service';
+
+// MCP Server types
+export type {
+  McpServer,
+  McpServerTransport,
+  McpServerStatus,
+  McpServerConfig,
+  McpServerVersion,
+  CreateMcpServerInput,
+  UpdateMcpServerInput,
+  McpServerFilters,
+  SseTransportConfig,
+  StdioTransportConfig,
+  HttpBridgeTransportConfig,
+} from './types/mcp-server';
+
+// MCP Server services
+export { McpServerService } from './services/mcp-server-service';
+export type { McpServerDb } from './services/mcp-server-service';
+export { McpServerVersionService } from './services/mcp-server-version-service';
+export type { McpServerVersionDb } from './services/mcp-server-version-service';
