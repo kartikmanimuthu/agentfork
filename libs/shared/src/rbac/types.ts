@@ -23,6 +23,8 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   AgentVersion: 'Agents',
   AgentExecution: 'Agents',
   PlaygroundSession: 'Agents',
+  McpServer: 'McpServers',
+  McpServers: 'McpServers',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

@@ -14,6 +14,8 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
 
 export default function AgentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -182,19 +184,46 @@ export default function AgentDetailPage() {
         <p className="text-muted-foreground">{agent.description}</p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-          <CardDescription>Configure the model and system prompt for this agent.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SimpleAgentForm
-            config={simpleConfig}
-            onSave={handleSimpleSave}
-            saving={saving}
-          />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="configuration" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
+          <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
+          <TabsTrigger value="versions">Versions</TabsTrigger>
+        </TabsList>
+        <TabsContent value="configuration">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuration</CardTitle>
+              <CardDescription>Configure the model and system prompt for this agent.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SimpleAgentForm
+                config={simpleConfig}
+                onSave={handleSimpleSave}
+                saving={saving}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="knowledge-bases">
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Knowledge base integration coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="mcp-servers">
+          <McpServersTab agentId={agentId} />
+        </TabsContent>
+        <TabsContent value="versions">
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Version history coming soon.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
