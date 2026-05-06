@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server';
-import { getSessionTenantId, getSessionUserId, authorize, getPrismaClient, createLogger } from '@chatbot/shared';
-import { streamChat } from '@chatbot/ai';
+import {
+  getSessionTenantId,
+  getSessionUserId,
+  authorize,
+  getPrismaClient,
+  createLogger,
+  TenantConfigService,
+} from '@chatbot/shared';
+import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
@@ -13,6 +20,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id } = await params;
+
+    const configService = new TenantConfigService(tenantId);
+    const llmConfig = await configService.get<TenantLLMConfig>('llmConfig');
+    const provider = createLLMProvider(llmConfig);
+
     const db = getPrismaClient();
 
     const body = await req.json();
@@ -61,6 +73,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }));
 
       const result = streamChat({
+        provider,
         messages: coreMessages,
         model: effectiveModel,
         system: effectiveSystem,
