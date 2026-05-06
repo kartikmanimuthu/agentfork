@@ -56,4 +56,11 @@ describe('streamChat', () => {
       }),
     );
   });
+
+  it('does not pass provider to provider.streamChat', () => {
+    const provider = createFakeProvider();
+    streamChat({ provider, messages: [] as any });
+    const received = vi.mocked(provider.streamChat).mock.calls[0][0];
+    expect(received).not.toHaveProperty('provider');
+  });
 });
