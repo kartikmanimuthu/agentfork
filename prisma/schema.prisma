@@ -18,15 +18,17 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  configs         TenantConfig[]
-  conversations   Conversation[]
-  auditLogs       AuditLog[]
-  customRoles     CustomRole[]
-  invitations     Invitation[]
-  userRoles       UserTenantRole[]
-  agents          Agent[]
-  agentExecutions AgentExecution[]
-  knowledgeBases  KnowledgeBase[]
+  configs           TenantConfig[]
+  conversations     Conversation[]
+  auditLogs         AuditLog[]
+  customRoles       CustomRole[]
+  invitations       Invitation[]
+  userRoles         UserTenantRole[]
+  agents            Agent[]
+  agentExecutions   AgentExecution[]
+  playgroundSessions PlaygroundSession[]
+  knowledgeBases    KnowledgeBase[]
+  mcpServers        McpServer[]
 
   @@index([status])
   @@map("tenants")
@@ -258,9 +260,11 @@ model Agent {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  versions   AgentVersion[]
-  executions AgentExecution[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions           AgentVersion[]
+  executions         AgentExecution[]
+  playgroundSessions PlaygroundSession[]
+  mcpServers         AgentMcpServer[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -278,8 +282,9 @@ model AgentVersion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agent      Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  executions AgentExecution[]
+  agent              Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  executions         AgentExecution[]
+  playgroundSessions PlaygroundSession[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -312,6 +317,82 @@ model AgentExecution {
   @@index([tenantId, userId])
   @@index([tenantId, status])
   @@map("agent_executions")
+}
+
+model PlaygroundSession {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  agentId         String
+  agentVersionId  String?
+  name            String
+  messages        Json
+  configOverrides Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  agent        Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion? @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([agentId])
+  @@index([agentId, agentVersionId])
+  @@map("playground_sessions")
+}
+
+model McpServer {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  transport   String   // 'sse' | 'stdio' | 'http_bridge'
+  config      Json
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions McpServerVersion[]
+  agents   AgentMcpServer[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("mcp_servers")
+}
+
+model McpServerVersion {
+  id            String   @id @default(cuid())
+  mcpServerId   String
+  version       Int
+  config        Json
+  changeNotes   String?
+  createdBy     String   @default("system")
+  createdAt     DateTime @default(now())
+
+  mcpServer McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+
+  @@unique([mcpServerId, version])
+  @@index([mcpServerId])
+  @@index([mcpServerId, createdAt])
+  @@map("mcp_server_versions")
+}
+
+model AgentMcpServer {
+  id          String   @id @default(cuid())
+  agentId     String
+  mcpServerId String
+  createdAt   DateTime @default(now())
+
+  agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  mcpServer McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, mcpServerId])
+  @@index([agentId])
+  @@index([mcpServerId])
+  @@map("agent_mcp_servers")
 }
 
 model KnowledgeBase {
@@ -398,5 +479,4 @@ model DocumentChunk {
   @@index([documentId])
   @@index([documentId, chunkIndex])
   @@map("document_chunks")
-}
 }
