@@ -3,4 +3,5 @@
 
 export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { createLogger } from './logging/logger';
+export { TenantConfigService } from './services/tenant-config-service';
 export { messageEmbeddingJobSchema, conversationSummaryJobSchema } from './validation/schemas/workers';
