@@ -18,5 +18,5 @@ export function createLLMProvider(config?: TenantLLMConfig | null): LLMProvider 
 }
 
 export function getDefaultProvider(): LLMProvider {
-  return new BedrockLLMProvider(getDefaultLLMConfig('bedrock'));
+  return createLLMProvider();
 }

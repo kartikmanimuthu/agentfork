@@ -52,6 +52,7 @@ import {
   Database,
   Plus,
   FolderOpen,
+  Server,
 } from 'lucide-react';
 
 const mainNav = [
