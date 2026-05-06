@@ -111,7 +111,7 @@ export default function OrganizationSettingsPage() {
               provider: value.llmProvider,
               chatModel: value.llmChatModel || undefined,
               baseUrl: value.llmBaseUrl || undefined,
-              apiKey: value.llmApiKey || undefined,
+              apiKey: value.llmApiKey && value.llmApiKey !== '••••••' ? value.llmApiKey : undefined,
             },
           }),
         });
