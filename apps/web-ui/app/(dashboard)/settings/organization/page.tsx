@@ -242,7 +242,13 @@ export default function OrganizationSettingsPage() {
                       <Label htmlFor={field.name}>Provider</Label>
                       <Select
                         value={field.state.value}
-                        onValueChange={(value) => field.handleChange(value as 'bedrock' | 'openai')}
+                        onValueChange={(value) => {
+                          field.handleChange(value as 'bedrock' | 'openai');
+                          if (value === 'bedrock') {
+                            form.setFieldValue('llmBaseUrl', '');
+                            form.setFieldValue('llmApiKey', '');
+                          }
+                        }}
                         disabled={!canEdit}
                       >
                         <SelectTrigger id={field.name} className="w-full">
