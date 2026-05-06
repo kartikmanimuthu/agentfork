@@ -83,6 +83,7 @@ export default function AgentDetailPage() {
             variant="ghost"
             size="icon"
             className="h-7 w-7"
+            nativeButton={false}
             render={<Link href="/agents" aria-label="Back to agents" />}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -102,7 +103,8 @@ export default function AgentDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 ml-auto"
+            nativeButton={false}
             render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
           >
             <Settings className="h-4 w-4" />
@@ -154,6 +156,7 @@ export default function AgentDetailPage() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          nativeButton={false}
           render={<Link href="/agents" aria-label="Back to agents" />}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -173,7 +176,8 @@ export default function AgentDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 ml-auto"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
         >
           <Settings className="h-4 w-4" />
