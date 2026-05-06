@@ -28,6 +28,9 @@
       "@chatbot/shared/client": [
         "../../libs/shared/src/client.ts"
       ],
+      "@chatbot/shared/workers": [
+        "../../libs/shared/src/workers.ts"
+      ],
       "@chatbot/ai": [
         "../../libs/ai/src/index.ts"
       ],
