@@ -1,4 +1,4 @@
-import { getPrismaClient } from '@chatbot/shared';
+import { getPrismaClient } from '@chatbot/shared/workers';
 import {
   createDocumentChunkRepository,
   createKnowledgeBaseRepository,
