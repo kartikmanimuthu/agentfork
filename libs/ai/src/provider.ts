@@ -1,6 +1,7 @@
 import type { ModelMessage, LanguageModelUsage } from 'ai';
+import type { ProviderName } from './types';
 
-export interface StreamChatOptions {
+export interface BaseStreamChatOptions {
   messages: ModelMessage[];
   model?: string;
   system?: string;
@@ -10,12 +11,12 @@ export interface StreamChatOptions {
 }
 
 export interface LLMProvider {
-  readonly name: string;
+  readonly name: ProviderName;
   readonly chatModel: string;
   readonly embeddingModel: string;
   readonly embeddingDimensions: number;
 
-  streamChat(options: StreamChatOptions): ReturnType<typeof import('ai').streamText>;
+  streamChat(options: BaseStreamChatOptions): ReturnType<typeof import('ai').streamText>;
   embed(text: string): Promise<number[]>;
   embedBatch(texts: string[]): Promise<number[][]>;
 }

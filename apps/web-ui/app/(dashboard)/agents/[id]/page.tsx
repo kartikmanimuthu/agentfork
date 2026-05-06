@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Settings, ArrowLeft } from 'lucide-react';
+import { Bot, Settings, ArrowLeft, Play } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -90,8 +90,17 @@ export default function AgentDetailPage() {
           <Badge variant="outline" className="capitalize text-[10px]">{agent.status}</Badge>
           <Button
             variant="ghost"
+            size="sm"
+            className="ml-auto"
+            render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Playground
+          </Button>
+          <Button
+            variant="ghost"
             size="icon"
-            className="h-7 w-7 ml-auto"
+            className="h-7 w-7"
             render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
           >
             <Settings className="h-4 w-4" />
@@ -152,8 +161,17 @@ export default function AgentDetailPage() {
         <Badge variant="outline" className="capitalize">{agent.status}</Badge>
         <Button
           variant="ghost"
+          size="sm"
+          className="ml-auto"
+          render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
+        >
+          <Play className="h-4 w-4 mr-1" />
+          Playground
+        </Button>
+        <Button
+          variant="ghost"
           size="icon"
-          className="h-8 w-8 ml-auto"
+          className="h-8 w-8"
           render={<Link href={`/agents/${agentId}/settings`} aria-label="Agent settings" />}
         >
           <Settings className="h-4 w-4" />

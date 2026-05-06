@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
   Database, FileText, Settings, FlaskConical, BarChart3,
-  ArrowLeft, RefreshCw, Layers
+  ArrowLeft, RefreshCw, Layers, Link2
 } from 'lucide-react';
 
 interface KbStats {
@@ -52,6 +52,7 @@ export default function KnowledgeBaseDetailPage() {
 
   const navItems = [
     { href: `/knowledge-bases/${id}/documents`, icon: FileText, label: 'Documents', desc: 'Manage uploaded documents' },
+    { href: `/knowledge-bases/${id}/sources`, icon: Link2, label: 'Sources', desc: 'Manage data sources and crawling' },
     { href: `/knowledge-bases/${id}/test`, icon: FlaskConical, label: 'Test Retrieval', desc: 'Query and tune search settings' },
     { href: `/knowledge-bases/${id}/visualize`, icon: BarChart3, label: 'Visualize', desc: 'UMAP embedding projection' },
     { href: `/knowledge-bases/${id}/settings`, icon: Settings, label: 'Settings', desc: 'Edit configuration' },

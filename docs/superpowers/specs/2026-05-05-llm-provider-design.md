@@ -8,11 +8,12 @@
 
 ## 1. Goals
 
-- Allow each tenant to choose their LLM provider for **chat inference** and **message embeddings**.
+- Allow each tenant to choose their LLM provider for **chat inference**.
 - Default to **Amazon Bedrock** (zero breaking changes for existing tenants).
 - Support **OpenAI-compatible endpoints** (Ollama, vLLM, OpenRouter, etc.) via a configurable `baseURL`.
 - Keep the change surface minimal: reuse existing tenant-config (`TenantConfig`) and AI SDK dependencies.
 - Do **not** touch the knowledge-base embedding subsystem; it already has its own per-KB provider abstraction.
+- Do **not** make message (chat history) embeddings tenant-configurable in this iteration; they remain on the global Bedrock default to avoid a Prisma migration for variable vector dimensions.
 
 ## 2. Non-Goals
 
@@ -139,7 +140,7 @@ Optional env vars for global fallback:
 | `apps/web-ui/app/api/tenants/settings/route.ts` | Add `llmConfig` to GET/PUT payload |
 | `apps/web-ui/app/(dashboard)/settings/organization/page.tsx` | Add LLM provider selector UI |
 | `apps/workers/src/jobs/conversation-summary/handler.ts` | Use factory + provider |
-| `apps/workers/src/jobs/message-embedding/handler.ts` | Use factory + provider (for chat embeddings; currently still 1024-dim fallback) |
+| `apps/workers/src/jobs/message-embedding/handler.ts` | No change — remains on global Bedrock default to avoid vector dimension migration |
 
 ### Unchanged Files
 

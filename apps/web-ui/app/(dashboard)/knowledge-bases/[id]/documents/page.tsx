@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { toast } from 'sonner';
-import { FileText, ArrowLeft, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { FileText, ArrowLeft, Upload, Trash2, RefreshCw, Globe } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -172,7 +172,7 @@ export default function KnowledgeBaseDocumentsPage() {
               size="sm"
               onClick={() => setSelectedSource(s.id)}
             >
-              {s.type} source
+              {s.type} source {s.type === 'URL' && <Globe className="h-3 w-3 inline" />}
             </Button>
           ))}
         </div>

@@ -22,6 +22,7 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   Agent: 'Agents',
   AgentVersion: 'Agents',
   AgentExecution: 'Agents',
+  PlaygroundSession: 'Agents',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {
