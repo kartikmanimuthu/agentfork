@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { messages, sessionId, systemPrompt, temperature, maxTokens, stream = true, noCache = false } = body;
+    const { messages, sessionId, systemPrompt, temperature, maxTokens, stream = true, noCache = false, alias, versionId: requestedVersionId } = body;
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id: agentId, tenantId } });
@@ -65,11 +65,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch published version
-    const version = await db.agentVersion.findFirst({
-      where: { agentId, status: 'published' },
-      orderBy: { version: 'desc' },
-    });
+    // Resolve version: explicit versionId > alias > default alias > published version
+    let version: { id: string; config: unknown; status: string } | null = null;
+
+    if (requestedVersionId) {
+      version = await db.agentVersion.findFirst({
+        where: { id: requestedVersionId, agentId },
+      }) as typeof version;
+    }
+
+    if (!version && alias) {
+      const aliasService = new (await import('@chatbot/agent-studio')).AgentAliasService(tenantId, db as any);
+      try {
+        const resolved = await aliasService.resolveAlias(agentId, alias);
+        version = { id: resolved.versionId, config: resolved.config, status: 'published' };
+      } catch {
+        // alias not found — fall through
+      }
+    }
+
+    if (!version) {
+      // Try default alias
+      const defaultAlias = await db.agentAlias.findFirst({
+        where: { agentId, isDefault: true },
+        include: { version: true },
+      });
+      if (defaultAlias) {
+        version = defaultAlias.version as typeof version;
+      }
+    }
+
+    if (!version) {
+      // Fallback: latest published
+      version = await db.agentVersion.findFirst({
+        where: { agentId, status: 'published' },
+        orderBy: { version: 'desc' },
+      }) as typeof version;
+    }
 
     if (!version) {
       return new Response(
@@ -133,7 +165,6 @@ export async function POST(req: NextRequest) {
     // ─── Simple Agent Execution ───────────────────────────────────────────
     if (agent.type === 'simple') {
       const simpleConfig = config as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number };
-      const effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       const effectiveModel = simpleConfig.model ?? undefined;
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
       const effectiveMaxTokens = maxTokens ?? simpleConfig.maxTokens ?? 4096;
@@ -157,6 +188,14 @@ export async function POST(req: NextRequest) {
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content ?? '',
       }));
+
+      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
+
+      let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
+      if (kbContext) {
+        effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
+      }
 
       // Cache check
       const cacheKey = cacheService.generateCacheKey({
@@ -380,4 +419,42 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function buildKbContext(
+  agentId: string,
+  tenantId: string,
+  query: string,
+  db: any
+): Promise<string> {
+  const attachments = await db.agentKnowledgeBase.findMany({
+    where: { agentId },
+    include: { knowledgeBase: true },
+  });
+
+  if (!attachments || attachments.length === 0) return '';
+
+  const { RetrievalService } = await import('@chatbot/knowledge-base');
+  const retrieval = new RetrievalService(tenantId);
+
+  const contexts: string[] = [];
+  for (const att of attachments) {
+    const kb = att.knowledgeBase;
+    if (kb.status !== 'active') continue;
+
+    try {
+      const results = await retrieval.query(query, {
+        knowledgeBaseId: kb.id,
+        topK: 5,
+      });
+
+      if (results.length > 0) {
+        contexts.push(`--- From ${kb.name} ---\n${results.map((r: any) => r.content).join('\n\n')}`);
+      }
+    } catch {
+      // Skip KBs that fail retrieval
+    }
+  }
+
+  return contexts.join('\n\n');
 }

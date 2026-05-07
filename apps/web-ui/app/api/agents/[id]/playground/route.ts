@@ -32,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const body = await req.json();
     const { messages, systemPrompt, model, temperature, agentVersionId } = body;
+    const { alias } = body;
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id, tenantId } });
@@ -39,22 +40,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return new Response(JSON.stringify({ error: 'Agent not found' }), { status: 404 });
     }
 
-    // Determine config: use version override if provided, else agent config
-    let config: Record<string, unknown> = {};
-    if (agentVersionId) {
-      const version = await db.agentVersion.findFirst({ where: { id: agentVersionId, agentId: id } });
+    // Resolve version
+    let resolvedConfig: Record<string, unknown> = {};
+    let resolvedVersionId: string | null = agentVersionId ?? null;
+
+    if (resolvedVersionId) {
+      const version = await db.agentVersion.findFirst({ where: { id: resolvedVersionId, agentId: id } });
       if (version) {
-        config = (version.config as Record<string, unknown>) ?? {};
+        resolvedConfig = (version.config as Record<string, unknown>) ?? {};
+      }
+    } else if (alias) {
+      const aliasService = new (await import('@chatbot/agent-studio')).AgentAliasService(tenantId, db as any);
+      try {
+        const resolved = await aliasService.resolveAlias(id, alias);
+        resolvedConfig = resolved.config;
+        resolvedVersionId = resolved.versionId;
+      } catch {
+        // fall through to agent config
       }
     } else {
-      config = (agent.config as Record<string, unknown>) ?? {};
+      // Try default alias
+      const defaultAlias = await db.agentAlias.findFirst({
+        where: { agentId: id, isDefault: true },
+        include: { version: true },
+      });
+      if (defaultAlias) {
+        resolvedConfig = (defaultAlias.version.config as Record<string, unknown>) ?? {};
+        resolvedVersionId = defaultAlias.versionId;
+      }
+    }
+
+    if (Object.keys(resolvedConfig).length === 0) {
+      resolvedConfig = (agent.config as Record<string, unknown>) ?? {};
     }
 
     const startedAt = new Date();
     const execution = await db.agentExecution.create({
       data: {
         agentId: id,
-        agentVersionId: agentVersionId ?? null,
+        agentVersionId: resolvedVersionId ?? null,
         tenantId,
         userId,
         status: 'running',
@@ -65,8 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Simple agent execution
     if (agent.type === 'simple') {
-      const simpleConfig = config as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number; tools?: string[] };
-      const effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
+      const simpleConfig = resolvedConfig as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number; tools?: string[] };
       const effectiveModel = model ?? simpleConfig.model ?? undefined;
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
 
@@ -74,6 +97,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content ?? m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') ?? '',
       }));
+
+      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const kbContext = await buildKbContext(id, tenantId, userQuery, db);
+
+      let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
+      if (kbContext) {
+        effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
+      }
 
       const result = streamChat({
         provider,
@@ -104,7 +135,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Graph agent execution (basic fallback for v1)
     if (agent.type === 'graph') {
-      const graphConfig = config as { nodes?: Array<{ id: string; type: string; label: string }>; edges?: Array<{ id: string; source: string; target: string }> };
+      const graphConfig = resolvedConfig as { nodes?: Array<{ id: string; type: string; label: string }>; edges?: Array<{ id: string; source: string; target: string }> };
       const nodes = graphConfig.nodes ?? [];
       const edges = graphConfig.edges ?? [];
 
@@ -150,4 +181,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     logger.error({ error }, 'Playground execution error');
     return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
+}
+
+async function buildKbContext(
+  agentId: string,
+  tenantId: string,
+  query: string,
+  db: any
+): Promise<string> {
+  const attachments = await db.agentKnowledgeBase.findMany({
+    where: { agentId },
+    include: { knowledgeBase: true },
+  });
+
+  if (!attachments || attachments.length === 0) return '';
+
+  const { RetrievalService } = await import('@chatbot/knowledge-base');
+  const retrieval = new RetrievalService(tenantId);
+
+  const contexts: string[] = [];
+  for (const att of attachments) {
+    const kb = att.knowledgeBase;
+    if (kb.status !== 'active') continue;
+
+    try {
+      const results = await retrieval.query(query, {
+        knowledgeBaseId: kb.id,
+        topK: 5,
+      });
+
+      if (results.length > 0) {
+        contexts.push(`--- From ${kb.name} ---\n${results.map((r: any) => r.content).join('\n\n')}`);
+      }
+    } catch {
+      // Skip KBs that fail retrieval
+    }
+  }
+
+  return contexts.join('\n\n');
 }
