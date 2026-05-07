@@ -19,6 +19,7 @@ interface UsePlaygroundOptions {
   agentId: string;
   agentType: 'simple' | 'graph';
   versionId?: string;
+  alias?: string;
   initialMessages?: PlaygroundMessage[];
   onError?: (error: Error) => void;
 }
@@ -27,6 +28,7 @@ export function usePlayground({
   agentId,
   agentType,
   versionId,
+  alias,
   initialMessages = [],
   onError,
 }: UsePlaygroundOptions) {
@@ -47,12 +49,13 @@ export function usePlayground({
         api: `/api/agents/${agentId}/playground`,
         body: {
           agentVersionId: versionId,
+          alias,
           systemPrompt: overrides.systemPrompt,
           model: overrides.model,
           temperature: overrides.temperature,
         },
       }),
-    [agentId, versionId, overrides]
+    [agentId, versionId, alias, overrides]
   );
 
   const {
@@ -101,6 +104,7 @@ export function usePlayground({
               { role: 'user', content },
             ],
             agentVersionId: versionId,
+            alias,
             systemPrompt: overrides.systemPrompt,
             model: overrides.model,
             temperature: overrides.temperature,
@@ -132,7 +136,7 @@ export function usePlayground({
         setIsGraphLoading(false);
       }
     },
-    [agentType, agentId, versionId, overrides, messages, sendMessage, setMessages, onError]
+    [agentType, agentId, versionId, alias, overrides, messages, sendMessage, setMessages, onError]
   );
 
   const handleRegenerate = useCallback(() => {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAgents } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
+import { useAgentAliases } from '@/hooks/use-agent-aliases';
 import { usePlayground } from '@/hooks/use-playground';
 import { ChatMessages } from '@/components/chat/chat-messages';
 import { ChatInput } from '@/components/chat/chat-input';
@@ -18,9 +19,11 @@ export default function GenericPlaygroundPage() {
   const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
+  const [selectedAlias, setSelectedAlias] = useState<string | undefined>(undefined);
 
   const agent = agentsData?.items.find((a) => a.id === selectedAgentId);
   const { data: versions } = useAgentVersions(selectedAgentId ?? '');
+  const { data: aliases } = useAgentAliases(selectedAgentId ?? '');
 
   const {
     messages,
@@ -32,6 +35,7 @@ export default function GenericPlaygroundPage() {
     agentId: selectedAgentId ?? '',
     agentType: agent?.type ?? 'simple',
     versionId: selectedVersionId,
+    alias: selectedAlias,
     onError: (err) => toast.error(err.message),
   });
 
@@ -41,8 +45,17 @@ export default function GenericPlaygroundPage() {
     setMessages([]);
   };
 
-  const handleVersionChange = (versionId: string) => {
-    setSelectedVersionId(versionId === 'current' ? undefined : versionId);
+  const handleVersionChange = (value: string) => {
+    if (value === 'current') {
+      setSelectedVersionId(undefined);
+      setSelectedAlias(undefined);
+    } else if (value.startsWith('alias:')) {
+      setSelectedVersionId(undefined);
+      setSelectedAlias(value.replace('alias:', ''));
+    } else {
+      setSelectedVersionId(value);
+      setSelectedAlias(undefined);
+    }
     setMessages([]);
   };
 
@@ -78,6 +91,11 @@ export default function GenericPlaygroundPage() {
                 <SelectTrigger className="h-8 text-xs w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="current">Current (Draft)</SelectItem>
+                  {aliases?.map((a) => (
+                    <SelectItem key={`alias:${a.name}`} value={`alias:${a.name}`}>
+                      {a.name}{a.isDefault ? ' (default)' : ''} → v{a.version.version}
+                    </SelectItem>
+                  ))}
                   {versions?.map((v) => (
                     <SelectItem key={v.id} value={v.id}>v{v.version} ({v.status})</SelectItem>
                   ))}
