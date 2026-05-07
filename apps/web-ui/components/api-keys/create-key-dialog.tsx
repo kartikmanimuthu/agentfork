@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 
 interface CreateKeyDialogProps {
   agentId: string;
-  onCreate: (input: { name: string; dailyReqLimit?: number; dailyTokenLimit?: number }) => Promise<unknown>;
+  onCreate: (input: Record<string, unknown>) => Promise<unknown>;
   onSuccess: () => void;
 }
 
@@ -25,6 +25,8 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
   const [name, setName] = useState('');
   const [dailyReqLimit, setDailyReqLimit] = useState('1000');
   const [dailyTokenLimit, setDailyTokenLimit] = useState('100000');
+  const [minuteReqLimit, setMinuteReqLimit] = useState('100');
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,11 +34,17 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = (await onCreate({
+      const input: Record<string, unknown> = {
         name,
         dailyReqLimit: parseInt(dailyReqLimit, 10),
         dailyTokenLimit: parseInt(dailyTokenLimit, 10),
-      })) as { rawKey?: string };
+        minuteReqLimit: parseInt(minuteReqLimit, 10),
+      };
+      if (webhookUrl.trim()) {
+        input.webhookUrl = webhookUrl.trim();
+      }
+
+      const result = (await onCreate(input)) as { rawKey?: string };
 
       if (result.rawKey) {
         setRawKey(result.rawKey);
@@ -55,6 +63,8 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
     setName('');
     setDailyReqLimit('1000');
     setDailyTokenLimit('100000');
+    setMinuteReqLimit('100');
+    setWebhookUrl('');
   };
 
   return (
@@ -114,6 +124,24 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
                     onChange={(e) => setDailyTokenLimit(e.target.value)}
                   />
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="minuteLimit">Per-Minute Requests</Label>
+                <Input
+                  id="minuteLimit"
+                  type="number"
+                  value={minuteReqLimit}
+                  onChange={(e) => setMinuteReqLimit(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="webhook">Webhook URL (optional)</Label>
+                <Input
+                  id="webhook"
+                  placeholder="https://your-app.com/webhooks/agent"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                />
               </div>
             </div>
             <DialogFooter>

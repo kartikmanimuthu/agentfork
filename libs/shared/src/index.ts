@@ -50,6 +50,7 @@ export { ApiKeyService } from './services/api-key-service';
 export { QuotaService } from './services/quota-service';
 export { ResponseCacheService } from './services/response-cache-service';
 export { InferenceSessionService } from './services/inference-session-service';
+export { WebhookService } from './services/webhook-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 

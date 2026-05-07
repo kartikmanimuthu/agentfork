@@ -9,6 +9,9 @@ export interface InferenceAuthResult {
   apiKey: {
     dailyReqLimit: number;
     dailyTokenLimit: number;
+    minuteReqLimit: number;
+    webhookUrl: string | null;
+    webhookSecret: string | null;
   };
 }
 
@@ -42,6 +45,9 @@ export async function validateInferenceApiKey(
     expiresAt: Date | null;
     dailyReqLimit: number;
     dailyTokenLimit: number;
+    minuteReqLimit: number;
+    webhookUrl: string | null;
+    webhookSecret: string | null;
   } | null;
 
   if (!apiKey) {
@@ -83,6 +89,9 @@ export async function validateInferenceApiKey(
       apiKey: {
         dailyReqLimit: apiKey.dailyReqLimit,
         dailyTokenLimit: apiKey.dailyTokenLimit,
+        minuteReqLimit: apiKey.minuteReqLimit,
+        webhookUrl: apiKey.webhookUrl,
+        webhookSecret: apiKey.webhookSecret,
       },
     },
   };

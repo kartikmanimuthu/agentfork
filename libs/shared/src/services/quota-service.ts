@@ -13,6 +13,7 @@ export interface QuotaDb {
 export interface QuotaCheckInput {
   dailyReqLimit: number;
   dailyTokenLimit: number;
+  minuteReqLimit?: number;
   estimatedTokens?: number;
 }
 
@@ -21,7 +22,10 @@ export interface QuotaCheckResult {
   reason?: string;
   remainingRequests?: number;
   remainingTokens?: number;
+  retryAfter?: number;
 }
+
+const MINUTE_MS = 60_000;
 
 export class QuotaService {
   constructor(
@@ -36,14 +40,21 @@ export class QuotaService {
 
   async checkQuota(input: QuotaCheckInput): Promise<QuotaCheckResult> {
     const today = this.getTodayDate();
+    const now = new Date();
     const usage = await this.db.apiKeyUsage.findFirst({
       where: { apiKeyId: this.apiKeyId, date: today },
-    }) as { requestCount: number; tokenCount: number } | null;
+    }) as {
+      requestCount: number;
+      tokenCount: number;
+      minuteReqCount: number;
+      minuteResetAt: Date;
+    } | null;
 
     const requestCount = usage?.requestCount ?? 0;
     const tokenCount = usage?.tokenCount ?? 0;
     const estimatedTokens = input.estimatedTokens ?? 0;
 
+    // Check daily request limit
     if (requestCount >= input.dailyReqLimit) {
       return {
         allowed: false,
@@ -53,12 +64,36 @@ export class QuotaService {
       };
     }
 
+    // Check daily token limit
     if (tokenCount + estimatedTokens > input.dailyTokenLimit) {
       return {
         allowed: false,
         reason: `Daily token limit of ${input.dailyTokenLimit} exceeded.`,
         remainingRequests: input.dailyReqLimit - requestCount,
         remainingTokens: 0,
+      };
+    }
+
+    // Check sliding window rate limit (per minute)
+    const minuteLimit = input.minuteReqLimit ?? 100;
+    let minuteCount = usage?.minuteReqCount ?? 0;
+    const minuteResetAt = usage?.minuteResetAt ?? new Date(0);
+
+    // Reset minute counter if more than 1 minute has passed
+    if (now.getTime() - new Date(minuteResetAt).getTime() > MINUTE_MS) {
+      minuteCount = 0;
+    }
+
+    if (minuteCount >= minuteLimit) {
+      const retryAfter = Math.ceil(
+        (MINUTE_MS - (now.getTime() - new Date(minuteResetAt).getTime())) / 1000
+      );
+      return {
+        allowed: false,
+        reason: `Rate limit of ${minuteLimit} requests per minute exceeded. Retry after ${retryAfter}s.`,
+        remainingRequests: input.dailyReqLimit - requestCount,
+        remainingTokens: input.dailyTokenLimit - tokenCount,
+        retryAfter: Math.max(1, retryAfter),
       };
     }
 
@@ -71,6 +106,16 @@ export class QuotaService {
 
   async incrementUsage(tokens: number): Promise<void> {
     const today = this.getTodayDate();
+    const now = new Date();
+
+    // Get current usage to check if minute counter needs reset
+    const existing = await this.db.apiKeyUsage.findFirst({
+      where: { apiKeyId: this.apiKeyId, date: today },
+    }) as { minuteReqCount: number; minuteResetAt: Date } | null;
+
+    const shouldResetMinute = !existing ||
+      now.getTime() - new Date(existing.minuteResetAt).getTime() > MINUTE_MS;
+
     await this.db.apiKeyUsage.upsert({
       where: { apiKeyId_date: { apiKeyId: this.apiKeyId, date: today } },
       create: {
@@ -78,10 +123,16 @@ export class QuotaService {
         date: today,
         requestCount: 1,
         tokenCount: tokens,
+        minuteReqCount: 1,
+        minuteResetAt: now,
       },
       update: {
         requestCount: { increment: 1 },
         tokenCount: { increment: tokens },
+        ...(shouldResetMinute
+          ? { minuteReqCount: 1, minuteResetAt: now }
+          : { minuteReqCount: { increment: 1 } }
+        ),
       },
     });
   }

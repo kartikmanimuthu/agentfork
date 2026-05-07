@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const body = await req.json();
-  const { name, dailyReqLimit, dailyTokenLimit, scopes, expiresAt } = body;
+  const { name, dailyReqLimit, dailyTokenLimit, minuteReqLimit, scopes, expiresAt, webhookUrl, webhookSecret } = body;
 
   const db = getPrismaClient();
   const service = new ApiKeyService(tenantId, db);
@@ -32,10 +32,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     name,
     dailyReqLimit,
     dailyTokenLimit,
+    minuteReqLimit,
     scopes,
     expiresAt: expiresAt ? new Date(expiresAt) : undefined,
     createdBy: userId,
   });
+
+  // Update webhook fields if provided
+  if (webhookUrl || webhookSecret) {
+    const apiKey = result.apiKey as { id: string };
+    await db.apiKey.update({
+      where: { id: apiKey.id },
+      data: {
+        ...(webhookUrl !== undefined && { webhookUrl }),
+        ...(webhookSecret !== undefined && { webhookSecret }),
+      },
+    });
+  }
 
   return new Response(JSON.stringify(result), { status: 201 });
 }

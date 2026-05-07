@@ -432,6 +432,9 @@ model ApiKey {
   scopes           String[] @default(["inference:read"])
   dailyReqLimit    Int      @default(1000)
   dailyTokenLimit  Int      @default(100000)
+  minuteReqLimit   Int      @default(100)
+  webhookUrl       String?
+  webhookSecret    String?
   expiresAt        DateTime?
   createdBy        String
   createdAt        DateTime @default(now())
@@ -449,13 +452,15 @@ model ApiKey {
 }
 
 model ApiKeyUsage {
-  id            String   @id @default(cuid())
-  apiKeyId      String
-  date          DateTime @db.Date
-  requestCount  Int      @default(0)
-  tokenCount    Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(cuid())
+  apiKeyId          String
+  date              DateTime @db.Date
+  requestCount      Int      @default(0)
+  tokenCount        Int      @default(0)
+  minuteReqCount    Int      @default(0)
+  minuteResetAt     DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
 
@@ -477,6 +482,9 @@ model ApiKeyExecution {
   tokenUsage     Json?
   cacheHit       Boolean   @default(false)
   latencyMs      Int?
+  webhookUrl     String?
+  webhookStatus  String?
+  webhookDeliveredAt DateTime?
   startedAt      DateTime?
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
