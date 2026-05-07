@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const execution = await db.agentExecution.create({
       data: {
         agentId: id,
-        agentVersionId: resolvedVersionId ?? null,
+        agentVersionId: resolvedVersionId as string,
         tenantId,
         userId,
         status: 'running',

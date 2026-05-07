@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (requestedVersionId) {
       version = await db.agentVersion.findFirst({
         where: { id: requestedVersionId, agentId },
-      }) as typeof version;
+      }) as { id: string; config: unknown; status: string };
     }
 
     if (!version && alias) {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         include: { version: true },
       });
       if (defaultAlias) {
-        version = defaultAlias.version as typeof version;
+        version = defaultAlias.version as { id: string; config: unknown; status: string };
       }
     }
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       version = await db.agentVersion.findFirst({
         where: { agentId, status: 'published' },
         orderBy: { version: 'desc' },
-      }) as typeof version;
+      }) as { id: string; config: unknown; status: string };
     }
 
     if (!version) {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     const executionId = execution.id;
 
     // Helper to deliver webhook
-    const deliverWebhook = async (status: string, output?: Record<string, unknown>, error?: string, tokenUsage?: Record<string, unknown>, latencyMs?: number) => {
+    const deliverWebhook = async (status: string, output?: Record<string, unknown>, error?: string, tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }, latencyMs?: number) => {
       if (!keyLimits.webhookUrl) return;
 
       const payload = {
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
         content: m.content ?? '',
       }));
 
-      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const userQuery = coreMessages.filter((m: { role: string; content: string }) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
 
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
             data: {
               status: 'completed',
               output: { text: cached.text },
-              tokenUsage: cached.usage as unknown as Record<string, unknown>,
+              tokenUsage: cached.usage as any,
               cacheHit: true,
               completedAt: new Date(),
             },
@@ -263,9 +263,9 @@ export async function POST(req: NextRequest) {
             const completedAt = new Date();
             const latencyMs = completedAt.getTime() - startedAt.getTime();
             const tokenUsage = {
-              inputTokens: usage?.promptTokens ?? 0,
-              outputTokens: usage?.completionTokens ?? 0,
-              totalTokens: (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0),
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
+              totalTokens: (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0),
             };
 
             await quotaService.incrementUsage(tokenUsage.totalTokens);
@@ -287,7 +287,7 @@ export async function POST(req: NextRequest) {
               data: {
                 status: 'completed',
                 output: { text },
-                tokenUsage: tokenUsage as unknown as Record<string, unknown>,
+                tokenUsage: tokenUsage as any,
                 cacheHit: false,
                 latencyMs,
                 completedAt,

@@ -34,7 +34,7 @@ export function useApiKeys(agentId: string) {
     }
   }, [agentId]);
 
-  const createKey = useCallback(async (input: { name: string; dailyReqLimit?: number; dailyTokenLimit?: number }) => {
+  const createKey = useCallback(async (input: Record<string, unknown>) => {
     const res = await fetch(`/api/agents/${agentId}/api-keys`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

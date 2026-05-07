@@ -1,7 +1,7 @@
 export interface AgentKnowledgeBasePrismaDelegate {
   create(args: { data: Record<string, unknown> }): Promise<unknown>;
   deleteMany(args: { where: Record<string, unknown> }): Promise<unknown>;
-  findMany(args: { where: Record<string, unknown>; include?: Record<string, unknown> }): Promise<unknown[]>;
+  findMany(args: { where: Record<string, unknown>; include?: Record<string, unknown>; orderBy?: Record<string, unknown> }): Promise<unknown[]>;
 }
 
 export interface KnowledgeBasePrismaDelegate {

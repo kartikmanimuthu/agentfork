@@ -16,6 +16,7 @@ export interface CreateApiKeyInput {
   name: string;
   dailyReqLimit?: number;
   dailyTokenLimit?: number;
+  minuteReqLimit?: number;
   scopes?: string[];
   expiresAt?: Date;
   createdBy: string;
@@ -57,6 +58,7 @@ export class ApiKeyService {
         scopes: input.scopes ?? ['inference:read'],
         dailyReqLimit: input.dailyReqLimit ?? 1000,
         dailyTokenLimit: input.dailyTokenLimit ?? 100000,
+        minuteReqLimit: input.minuteReqLimit ?? 100,
         expiresAt: input.expiresAt ?? null,
         createdBy: input.createdBy,
       },

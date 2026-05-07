@@ -69,7 +69,7 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <Button>Create API Key</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
