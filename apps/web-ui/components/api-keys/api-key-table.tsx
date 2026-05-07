@@ -1,0 +1,67 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import type { ApiKeyItem } from '@/hooks/use-api-keys';
+
+interface ApiKeyTableProps {
+  keys: ApiKeyItem[];
+  loading: boolean;
+  onRevoke: (keyId: string) => void;
+}
+
+export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
+  if (loading) {
+    return <div className="text-sm text-muted-foreground">Loading API keys...</div>;
+  }
+
+  if (keys.length === 0) {
+    return <div className="text-sm text-muted-foreground">No API keys found. Create one to get started.</div>;
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Key</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Daily Limit</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {keys.map((key) => (
+          <TableRow key={key.id}>
+            <TableCell className="font-medium">{key.name}</TableCell>
+            <TableCell className="font-mono text-xs">{key.keyPrefix}...</TableCell>
+            <TableCell>
+              <Badge variant={key.status === 'active' ? 'default' : 'secondary'}>
+                {key.status}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-sm">
+              {key.dailyReqLimit} req / {key.dailyTokenLimit} tokens
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {new Date(key.createdAt).toLocaleDateString()}
+            </TableCell>
+            <TableCell className="text-right">
+              {key.status === 'active' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRevoke(key.id)}
+                >
+                  Revoke
+                </Button>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
