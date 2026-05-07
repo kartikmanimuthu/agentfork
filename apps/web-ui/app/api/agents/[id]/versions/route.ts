@@ -11,8 +11,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const db = getPrismaClient();
-    const service = new AgentVersionService(db as any);
-    const versions = await service.findByAgentId(id);
+
+    const versions = await db.agentVersion.findMany({
+      where: { agentId: id },
+      orderBy: { version: 'desc' },
+      include: { aliases: { select: { id: true, name: true, isDefault: true } } }
+    });
 
     return NextResponse.json(versions);
   } catch (error) {
