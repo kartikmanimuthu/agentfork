@@ -291,6 +291,8 @@ model Agent {
   mcpServers         AgentMcpServer[]
   apiKeys            ApiKey[]
   inferenceSessions  InferenceSession[]
+  knowledgeBases     AgentKnowledgeBase[]
+  aliases            AgentAlias[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -311,6 +313,7 @@ model AgentVersion {
   agent              Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
   executions         AgentExecution[]
   playgroundSessions PlaygroundSession[]
+  aliases            AgentAlias[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -419,6 +422,39 @@ model AgentMcpServer {
   @@index([agentId])
   @@index([mcpServerId])
   @@map("agent_mcp_servers")
+}
+
+model AgentKnowledgeBase {
+  id              String   @id @default(cuid())
+  agentId         String
+  knowledgeBaseId String
+  createdAt       DateTime @default(now())
+
+  agent         Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, knowledgeBaseId])
+  @@index([agentId])
+  @@index([knowledgeBaseId])
+  @@map("agent_knowledge_bases")
+}
+
+model AgentAlias {
+  id        String   @id @default(cuid())
+  agentId   String
+  name      String
+  versionId String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent   Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  version AgentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@unique([agentId, name])
+  @@index([agentId])
+  @@index([versionId])
+  @@map("agent_aliases")
 }
 
 model ApiKey {
@@ -539,6 +575,7 @@ model KnowledgeBase {
 
   tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sources DataSource[]
+  agents  AgentKnowledgeBase[]
 
   @@index([tenantId])
   @@index([tenantId, status])
