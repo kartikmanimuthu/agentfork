@@ -1,0 +1,5 @@
+name: chatbot-compute
+runtime: nodejs
+description: Chatbot — ECS, RDS, Cognito, CloudFront
+backend:
+  url: s3://chatbot-pulumi-state?region=us-east-1&awssdk=v2
