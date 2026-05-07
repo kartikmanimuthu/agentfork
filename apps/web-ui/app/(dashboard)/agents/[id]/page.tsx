@@ -16,6 +16,9 @@ import { useState, useEffect } from 'react';
 import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
+import { KnowledgeBasesTab } from '@/components/agents/tabs/knowledge-bases-tab';
+import { VersionsTab } from '@/components/agents/tabs/versions-tab';
+import { AliasManager } from '@/components/agents/tabs/alias-manager';
 import { useApiKeys } from '@/hooks/use-api-keys';
 import { ApiKeyTable } from '@/components/api-keys/api-key-table';
 import { CreateKeyDialog } from '@/components/api-keys/create-key-dialog';
@@ -233,21 +236,16 @@ export default function AgentDetailPage() {
           </Card>
         </TabsContent>
         <TabsContent value="knowledge-bases">
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Knowledge base integration coming soon.
-            </CardContent>
-          </Card>
+          <KnowledgeBasesTab agentId={agentId} />
         </TabsContent>
         <TabsContent value="mcp-servers">
           <McpServersTab agentId={agentId} />
         </TabsContent>
         <TabsContent value="versions">
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Version history coming soon.
-            </CardContent>
-          </Card>
+          <VersionsTab agentId={agentId} />
+          <div className="mt-4">
+            <AliasManager agentId={agentId} />
+          </div>
         </TabsContent>
         <TabsContent value="api-keys">
           <Card>
