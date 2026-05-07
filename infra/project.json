@@ -7,23 +7,37 @@
     "deploy-networking": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pulumi up --yes --stack prod --cwd networking",
-        "cwd": "infra"
+        "command": "cd infra/networking && npm install && pulumi up --yes --stack prod",
+        "cwd": "."
       }
     },
     "deploy-compute": {
       "executor": "nx:run-commands",
       "dependsOn": ["deploy-networking"],
       "options": {
-        "command": "pulumi up --yes --stack prod --cwd compute",
-        "cwd": "infra"
+        "command": "cd infra/compute && npm install && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --yes --stack prod",
+        "cwd": "."
+      }
+    },
+    "preview-networking": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd infra/networking && pulumi preview --stack prod",
+        "cwd": "."
+      }
+    },
+    "preview-compute": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd infra/compute && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi preview --stack prod",
+        "cwd": "."
       }
     },
     "preview": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pulumi preview --stack prod --cwd networking && pulumi preview --stack prod --cwd compute",
-        "cwd": "infra"
+        "command": "cd infra/networking && pulumi preview --stack prod && cd ../compute && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi preview --stack prod",
+        "cwd": "."
       }
     }
   }

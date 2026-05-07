@@ -13,6 +13,7 @@
         "@aws-sdk/client-cognito-identity-provider": "^3.670.0",
         "@aws-sdk/client-ecs": "^3.1041.0",
         "@aws-sdk/client-s3": "^3.1042.0",
+        "@aws-sdk/client-ses": "^3.670.0",
         "@aws-sdk/s3-request-presigner": "^3.1042.0",
         "@prisma/client": "^6.0.0",
         "@t3-oss/env-core": "^0.13.11",
@@ -35,12 +36,17 @@
         "@playwright/test": "^1.59.1",
         "@types/bcryptjs": "^3.0.0",
         "@types/node": "^22.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
         "@vitest/coverage-v8": "^3.2.4",
         "eslint": "^9.0.0",
+        "next": "^15.2.0",
         "nx": "^21.0.0",
         "pino-pretty": "^13.0.0",
         "prettier": "^3.4.0",
         "prisma": "^6.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
         "shadcn": "^4.6.0",
         "typescript": "^5.7.0",
         "vitest": "^3.0.0",
@@ -151,6 +157,9 @@
       "name": "@chatbot/agent-studio",
       "version": "0.0.1",
     },
+    "libs/knowledge-base": {
+      "name": "@chatbot/knowledge-base",
+    },
   },
   "packages": {
     "@ai-sdk/amazon-bedrock": ["@ai-sdk/amazon-bedrock@4.0.100", "", { "dependencies": { "@ai-sdk/anthropic": "3.0.74", "@ai-sdk/provider": "3.0.10", "@ai-sdk/provider-utils": "4.0.26", "@smithy/eventstream-codec": "^4.0.1", "@smithy/util-utf8": "^4.0.0", "aws4fetch": "^1.0.20" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-JURD9kBbc1TRu8FFZQXcx1UB8ZmFOTt13s4QQbTkVFjcpFNyzWmhyM12jlFGsHstQTpKKiqpoA+tI1YuuKyg/g=="],
@@ -198,6 +207,8 @@
     "@aws-sdk/client-ecs": ["@aws-sdk/client-ecs@3.1041.0", "", { "dependencies": { "@aws-crypto/sha256-browser": "5.2.0", "@aws-crypto/sha256-js": "5.2.0", "@aws-sdk/core": "^3.974.8", "@aws-sdk/credential-provider-node": "^3.972.39", "@aws-sdk/middleware-host-header": "^3.972.10", "@aws-sdk/middleware-logger": "^3.972.10", "@aws-sdk/middleware-recursion-detection": "^3.972.11", "@aws-sdk/middleware-user-agent": "^3.972.38", "@aws-sdk/region-config-resolver": "^3.972.13", "@aws-sdk/types": "^3.973.8", "@aws-sdk/util-endpoints": "^3.996.8", "@aws-sdk/util-user-agent-browser": "^3.972.10", "@aws-sdk/util-user-agent-node": "^3.973.24", "@smithy/config-resolver": "^4.4.17", "@smithy/core": "^3.23.17", "@smithy/fetch-http-handler": "^5.3.17", "@smithy/hash-node": "^4.2.14", "@smithy/invalid-dependency": "^4.2.14", "@smithy/middleware-content-length": "^4.2.14", "@smithy/middleware-endpoint": "^4.4.32", "@smithy/middleware-retry": "^4.5.7", "@smithy/middleware-serde": "^4.2.20", "@smithy/middleware-stack": "^4.2.14", "@smithy/node-config-provider": "^4.3.14", "@smithy/node-http-handler": "^4.6.1", "@smithy/protocol-http": "^5.3.14", "@smithy/smithy-client": "^4.12.13", "@smithy/types": "^4.14.1", "@smithy/url-parser": "^4.2.14", "@smithy/util-base64": "^4.3.2", "@smithy/util-body-length-browser": "^4.2.2", "@smithy/util-body-length-node": "^4.2.3", "@smithy/util-defaults-mode-browser": "^4.3.49", "@smithy/util-defaults-mode-node": "^4.2.54", "@smithy/util-endpoints": "^3.4.2", "@smithy/util-middleware": "^4.2.14", "@smithy/util-retry": "^4.3.6", "@smithy/util-utf8": "^4.2.2", "@smithy/util-waiter": "^4.3.0", "tslib": "^2.6.2" } }, "sha512-ws/U2a5SE1vaJdbGqSO76V3Q/fz5HxQOI1R2OGhGSCTKmMrtUVTgPQNMqLsqX8RYsy16y5N504WoUbqSxBaNrw=="],
 
     "@aws-sdk/client-s3": ["@aws-sdk/client-s3@3.1042.0", "", { "dependencies": { "@aws-crypto/sha1-browser": "5.2.0", "@aws-crypto/sha256-browser": "5.2.0", "@aws-crypto/sha256-js": "5.2.0", "@aws-sdk/core": "^3.974.8", "@aws-sdk/credential-provider-node": "^3.972.39", "@aws-sdk/middleware-bucket-endpoint": "^3.972.10", "@aws-sdk/middleware-expect-continue": "^3.972.10", "@aws-sdk/middleware-flexible-checksums": "^3.974.16", "@aws-sdk/middleware-host-header": "^3.972.10", "@aws-sdk/middleware-location-constraint": "^3.972.10", "@aws-sdk/middleware-logger": "^3.972.10", "@aws-sdk/middleware-recursion-detection": "^3.972.11", "@aws-sdk/middleware-sdk-s3": "^3.972.37", "@aws-sdk/middleware-ssec": "^3.972.10", "@aws-sdk/middleware-user-agent": "^3.972.38", "@aws-sdk/region-config-resolver": "^3.972.13", "@aws-sdk/signature-v4-multi-region": "^3.996.25", "@aws-sdk/types": "^3.973.8", "@aws-sdk/util-endpoints": "^3.996.8", "@aws-sdk/util-user-agent-browser": "^3.972.10", "@aws-sdk/util-user-agent-node": "^3.973.24", "@smithy/config-resolver": "^4.4.17", "@smithy/core": "^3.23.17", "@smithy/eventstream-serde-browser": "^4.2.14", "@smithy/eventstream-serde-config-resolver": "^4.3.14", "@smithy/eventstream-serde-node": "^4.2.14", "@smithy/fetch-http-handler": "^5.3.17", "@smithy/hash-blob-browser": "^4.2.15", "@smithy/hash-node": "^4.2.14", "@smithy/hash-stream-node": "^4.2.14", "@smithy/invalid-dependency": "^4.2.14", "@smithy/md5-js": "^4.2.14", "@smithy/middleware-content-length": "^4.2.14", "@smithy/middleware-endpoint": "^4.4.32", "@smithy/middleware-retry": "^4.5.7", "@smithy/middleware-serde": "^4.2.20", "@smithy/middleware-stack": "^4.2.14", "@smithy/node-config-provider": "^4.3.14", "@smithy/node-http-handler": "^4.6.1", "@smithy/protocol-http": "^5.3.14", "@smithy/smithy-client": "^4.12.13", "@smithy/types": "^4.14.1", "@smithy/url-parser": "^4.2.14", "@smithy/util-base64": "^4.3.2", "@smithy/util-body-length-browser": "^4.2.2", "@smithy/util-body-length-node": "^4.2.3", "@smithy/util-defaults-mode-browser": "^4.3.49", "@smithy/util-defaults-mode-node": "^4.2.54", "@smithy/util-endpoints": "^3.4.2", "@smithy/util-middleware": "^4.2.14", "@smithy/util-retry": "^4.3.6", "@smithy/util-stream": "^4.5.25", "@smithy/util-utf8": "^4.2.2", "@smithy/util-waiter": "^4.3.0", "tslib": "^2.6.2" } }, "sha512-z3Ibstr7ckDT10dz/nkk4+93LitrrO49Oq563/JoFHt30ZNodPBCfSxysKcelLyi/lNVF1MZrhZZfikUAG3iNQ=="],
+
+    "@aws-sdk/client-ses": ["@aws-sdk/client-ses@3.1044.0", "", { "dependencies": { "@aws-crypto/sha256-browser": "5.2.0", "@aws-crypto/sha256-js": "5.2.0", "@aws-sdk/core": "^3.974.8", "@aws-sdk/credential-provider-node": "^3.972.39", "@aws-sdk/middleware-host-header": "^3.972.10", "@aws-sdk/middleware-logger": "^3.972.10", "@aws-sdk/middleware-recursion-detection": "^3.972.11", "@aws-sdk/middleware-user-agent": "^3.972.38", "@aws-sdk/region-config-resolver": "^3.972.13", "@aws-sdk/types": "^3.973.8", "@aws-sdk/util-endpoints": "^3.996.8", "@aws-sdk/util-user-agent-browser": "^3.972.10", "@aws-sdk/util-user-agent-node": "^3.973.24", "@smithy/config-resolver": "^4.4.17", "@smithy/core": "^3.23.17", "@smithy/fetch-http-handler": "^5.3.17", "@smithy/hash-node": "^4.2.14", "@smithy/invalid-dependency": "^4.2.14", "@smithy/middleware-content-length": "^4.2.14", "@smithy/middleware-endpoint": "^4.4.32", "@smithy/middleware-retry": "^4.5.7", "@smithy/middleware-serde": "^4.2.20", "@smithy/middleware-stack": "^4.2.14", "@smithy/node-config-provider": "^4.3.14", "@smithy/node-http-handler": "^4.6.1", "@smithy/protocol-http": "^5.3.14", "@smithy/smithy-client": "^4.12.13", "@smithy/types": "^4.14.1", "@smithy/url-parser": "^4.2.14", "@smithy/util-base64": "^4.3.2", "@smithy/util-body-length-browser": "^4.2.2", "@smithy/util-body-length-node": "^4.2.3", "@smithy/util-defaults-mode-browser": "^4.3.49", "@smithy/util-defaults-mode-node": "^4.2.54", "@smithy/util-endpoints": "^3.4.2", "@smithy/util-middleware": "^4.2.14", "@smithy/util-retry": "^4.3.6", "@smithy/util-utf8": "^4.2.2", "@smithy/util-waiter": "^4.3.0", "tslib": "^2.6.2" } }, "sha512-LcGY0tiZmxhxXXhNob+MwBwI96W5r78A+psJxgG0yjcZXLTLUbwSPNpya/HuJjZNzwKsHqPbtnv/ijA5nSbZeA=="],
 
     "@aws-sdk/core": ["@aws-sdk/core@3.974.8", "", { "dependencies": { "@aws-sdk/types": "^3.973.8", "@aws-sdk/xml-builder": "^3.972.22", "@smithy/core": "^3.23.17", "@smithy/node-config-provider": "^4.3.14", "@smithy/property-provider": "^4.2.14", "@smithy/protocol-http": "^5.3.14", "@smithy/signature-v4": "^5.3.14", "@smithy/smithy-client": "^4.12.13", "@smithy/types": "^4.14.1", "@smithy/util-base64": "^4.3.2", "@smithy/util-middleware": "^4.2.14", "@smithy/util-retry": "^4.3.6", "@smithy/util-utf8": "^4.2.2", "tslib": "^2.6.2" } }, "sha512-njR2qoG6ZuB0kvAS2FyICsFZJ6gmCcf2X/7JcD14sUvGDm26wiZ5BrA6LOiUxKFEF+IVe7kdroxyE00YlkiYsw=="],
 
@@ -486,6 +497,8 @@
     "@chatbot/agent-studio": ["@chatbot/agent-studio@workspace:libs/agent-studio"],
 
     "@chatbot/infra": ["@chatbot/infra@workspace:infra"],
+
+    "@chatbot/knowledge-base": ["@chatbot/knowledge-base@workspace:libs/knowledge-base"],
 
     "@chatbot/web-ui": ["@chatbot/web-ui@workspace:apps/web-ui"],
 

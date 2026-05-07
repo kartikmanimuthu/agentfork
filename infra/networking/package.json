@@ -1,0 +1,20 @@
+{
+  "name": "chatbot-networking",
+  "version": "1.0.0",
+  "description": "Chatbot — VPC and networking (Pulumi)",
+  "main": "index.ts",
+  "scripts": {
+    "preview": "pulumi preview",
+    "up": "pulumi up",
+    "destroy": "pulumi destroy"
+  },
+  "dependencies": {
+    "@pulumi/pulumi": "^3.228.0",
+    "@pulumi/aws": "^7.23.0",
+    "@pulumi/awsx": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "~5.6.2"
+  }
+}

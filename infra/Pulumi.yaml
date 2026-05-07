@@ -1,6 +1,0 @@
-name: chatbot-infra
-runtime:
-  name: nodejs
-  options:
-    typescript: true
-description: Chatbot infrastructure (networking + compute)
