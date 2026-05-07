@@ -65,3 +65,10 @@ export type { AgentAlias, CreateAliasInput, UpdateAliasInput } from './types/ali
 // Alias service
 export { AgentAliasService } from './services/agent-alias-service';
 export type { AgentAliasDb } from './services/agent-alias-service';
+
+// KB Attachment types
+export type { AgentKnowledgeBaseAttachment, AttachedKnowledgeBase } from './types/kb-attachment';
+
+// KB Attachment service
+export { KnowledgeBaseAttachmentService } from './services/kb-attachment-service';
+export type { KbAttachmentDb } from './services/kb-attachment-service';
