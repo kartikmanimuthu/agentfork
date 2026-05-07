@@ -5,6 +5,7 @@ export interface SessionDb {
     findMany(args: { where: Record<string, unknown>; orderBy?: Record<string, unknown> }): Promise<unknown[]>;
     update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<unknown>;
     delete(args: { where: Record<string, unknown> }): Promise<unknown>;
+    deleteMany(args: { where: Record<string, unknown> }): Promise<unknown>;
   };
 }
 
