@@ -1,0 +1,22 @@
+{
+  "name": "chatbot-compute",
+  "version": "1.0.0",
+  "description": "Chatbot — ECS, Lambda, RDS, Cognito, CloudFront (Pulumi)",
+  "main": "index.ts",
+  "scripts": {
+    "preview": "pulumi preview",
+    "up": "pulumi up",
+    "destroy": "pulumi destroy"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^7.23.0",
+    "@pulumi/awsx": "^3.4.0",
+    "@pulumi/command": "^1.2.1",
+    "@pulumi/pulumi": "^3.228.0",
+    "@pulumi/random": "^4.19.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "~5.6.2"
+  }
+}
