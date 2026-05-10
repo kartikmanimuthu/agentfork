@@ -11,6 +11,9 @@ export {
   DEFAULT_OPENAI_EMBEDDING_MODEL,
 } from './types';
 
+export { createDiscovery } from './discovery';
+export type { DiscoveredModel, ModelCapability } from './discovery';
+
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.
 export { getBedrockProvider } from './bedrock-client';
