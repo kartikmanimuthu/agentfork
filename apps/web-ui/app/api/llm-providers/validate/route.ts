@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionTenantId, authorize, LlmProviderService } from '@chatbot/shared';
 import { ValidateInputSchema } from '@chatbot/shared';
+import { createDiscovery } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -19,7 +20,9 @@ export async function POST(req: NextRequest) {
     }
 
     const service = new LlmProviderService(tenantId);
-    const result = await service.validateAndDiscoverModels(parsed.data);
+    const result = await service.validateAndDiscoverModels(parsed.data, (providerType, credentials, region) =>
+      createDiscovery(providerType as any).discover(credentials, region)
+    );
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import type { ProviderType } from '@chatbot/shared';
 
 export default function NewLlmProviderPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function NewLlmProviderPage() {
 
   const handleSubmit = async (values: {
     name: string;
-    providerType: string;
+    providerType: ProviderType;
     region?: string;
     credentials: Record<string, string>;
     chatModel?: string;
@@ -35,11 +36,11 @@ export default function NewLlmProviderPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <Link href="/agents/llm-providers" aria-label="Back to providers">
+        <Link href="/agents/llm-providers" aria-label="Back to providers">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+          </Button>
+        </Link>
         <h2 className="text-2xl font-bold tracking-tight">New LLM Provider</h2>
       </div>
 

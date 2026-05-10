@@ -9,7 +9,7 @@ export class OllamaModelDiscovery implements ModelDiscovery {
       throw new Error(`Ollama API error: ${res.status} ${res.statusText}`);
     }
 
-    const data = await res.json();
+    const data: any = await res.json();
     return (data.models ?? []).map((m: any) => ({
       id: m.model ?? m.name,
       name: m.name ?? m.model,

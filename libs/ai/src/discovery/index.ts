@@ -4,7 +4,8 @@ import { OpenAIModelDiscovery } from './openai';
 import { AnthropicModelDiscovery } from './anthropic';
 import { OllamaModelDiscovery } from './ollama';
 import { VllmModelDiscovery } from './vllm';
-import type { ProviderType } from '@chatbot/shared';
+
+type ProviderType = 'BEDROCK' | 'OPENAI' | 'ANTHROPIC' | 'OLLAMA' | 'VLLM' | 'OPENAI_COMPATIBLE';
 
 export function createDiscovery(providerType: ProviderType): ModelDiscovery {
   switch (providerType) {

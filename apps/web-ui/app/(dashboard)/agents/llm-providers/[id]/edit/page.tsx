@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { ProviderType } from '@chatbot/shared';
 
 export default function EditLlmProviderPage() {
   const params = useParams<{ id: string }>();
@@ -20,7 +21,7 @@ export default function EditLlmProviderPage() {
 
   const handleSubmit = async (values: {
     name: string;
-    providerType: string;
+    providerType: ProviderType;
     region?: string;
     credentials: Record<string, string>;
     chatModel?: string;
@@ -50,9 +51,9 @@ export default function EditLlmProviderPage() {
     return (
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 max-w-2xl mx-auto">
         <p className="text-muted-foreground">Provider not found.</p>
-        <Button variant="outline" asChild>
-          <Link href="/agents/llm-providers">Back to providers</Link>
-        </Button>
+        <Link href="/agents/llm-providers">
+          <Button variant="outline">Back to providers</Button>
+        </Link>
       </div>
     );
   }
@@ -60,11 +61,11 @@ export default function EditLlmProviderPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <Link href="/agents/llm-providers" aria-label="Back to providers">
+        <Link href="/agents/llm-providers" aria-label="Back to providers">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+          </Button>
+        </Link>
         <h2 className="text-2xl font-bold tracking-tight">Edit LLM Provider</h2>
       </div>
 

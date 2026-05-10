@@ -13,7 +13,7 @@ export class OpenAIModelDiscovery implements ModelDiscovery {
       throw new Error(`OpenAI API error: ${res.status} ${res.statusText}`);
     }
 
-    const data = await res.json();
+    const data: any = await res.json();
     const models: DiscoveredModel[] = [];
 
     for (const model of data.data ?? []) {

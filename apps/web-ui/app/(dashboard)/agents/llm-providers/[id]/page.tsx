@@ -1,22 +1,19 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useLlmProvider, useUpdateLlmProvider } from '@/hooks/use-llm-providers';
-import { LlmProviderForm } from '@/components/llm-providers/llm-provider-form';
+import Link from 'next/link';
+import { useLlmProvider } from '@/hooks/use-llm-providers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft, Settings, Sparkles } from 'lucide-react';
 
 export default function LlmProviderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const providerId = params.id;
-
   const { data: provider, isLoading } = useLlmProvider(providerId);
-  const updateMutation = useUpdateLlmProvider(providerId);
 
   if (isLoading) {
     return (
@@ -40,24 +37,6 @@ export default function LlmProviderDetailPage() {
     );
   }
 
-  const handleSubmit = async (values: {
-    name: string;
-    provider: 'bedrock' | 'openai';
-    chatModel?: string | null;
-    embeddingModel?: string | null;
-    embeddingDimensions?: number | null;
-    baseUrl?: string | null;
-    apiKey?: string | null;
-    isDefault?: boolean;
-  }) => {
-    try {
-      await updateMutation.mutateAsync(values);
-      toast.success('LLM provider updated');
-    } catch {
-      toast.error('Failed to update LLM provider');
-    }
-  };
-
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
@@ -71,25 +50,45 @@ export default function LlmProviderDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-          <CardDescription>Update the model and connection settings for this provider.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Provider Details</CardTitle>
+              <CardDescription>View and manage this LLM provider configuration.</CardDescription>
+            </div>
+            <Link href={`/agents/llm-providers/${provider.id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />Edit
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
-        <CardContent>
-          <LlmProviderForm
-            defaultValues={{
-              name: provider.name,
-              provider: provider.provider,
-              chatModel: provider.chatModel,
-              embeddingModel: provider.embeddingModel,
-              embeddingDimensions: provider.embeddingDimensions,
-              baseUrl: provider.baseUrl,
-              apiKey: provider.apiKey,
-              isDefault: provider.isDefault,
-            }}
-            onSubmit={handleSubmit}
-            loading={updateMutation.isPending}
-            submitLabel="Save Changes"
-          />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Provider Type</p>
+              <p className="font-medium">{provider.providerType}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Region</p>
+              <p className="font-medium">{provider.region ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Chat Model</p>
+              <p className="font-medium">{provider.chatModel ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Embedding Model</p>
+              <p className="font-medium">{provider.embeddingModel ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Embedding Dimensions</p>
+              <p className="font-medium">{provider.embeddingDimensions ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Credentials</p>
+              <p className="font-medium">{provider.credentialsConfigured ? 'Configured' : 'Not configured'}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

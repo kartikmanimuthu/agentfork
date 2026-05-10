@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionTenantId, authorize, LlmProviderService } from '@chatbot/shared';
+import { createDiscovery } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id } = await params;
     const service = new LlmProviderService(tenantId);
-    const provider = await service.refreshModels(id);
+    const provider = await service.refreshModels(id, (providerType, credentials, region) =>
+      createDiscovery(providerType as any).discover(credentials, region)
+    );
 
     if (!provider) {
       return NextResponse.json({ error: 'Provider not found' }, { status: 404 });

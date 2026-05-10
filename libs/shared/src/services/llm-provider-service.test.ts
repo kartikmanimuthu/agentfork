@@ -22,12 +22,6 @@ vi.mock('./encryption-service', () => ({
   },
 }));
 
-vi.mock('@chatbot/ai', () => ({
-  createDiscovery: () => ({
-    discover: vi.fn().mockResolvedValue([{ id: 'gpt-4', name: 'GPT-4', capabilities: ['chat'] }]),
-  }),
-}));
-
 import { LlmProviderService } from './llm-provider-service';
 
 describe('LlmProviderService', () => {
@@ -78,13 +72,15 @@ describe('LlmProviderService', () => {
     });
   });
 
-  it('validateAndDiscoverModels returns discovered models', async () => {
+  it('validateAndDiscoverModels returns discovered models via callback', async () => {
     const service = new LlmProviderService('t1');
+    const mockDiscover = vi.fn().mockResolvedValue([{ id: 'gpt-4', name: 'GPT-4', capabilities: ['chat'] }]);
     const result = await service.validateAndDiscoverModels({
       providerType: 'OPENAI',
       credentials: { apiKey: 'sk-test' },
-    });
+    }, mockDiscover);
     expect(result.success).toBe(true);
     expect(result.models).toEqual([{ id: 'gpt-4', name: 'GPT-4', capabilities: ['chat'] }]);
+    expect(mockDiscover).toHaveBeenCalledWith('OPENAI', { apiKey: 'sk-test' }, undefined);
   });
 });

@@ -13,7 +13,7 @@ export class VllmModelDiscovery implements ModelDiscovery {
       throw new Error(`vLLM API error: ${res.status} ${res.statusText}`);
     }
 
-    const data = await res.json();
+    const data: any = await res.json();
     return (data.data ?? []).map((m: any) => ({
       id: m.id,
       name: m.id,

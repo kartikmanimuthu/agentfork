@@ -1,8 +1,19 @@
 import { getPrismaClient } from '../db/prisma-client';
 import type { PrismaClient } from '@prisma/client';
 import { EncryptionService } from './encryption-service';
-import { createDiscovery } from '@chatbot/ai';
 import type { CreateLlmProviderInput, UpdateLlmProviderInput, ValidateLlmProviderInput } from '../validation/schemas/llm-provider';
+
+export interface DiscoveredModel {
+  id: string;
+  name: string;
+  capabilities: string[];
+}
+
+export type DiscoverFn = (
+  providerType: string,
+  credentials: Record<string, string>,
+  region?: string
+) => Promise<DiscoveredModel[]>;
 
 export interface LlmProviderResponse {
   id: string;
@@ -121,16 +132,16 @@ export class LlmProviderService {
     return this.toResponse(row);
   }
 
-  async validateAndDiscoverModels(input: ValidateLlmProviderInput) {
-    const discovery = createDiscovery(input.providerType);
-    const models = await discovery.discover(
+  async validateAndDiscoverModels(input: ValidateLlmProviderInput, discover: DiscoverFn) {
+    const models = await discover(
+      input.providerType,
       input.credentials as Record<string, string>,
       input.region
     );
     return { success: true as const, models };
   }
 
-  async refreshModels(id: string) {
+  async refreshModels(id: string, discover: DiscoverFn) {
     const existing = await this.prisma.llmProvider.findFirst({
       where: { id, tenantId: this.tenantId },
     });
@@ -140,12 +151,11 @@ export class LlmProviderService {
       ? JSON.parse(this.encryption.decrypt(existing.credentials))
       : {};
 
-    const discovery = createDiscovery(existing.providerType as any);
-    const models = await discovery.discover(credentials, existing.region ?? undefined);
+    const models = await discover(existing.providerType, credentials, existing.region ?? undefined);
 
     const row = await this.prisma.llmProvider.update({
       where: { id },
-      data: { models: { models } },
+      data: { models: { models } as any },
     });
     return this.toResponse(row);
   }
@@ -161,12 +171,15 @@ export class LlmProviderService {
       : undefined;
 
     return {
-      provider: row.providerType.toLowerCase(),
+      provider: row.providerType.toLowerCase() as any,
       chatModel: row.chatModel ?? undefined,
       embeddingModel: row.embeddingModel ?? undefined,
       embeddingDimensions: row.embeddingDimensions ?? undefined,
       baseUrl: credentials?.baseUrl,
       apiKey: credentials?.apiKey,
+      accessKeyId: credentials?.accessKeyId,
+      secretAccessKey: credentials?.secretAccessKey,
+      region: row.region ?? undefined,
     };
   }
 

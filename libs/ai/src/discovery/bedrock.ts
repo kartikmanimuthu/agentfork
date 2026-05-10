@@ -1,9 +1,9 @@
-import { BedrockRuntimeClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock';
 import type { ModelDiscovery, DiscoveredModel } from './types';
 
 export class BedrockModelDiscovery implements ModelDiscovery {
   async discover(credentials: Record<string, string>, region?: string): Promise<DiscoveredModel[]> {
-    const client = new BedrockRuntimeClient({
+    const client = new BedrockClient({
       region: region ?? 'us-east-1',
       credentials: credentials.accessKeyId
         ? {
