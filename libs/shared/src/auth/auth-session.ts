@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from './auth-options';
+import { getPrismaClient } from '../db/prisma-client';
 
 export async function getAuthSession() {
   return getServerSession(authOptions);
@@ -14,6 +15,20 @@ export async function getSessionTenantId(authOptions: any): Promise<string> {
   if (!session.user.tenantId) {
     throw new Error('Unauthorized: no tenant associated with session');
   }
+
+  // Guard against stale JWTs: the tenant may have been deleted since the
+  // session was issued. A missing tenant will otherwise cause cryptic FK
+  // violations on INSERTs.
+  const prisma = getPrismaClient();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+  });
+  if (!tenant) {
+    throw new Error(
+      'Unauthorized: tenant no longer exists. Please log out and log back in.',
+    );
+  }
+
   return session.user.tenantId;
 }
 

@@ -10,6 +10,14 @@ vi.mock('next/server', () => ({
   },
 }));
 
+vi.mock('../db/prisma-client', () => ({
+  getPrismaClient: vi.fn(() => ({
+    tenant: {
+      findUnique: vi.fn().mockResolvedValue({ id: 'tenant-1' }),
+    },
+  })),
+}));
+
 import { getServerSession } from 'next-auth';
 import { getAuthSession, getSessionTenantId, getSessionUserId, assertSuperAdmin } from './auth-session';
 
@@ -50,6 +58,19 @@ describe('getSessionTenantId', () => {
   it('throws when session has no tenantId', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1' } } as any);
     await expect(getSessionTenantId(mockAuthOptions)).rejects.toThrow('Unauthorized');
+  });
+
+  it('throws when session tenant no longer exists', async () => {
+    const { getPrismaClient } = await import('../db/prisma-client');
+    vi.mocked(getPrismaClient).mockReturnValue({
+      tenant: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    } as any);
+    mockGetServerSession.mockResolvedValue({ user: { tenantId: 'deleted-tenant' } } as any);
+    await expect(getSessionTenantId(mockAuthOptions)).rejects.toThrow(
+      'Unauthorized: tenant no longer exists',
+    );
   });
 });
 
