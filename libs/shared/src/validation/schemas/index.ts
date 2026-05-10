@@ -6,3 +6,4 @@ export * from './role';
 export * from './invitation';
 export * from './audit';
 export * from './workers';
+export * from './llm-provider';
