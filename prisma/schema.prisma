@@ -40,12 +40,13 @@ model LlmProvider {
   id                  String   @id @default(cuid())
   tenantId            String
   name                String
-  provider            String
+  providerType        String   // BEDROCK | OPENAI | ANTHROPIC | OLLAMA | VLLM | OPENAI_COMPATIBLE
+  region              String?
+  credentials         String?  // AES-256-GCM encrypted JSON
   chatModel           String?
   embeddingModel      String?
   embeddingDimensions Int?
-  baseUrl             String?
-  apiKey              String?
+  models              Json?    // { models: [{ id, name, capabilities: [] }] }
   isDefault           Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
