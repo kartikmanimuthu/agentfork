@@ -18,6 +18,7 @@ export default withAuth(
     const skipNoTenantRedirect =
       pathname === '/create-org' ||
       pathname.startsWith('/api/') ||
+      pathname.startsWith('/api/v1/inference') ||
       pathname === '/login' ||
       pathname === '/register' ||
       pathname === '/forgot-password' ||
@@ -60,6 +61,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|login|register|forgot-password|reset-password|signup|docs).*)',
+    '/((?!api/auth|api/health|api/v1/inference|_next/static|_next/image|favicon.ico|login|register|forgot-password|reset-password|signup|docs).*)',
   ],
 };

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAgents } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
+import { useAgentAliases } from '@/hooks/use-agent-aliases';
 import { usePlayground } from '@/hooks/use-playground';
 import { ChatMessages } from '@/components/chat/chat-messages';
 import { ChatInput } from '@/components/chat/chat-input';
@@ -14,14 +15,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Bot } from 'lucide-react';
 
-export default function GenericPlaygroundPage() {
-  const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
-
-  const agent = agentsData?.items.find((a) => a.id === selectedAgentId);
-  const { data: versions } = useAgentVersions(selectedAgentId ?? '');
-
+function PlaygroundChat({
+  agentId,
+  agentType,
+  versionId,
+  alias,
+}: {
+  agentId: string;
+  agentType: 'simple' | 'graph';
+  versionId?: string;
+  alias?: string;
+}) {
   const {
     messages,
     isLoading,
@@ -29,21 +33,58 @@ export default function GenericPlaygroundPage() {
     handleRegenerate,
     setMessages,
   } = usePlayground({
-    agentId: selectedAgentId ?? '',
-    agentType: agent?.type ?? 'simple',
-    versionId: selectedVersionId,
+    agentId,
+    agentType,
+    versionId,
+    alias,
     onError: (err) => toast.error(err.message),
   });
+
+  const prevVersionId = useRef(versionId);
+  const prevAlias = useRef(alias);
+  useEffect(() => {
+    if (prevVersionId.current !== versionId || prevAlias.current !== alias) {
+      setMessages([]);
+      prevVersionId.current = versionId;
+      prevAlias.current = alias;
+    }
+  }, [versionId, alias, setMessages]);
+
+  return (
+    <>
+      <ChatMessages messages={messages} isLoading={isLoading} onRegenerate={handleRegenerate} />
+      <ChatInput onSend={handleSend} isLoading={isLoading} />
+    </>
+  );
+}
+
+export default function GenericPlaygroundPage() {
+  const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
+  const [selectedAlias, setSelectedAlias] = useState<string | undefined>(undefined);
+
+  const agent = agentsData?.items.find((a) => a.id === selectedAgentId);
+  const { data: versions } = useAgentVersions(selectedAgentId ?? '');
+  const { data: aliases } = useAgentAliases(selectedAgentId ?? '');
 
   const handleAgentChange = (agentId: string) => {
     setSelectedAgentId(agentId);
     setSelectedVersionId(undefined);
-    setMessages([]);
+    setSelectedAlias(undefined);
   };
 
-  const handleVersionChange = (versionId: string) => {
-    setSelectedVersionId(versionId === 'current' ? undefined : versionId);
-    setMessages([]);
+  const handleVersionChange = (value: string) => {
+    if (value === 'current') {
+      setSelectedVersionId(undefined);
+      setSelectedAlias(undefined);
+    } else if (value.startsWith('alias:')) {
+      setSelectedVersionId(undefined);
+      setSelectedAlias(value.replace('alias:', ''));
+    } else {
+      setSelectedVersionId(value);
+      setSelectedAlias(undefined);
+    }
   };
 
   if (agentsLoading) {
@@ -78,6 +119,11 @@ export default function GenericPlaygroundPage() {
                 <SelectTrigger className="h-8 text-xs w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="current">Current (Draft)</SelectItem>
+                  {aliases?.map((a) => (
+                    <SelectItem key={`alias:${a.name}`} value={`alias:${a.name}`}>
+                      {a.name}{a.isDefault ? ' (default)' : ''} → v{a.version.version}
+                    </SelectItem>
+                  ))}
                   {versions?.map((v) => (
                     <SelectItem key={v.id} value={v.id}>v{v.version} ({v.status})</SelectItem>
                   ))}
@@ -99,10 +145,13 @@ export default function GenericPlaygroundPage() {
             </Card>
           </div>
         ) : (
-          <>
-            <ChatMessages messages={messages} isLoading={isLoading} onRegenerate={handleRegenerate} />
-            <ChatInput onSend={handleSend} isLoading={isLoading} />
-          </>
+          <PlaygroundChat
+            key={selectedAgentId}
+            agentId={selectedAgentId}
+            agentType={agent?.type ?? 'simple'}
+            versionId={selectedVersionId}
+            alias={selectedAlias}
+          />
         )}
       </div>
     </div>

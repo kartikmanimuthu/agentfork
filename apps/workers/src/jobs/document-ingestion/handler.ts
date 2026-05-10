@@ -1,4 +1,5 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
+import { S3Service } from '@chatbot/shared';
 import {
   createDocumentRepository,
   createDocumentChunkRepository,
@@ -34,7 +35,8 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
 
     // 2. Download from S3
     log.info('Downloading from S3', { s3Key });
-    const buffer = await downloadFromS3(s3Key);
+    const s3 = new S3Service();
+    const buffer = await s3.downloadAsBuffer(s3Key);
 
     // 3. Parse document
     log.info('Parsing document', { mimeType });
@@ -115,24 +117,4 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     await docRepo.update(documentId, { status: 'FAILED', errorMessage: message });
     throw err;
   }
-}
-
-async function downloadFromS3(s3Key: string): Promise<Buffer> {
-  // @ts-ignore — @aws-sdk/client-s3 is an optional peer dependency
-  const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3').catch(() => {
-    throw new Error('S3 download requires "@aws-sdk/client-s3".');
-  });
-
-  const bucket = process.env['KB_S3_BUCKET'] ?? 'chatbot-knowledge-base-dev';
-  const region = process.env['AWS_REGION'] ?? 'ap-south-1';
-  const client = new S3Client({ region });
-
-  const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: s3Key }));
-  if (!response.Body) throw new Error(`S3 object not found: ${s3Key}`);
-
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
 }

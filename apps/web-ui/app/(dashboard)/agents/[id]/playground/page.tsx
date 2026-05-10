@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { PlaygroundVersionSelector } from '@/components/agents/playground/version-selector';
 
 export default function PlaygroundPage() {
   const params = useParams<{ id: string }>();
@@ -46,7 +47,13 @@ export default function PlaygroundPage() {
   const { data: versions } = useAgentVersions(agentId);
   const { data: sessions, isLoading: sessionsLoading } = usePlaygroundSessions(agentId);
 
-  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
+  const [versionValue, setVersionValue] = useState('');
+  const selectedVersionId = versionValue.startsWith('version:')
+    ? versionValue.replace('version:', '')
+    : undefined;
+  const selectedAlias = versionValue.startsWith('alias:')
+    ? versionValue.replace('alias:', '')
+    : undefined;
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
@@ -71,11 +78,12 @@ export default function PlaygroundPage() {
     agentId,
     agentType: agent?.type ?? 'simple',
     versionId: selectedVersionId,
+    alias: selectedAlias,
     onError: (err) => toast.error(err.message),
   });
 
-  const handleVersionChange = (versionId: string) => {
-    setSelectedVersionId(versionId === 'current' ? undefined : versionId);
+  const handleVersionChange = (val: string) => {
+    setVersionValue(val);
   };
 
   const handleApplyOverrides = () => {
@@ -114,7 +122,7 @@ export default function PlaygroundPage() {
   const handleLoadSession = (session: any) => {
     setActiveSessionId(session.id);
     setSessionName(session.name);
-    setSelectedVersionId(session.agentVersionId ?? undefined);
+    setVersionValue(session.agentVersionId ? `version:${session.agentVersionId}` : '');
     setOverrides((session.configOverrides as Record<string, unknown>) ?? {});
     if (session.configOverrides) {
       const co = session.configOverrides as Record<string, unknown>;
@@ -138,7 +146,7 @@ export default function PlaygroundPage() {
     setOverrides({});
     setSystemPrompt('');
     setTemperature(0.7);
-    setSelectedVersionId(undefined);
+    setVersionValue('');
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -174,6 +182,7 @@ export default function PlaygroundPage() {
           variant="ghost"
           size="icon"
           className="h-7 w-7"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}`} aria-label="Back to agent" />}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -277,18 +286,11 @@ export default function PlaygroundPage() {
               {/* Version Selector */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase text-muted-foreground">Version</label>
-                <select
-                  className="w-full h-8 rounded-md border bg-background px-2 text-xs"
-                  value={selectedVersionId ?? 'current'}
-                  onChange={(e) => handleVersionChange(e.target.value)}
-                >
-                  <option value="current">Current (Draft)</option>
-                  {versions?.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      Version {v.version} ({v.status})
-                    </option>
-                  ))}
-                </select>
+                <PlaygroundVersionSelector
+                  agentId={agentId}
+                  value={versionValue}
+                  onChange={handleVersionChange}
+                />
               </div>
 
               <Separator />

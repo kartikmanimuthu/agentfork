@@ -46,6 +46,13 @@ export { TenantConfigService } from './services/tenant-config-service';
 export { InvitationService } from './services/invitation-service';
 export { LlmProviderService } from './services/llm-provider-service';
 export { getEmailService, setEmailService } from './services/email-service';
+export { ApiKeyService } from './services/api-key-service';
+export { QuotaService } from './services/quota-service';
+export { ResponseCacheService } from './services/response-cache-service';
+export { InferenceSessionService } from './services/inference-session-service';
+export { WebhookService } from './services/webhook-service';
+export { S3Service } from './services/s3-service';
+export { EncryptionService } from './services/encryption-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 

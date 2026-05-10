@@ -8,6 +8,13 @@ vi.mock('@ai-sdk/amazon-bedrock', () => ({
   }),
 }));
 
+vi.mock('@aws-sdk/credential-provider-node', () => ({
+  defaultProvider: vi.fn(() => vi.fn(() => Promise.resolve({
+    accessKeyId: 'test-key',
+    secretAccessKey: 'test-secret',
+  }))),
+}));
+
 describe('bedrock-client', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -15,7 +22,7 @@ describe('bedrock-client', () => {
 
   it('DEFAULT_MODEL is set to Claude Sonnet', async () => {
     const { DEFAULT_MODEL } = await import('./bedrock-client');
-    expect(DEFAULT_MODEL).toBe('anthropic.claude-sonnet-4-20250514');
+    expect(DEFAULT_MODEL).toBe('anthropic.claude-sonnet-4-20250514-v1:0');
   });
 
   it('getBedrockProvider returns a provider', async () => {
@@ -35,7 +42,7 @@ describe('bedrock-client', () => {
   it('provider can create a model reference', async () => {
     const { getBedrockProvider } = await import('./bedrock-client');
     const provider = getBedrockProvider();
-    const model = provider('anthropic.claude-sonnet-4-20250514');
-    expect(model).toEqual({ modelId: 'anthropic.claude-sonnet-4-20250514' });
+    const model = provider('anthropic.claude-sonnet-4-20250514-v1:0');
+    expect(model).toEqual({ modelId: 'anthropic.claude-sonnet-4-20250514-v1:0' });
   });
 });

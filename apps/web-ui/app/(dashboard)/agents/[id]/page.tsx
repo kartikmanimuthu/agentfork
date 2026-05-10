@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useAgent } from '@/hooks/use-agents';
-import { usePublishAgent } from '@/hooks/use-agent-versions';
+import { useAgentVersions, usePublishAgent } from '@/hooks/use-agent-versions';
 import { AgentCanvas } from '@/components/agents/canvas/agent-canvas';
 import { SimpleAgentForm } from '@/components/agents/config/simple-agent-form';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,16 @@ import { Badge } from '@/components/ui/badge';
 import { Bot, Settings, ArrowLeft, Play } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
+import { KnowledgeBasesTab } from '@/components/agents/tabs/knowledge-bases-tab';
+import { VersionsTab } from '@/components/agents/tabs/versions-tab';
+import { AliasManager } from '@/components/agents/tabs/alias-manager';
+import { useApiKeys } from '@/hooks/use-api-keys';
+import { ApiKeyTable } from '@/components/api-keys/api-key-table';
+import { CreateKeyDialog } from '@/components/api-keys/create-key-dialog';
 
 export default function AgentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -23,8 +29,14 @@ export default function AgentDetailPage() {
   const agentId = params.id;
 
   const { data: agent, isLoading, error, refetch } = useAgent(agentId);
+  const { data: versions } = useAgentVersions(agentId);
   const publishMutation = usePublishAgent(agentId);
   const [saving, setSaving] = useState(false);
+
+  const { keys, loading: keysLoading, fetchKeys, createKey, revokeKey } = useApiKeys(agentId);
+  useEffect(() => {
+    fetchKeys();
+  }, [fetchKeys]);
 
   if (isLoading) {
     return (
@@ -73,7 +85,12 @@ export default function AgentDetailPage() {
     };
 
     const handlePublish = async () => {
-      await publishMutation.mutateAsync();
+      const latestVersion = versions?.[0];
+      if (!latestVersion) {
+        toast.error('No version available to publish');
+        return;
+      }
+      await publishMutation.mutateAsync(latestVersion.id);
     };
 
     return (
@@ -95,10 +112,19 @@ export default function AgentDetailPage() {
             variant="ghost"
             size="sm"
             className="ml-auto"
+            nativeButton={false}
             render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
           >
             <Play className="h-4 w-4 mr-1" />
             Playground
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            nativeButton={false}
+            render={<Link href={`/agents/${agentId}/api-keys`} aria-label="API Keys" />}
+          >
+            API Keys
           </Button>
           <Button
             variant="ghost"
@@ -168,6 +194,7 @@ export default function AgentDetailPage() {
           variant="ghost"
           size="sm"
           className="ml-auto"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
         >
           <Play className="h-4 w-4 mr-1" />
@@ -194,6 +221,7 @@ export default function AgentDetailPage() {
           <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
           <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
+          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
         </TabsList>
         <TabsContent value="configuration">
           <Card>
@@ -211,19 +239,30 @@ export default function AgentDetailPage() {
           </Card>
         </TabsContent>
         <TabsContent value="knowledge-bases">
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Knowledge base integration coming soon.
-            </CardContent>
-          </Card>
+          <KnowledgeBasesTab agentId={agentId} />
         </TabsContent>
         <TabsContent value="mcp-servers">
           <McpServersTab agentId={agentId} />
         </TabsContent>
         <TabsContent value="versions">
+          <VersionsTab agentId={agentId} />
+          <div className="mt-4">
+            <AliasManager agentId={agentId} />
+          </div>
+        </TabsContent>
+        <TabsContent value="api-keys">
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Version history coming soon.
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>API Keys</CardTitle>
+                  <CardDescription>Manage API keys for external access to this agent.</CardDescription>
+                </div>
+                <CreateKeyDialog agentId={agentId} onCreate={createKey} onSuccess={fetchKeys} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ApiKeyTable keys={keys} loading={keysLoading} onRevoke={revokeKey} />
             </CardContent>
           </Card>
         </TabsContent>

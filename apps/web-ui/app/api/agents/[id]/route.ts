@@ -22,6 +22,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -43,6 +49,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -62,6 +74,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

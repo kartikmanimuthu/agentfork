@@ -1,15 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ProviderType } from '@chatbot/shared';
 
 export interface LlmProvider {
   id: string;
   tenantId: string;
   name: string;
-  provider: 'bedrock' | 'openai';
+  providerType: ProviderType;
+  region: string | null;
+  credentialsConfigured: boolean;
+  credentialsHint: string | null;
   chatModel: string | null;
   embeddingModel: string | null;
   embeddingDimensions: number | null;
-  baseUrl: string | null;
-  apiKey: string | null;
+  models: unknown;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -17,24 +20,36 @@ export interface LlmProvider {
 
 export interface CreateLlmProviderInput {
   name: string;
-  provider: 'bedrock' | 'openai';
-  chatModel?: string | null;
-  embeddingModel?: string | null;
-  embeddingDimensions?: number | null;
-  baseUrl?: string | null;
-  apiKey?: string | null;
+  providerType: ProviderType;
+  region?: string;
+  credentials: Record<string, string>;
+  chatModel?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
   isDefault?: boolean;
 }
 
 export interface UpdateLlmProviderInput {
   name?: string;
-  provider?: 'bedrock' | 'openai';
-  chatModel?: string | null;
-  embeddingModel?: string | null;
-  embeddingDimensions?: number | null;
-  baseUrl?: string | null;
-  apiKey?: string | null;
+  providerType?: ProviderType;
+  region?: string;
+  credentials?: Record<string, string>;
+  chatModel?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
   isDefault?: boolean;
+}
+
+export interface ValidateProviderInput {
+  providerType: ProviderType;
+  credentials: Record<string, string>;
+  region?: string;
+}
+
+export interface ValidateProviderResponse {
+  success: boolean;
+  models?: Array<{ id: string; name: string; capabilities: string[] }>;
+  error?: string;
 }
 
 async function fetchLlmProviders(): Promise<LlmProvider[]> {
@@ -85,6 +100,28 @@ async function setDefaultLlmProvider(id: string): Promise<LlmProvider> {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? 'Failed to set default provider');
+  }
+  return res.json();
+}
+
+async function validateProvider(input: ValidateProviderInput): Promise<ValidateProviderResponse> {
+  const res = await fetch('/api/llm-providers/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? 'Failed to validate provider');
+  }
+  return res.json();
+}
+
+async function refreshModels(id: string): Promise<LlmProvider> {
+  const res = await fetch(`/api/llm-providers/${id}/refresh-models`, { method: 'POST' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? 'Failed to refresh models');
   }
   return res.json();
 }
@@ -140,5 +177,20 @@ export function useSetDefaultLlmProvider() {
   return useMutation({
     mutationFn: setDefaultLlmProvider,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: llmProviderKeys.lists() }),
+  });
+}
+
+export function useValidateProvider() {
+  return useMutation({ mutationFn: validateProvider });
+}
+
+export function useRefreshModels() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: refreshModels,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: llmProviderKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: llmProviderKeys.lists() });
+    },
   });
 }
