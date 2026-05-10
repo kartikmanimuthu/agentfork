@@ -1,5 +1,6 @@
 import { streamText, embed, embedMany } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import type { LLMProvider } from '../provider';
 import type { BaseStreamChatOptions } from '../provider';
 import type { TenantLLMConfig, ProviderName } from '../types';
@@ -15,7 +16,10 @@ export class BedrockLLMProvider implements LLMProvider {
   readonly embeddingModel: string;
   readonly embeddingDimensions: number;
 
-  private readonly client = createAmazonBedrock({ region: env.AWS_REGION });
+  private readonly client = createAmazonBedrock({
+    region: env.AWS_REGION,
+    credentialProvider: defaultProvider(),
+  });
 
   constructor(config: TenantLLMConfig) {
     this.chatModel = config.chatModel ?? DEFAULT_BEDROCK_CHAT_MODEL;

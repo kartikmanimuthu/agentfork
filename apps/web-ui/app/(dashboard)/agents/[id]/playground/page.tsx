@@ -182,6 +182,7 @@ export default function PlaygroundPage() {
           variant="ghost"
           size="icon"
           className="h-7 w-7"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}`} aria-label="Back to agent" />}
         >
           <ArrowLeft className="h-4 w-4" />

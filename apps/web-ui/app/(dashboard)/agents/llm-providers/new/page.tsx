@@ -35,7 +35,7 @@ export default function NewLlmProviderPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" render={<Link href="/agents/llm-providers" aria-label="Back to providers" />}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" nativeButton={false} render={<Link href="/agents/llm-providers" aria-label="Back to providers" />}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-2xl font-bold tracking-tight">New LLM Provider</h2>

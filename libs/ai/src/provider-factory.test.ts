@@ -1,7 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createLLMProvider, getDefaultProvider } from './provider-factory';
 import { BedrockLLMProvider } from './providers/bedrock';
 import { OpenAICompatibleProvider } from './providers/openai-compatible';
+
+vi.mock('@aws-sdk/credential-provider-node', () => ({
+  defaultProvider: vi.fn(() => vi.fn(() => Promise.resolve({
+    accessKeyId: 'test-key',
+    secretAccessKey: 'test-secret',
+  }))),
+}));
 
 describe('createLLMProvider', () => {
   it('returns a BedrockLLMProvider when called with no config', () => {

@@ -112,6 +112,7 @@ export default function AgentDetailPage() {
             variant="ghost"
             size="sm"
             className="ml-auto"
+            nativeButton={false}
             render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
           >
             <Play className="h-4 w-4 mr-1" />
@@ -120,6 +121,7 @@ export default function AgentDetailPage() {
           <Button
             variant="ghost"
             size="sm"
+            nativeButton={false}
             render={<Link href={`/agents/${agentId}/api-keys`} aria-label="API Keys" />}
           >
             API Keys
@@ -192,6 +194,7 @@ export default function AgentDetailPage() {
           variant="ghost"
           size="sm"
           className="ml-auto"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}/playground`} aria-label="Open playground" />}
         >
           <Play className="h-4 w-4 mr-1" />

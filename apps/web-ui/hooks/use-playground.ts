@@ -81,6 +81,7 @@ export function usePlayground({
 
   const handleSend = useCallback(
     async (content: string) => {
+      if (!agentId) return;
       if (agentType === 'simple') {
         sendMessage({ text: content });
         return;
@@ -140,6 +141,7 @@ export function usePlayground({
   );
 
   const handleRegenerate = useCallback(() => {
+    if (!agentId) return;
     if (agentType === 'simple') {
       const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
       if (lastUserMessage) {
@@ -150,7 +152,7 @@ export function usePlayground({
         sendMessage({ text });
       }
     }
-  }, [agentType, messages, sendMessage]);
+  }, [agentId, agentType, messages, sendMessage]);
 
   const refreshExecutions = useCallback(async () => {
     try {

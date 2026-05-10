@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAgents } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
 import { useAgentAliases } from '@/hooks/use-agent-aliases';
@@ -15,6 +15,49 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Bot } from 'lucide-react';
 
+function PlaygroundChat({
+  agentId,
+  agentType,
+  versionId,
+  alias,
+}: {
+  agentId: string;
+  agentType: 'simple' | 'graph';
+  versionId?: string;
+  alias?: string;
+}) {
+  const {
+    messages,
+    isLoading,
+    handleSend,
+    handleRegenerate,
+    setMessages,
+  } = usePlayground({
+    agentId,
+    agentType,
+    versionId,
+    alias,
+    onError: (err) => toast.error(err.message),
+  });
+
+  const prevVersionId = useRef(versionId);
+  const prevAlias = useRef(alias);
+  useEffect(() => {
+    if (prevVersionId.current !== versionId || prevAlias.current !== alias) {
+      setMessages([]);
+      prevVersionId.current = versionId;
+      prevAlias.current = alias;
+    }
+  }, [versionId, alias, setMessages]);
+
+  return (
+    <>
+      <ChatMessages messages={messages} isLoading={isLoading} onRegenerate={handleRegenerate} />
+      <ChatInput onSend={handleSend} isLoading={isLoading} />
+    </>
+  );
+}
+
 export default function GenericPlaygroundPage() {
   const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
@@ -25,24 +68,10 @@ export default function GenericPlaygroundPage() {
   const { data: versions } = useAgentVersions(selectedAgentId ?? '');
   const { data: aliases } = useAgentAliases(selectedAgentId ?? '');
 
-  const {
-    messages,
-    isLoading,
-    handleSend,
-    handleRegenerate,
-    setMessages,
-  } = usePlayground({
-    agentId: selectedAgentId ?? '',
-    agentType: agent?.type ?? 'simple',
-    versionId: selectedVersionId,
-    alias: selectedAlias,
-    onError: (err) => toast.error(err.message),
-  });
-
   const handleAgentChange = (agentId: string) => {
     setSelectedAgentId(agentId);
     setSelectedVersionId(undefined);
-    setMessages([]);
+    setSelectedAlias(undefined);
   };
 
   const handleVersionChange = (value: string) => {
@@ -56,7 +85,6 @@ export default function GenericPlaygroundPage() {
       setSelectedVersionId(value);
       setSelectedAlias(undefined);
     }
-    setMessages([]);
   };
 
   if (agentsLoading) {
@@ -117,10 +145,13 @@ export default function GenericPlaygroundPage() {
             </Card>
           </div>
         ) : (
-          <>
-            <ChatMessages messages={messages} isLoading={isLoading} onRegenerate={handleRegenerate} />
-            <ChatInput onSend={handleSend} isLoading={isLoading} />
-          </>
+          <PlaygroundChat
+            key={selectedAgentId}
+            agentId={selectedAgentId}
+            agentType={agent?.type ?? 'simple'}
+            versionId={selectedVersionId}
+            alias={selectedAlias}
+          />
         )}
       </div>
     </div>
