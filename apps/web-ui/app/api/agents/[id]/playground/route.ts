@@ -74,6 +74,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       resolvedConfig = (agent.config as Record<string, unknown>) ?? {};
     }
 
+    // Fallback: if no version resolved, use the latest version for this agent
+    if (!resolvedVersionId) {
+      const latestVersion = await db.agentVersion.findFirst({
+        where: { agentId: id },
+        orderBy: { version: 'desc' },
+      });
+      if (latestVersion) {
+        resolvedVersionId = latestVersion.id;
+      }
+    }
+
+    // If still no version, we cannot create an execution (schema requires agentVersionId)
+    if (!resolvedVersionId) {
+      return new Response(JSON.stringify({ error: 'Agent has no versions. Please publish a version first.' }), { status: 400 });
+    }
+
     const startedAt = new Date();
     const execution = await db.agentExecution.create({
       data: {
