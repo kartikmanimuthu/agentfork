@@ -1,3 +1,4 @@
 config:
-  aws:region: ap-south-1
+  aws:region: us-east-1
   chatbot-networking:vpcCidr: 10.0.0.0/16
+encryptionsalt: v1:AUeX6OjK8WQ=:v1:PZ8b4WBN77ylz+hE:W6UtcGNyrIhcr3HZUtqQekZfcHKU6Q==
