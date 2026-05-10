@@ -304,6 +304,11 @@ const ecsSecurityGroup = new aws.ec2.SecurityGroup(`${appName}-ecs-sg`, {
   tags: { Name: `${appName}-ecs-sg` },
 });
 
+const optionalS3Env = [
+  ...(config.get('s3Endpoint') ? [{ name: 'S3_ENDPOINT', value: config.get('s3Endpoint')! }] : []),
+  ...(config.get('s3ForcePathStyle') ? [{ name: 'S3_FORCE_PATH_STYLE', value: config.get('s3ForcePathStyle')! }] : []),
+];
+
 const webUiTaskDef = new aws.ecs.TaskDefinition(`${appName}-web-ui-task`, {
   family: `${appName}-web-ui`,
   networkMode: 'awsvpc',
@@ -322,8 +327,9 @@ const webUiTaskDef = new aws.ecs.TaskDefinition(`${appName}-web-ui-task`, {
       userPool.id,
       userPoolClient.id,
       userPoolClient.clientSecret,
+      appBucket.bucket,
     ])
-    .apply(([repoUrl, nsArn, dbArn, logGroup, poolId, clientId, clientSecret]) =>
+    .apply(([repoUrl, nsArn, dbArn, logGroup, poolId, clientId, clientSecret, bucketName]) =>
       JSON.stringify([
         {
           name: 'web-ui',
@@ -341,6 +347,8 @@ const webUiTaskDef = new aws.ecs.TaskDefinition(`${appName}-web-ui-task`, {
             { name: 'COGNITO_APP_CLIENT_ID', value: clientId },
             { name: 'COGNITO_APP_CLIENT_SECRET', value: clientSecret },
             { name: 'COGNITO_ISSUER', value: `https://cognito-idp.${region}.amazonaws.com/${poolId}` },
+            { name: 'S3_BUCKET', value: bucketName },
+            ...optionalS3Env,
           ],
           logConfiguration: {
             logDriver: 'awslogs',
@@ -361,8 +369,8 @@ const workersTaskDef = new aws.ecs.TaskDefinition(`${appName}-workers-task`, {
   taskRoleArn: taskRole.arn,
   runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
   containerDefinitions: pulumi
-    .all([workersRepo.repositoryUrl, databaseUrlSm.arn, workersLogGroup.name])
-    .apply(([repoUrl, dbArn, logGroup]) =>
+    .all([workersRepo.repositoryUrl, databaseUrlSm.arn, workersLogGroup.name, appBucket.bucket])
+    .apply(([repoUrl, dbArn, logGroup, bucketName]) =>
       JSON.stringify([
         {
           name: 'worker',
@@ -372,6 +380,8 @@ const workersTaskDef = new aws.ecs.TaskDefinition(`${appName}-workers-task`, {
           environment: [
             { name: 'AWS_REGION', value: region },
             { name: 'WORKER_ARCH', value: 'vertical' },
+            { name: 'S3_BUCKET', value: bucketName },
+            ...optionalS3Env,
           ],
           logConfiguration: {
             logDriver: 'awslogs',

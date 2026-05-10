@@ -1,6 +1,5 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Service } from '@chatbot/shared';
 import {
   createKnowledgeBaseRepository,
   createDataSourceRepository,
@@ -119,6 +118,7 @@ export class DocumentService {
   private readonly docRepo: ReturnType<typeof createDocumentRepository>;
   private readonly dsRepo: ReturnType<typeof createDataSourceRepository>;
   private readonly kbRepo: ReturnType<typeof createKnowledgeBaseRepository>;
+  private readonly s3 = new S3Service();
 
   constructor(private readonly tenantId: string) {
     const db = getPrismaClient();
@@ -171,7 +171,6 @@ export class DocumentService {
 
   /**
    * Generate a pre-signed S3 upload URL for a document.
-   * Requires @aws-sdk/client-s3 and @aws-sdk/s3-request-presigner at runtime.
    */
   async getUploadUrl(
     dataSourceId: string,
@@ -181,18 +180,8 @@ export class DocumentService {
   ): Promise<{ uploadUrl: string; s3Key: string }> {
     await this.assertDataSourceOwnership(dataSourceId);
 
-    const bucket = process.env['KB_S3_BUCKET'] ?? 'chatbot-knowledge-base-dev';
-    const region = process.env['AWS_REGION'] ?? 'ap-south-1';
     const s3Key = `${this.tenantId}/${dataSourceId}/${Date.now()}-${fileName}`;
-
-    const client = new S3Client({ region });
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: s3Key,
-      ContentType: mimeType,
-    });
-
-    const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+    const uploadUrl = await this.s3.getUploadUrl(s3Key, mimeType, expiresIn);
     return { uploadUrl, s3Key };
   }
 
@@ -200,18 +189,7 @@ export class DocumentService {
    * Download a document from S3 and return its buffer.
    */
   async downloadFromS3(s3Key: string): Promise<Buffer> {
-    const bucket = process.env['KB_S3_BUCKET'] ?? 'chatbot-knowledge-base-dev';
-    const region = process.env['AWS_REGION'] ?? 'ap-south-1';
-    const client = new S3Client({ region });
-
-    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: s3Key }));
-    if (!response.Body) throw new Error(`S3 object not found: ${s3Key}`);
-
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
-      chunks.push(chunk);
-    }
-    return Buffer.concat(chunks);
+    return this.s3.downloadAsBuffer(s3Key);
   }
 }
 
