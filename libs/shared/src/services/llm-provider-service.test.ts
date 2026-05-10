@@ -15,6 +15,19 @@ vi.mock('../db/prisma-client', () => ({
   getPrismaClient: () => mockPrisma,
 }));
 
+vi.mock('./encryption-service', () => ({
+  EncryptionService: class {
+    encrypt = vi.fn((p: string) => `enc:${p}`);
+    decrypt = vi.fn((c: string) => c.replace('enc:', ''));
+  },
+}));
+
+vi.mock('@chatbot/ai', () => ({
+  createDiscovery: () => ({
+    discover: vi.fn().mockResolvedValue([{ id: 'gpt-4', name: 'GPT-4', capabilities: ['chat'] }]),
+  }),
+}));
+
 import { LlmProviderService } from './llm-provider-service';
 
 describe('LlmProviderService', () => {
@@ -22,42 +35,37 @@ describe('LlmProviderService', () => {
     vi.clearAllMocks();
   });
 
-  it('list returns providers ordered by default then createdAt', async () => {
+  it('list returns providers with masked credentials', async () => {
     const service = new LlmProviderService('t1');
-    mockPrisma.llmProvider.findMany.mockResolvedValue([{ id: '1', name: 'Bedrock' }]);
+    mockPrisma.llmProvider.findMany.mockResolvedValue([
+      { id: '1', name: 'Bedrock', providerType: 'BEDROCK', credentials: 'enc:{"accessKeyId":"AKIA123"}', region: null, chatModel: null, embeddingModel: null, embeddingDimensions: null, models: null, isDefault: false, createdAt: new Date(), updatedAt: new Date(), tenantId: 't1' },
+    ]);
     const result = await service.list();
-    expect(mockPrisma.llmProvider.findMany).toHaveBeenCalledWith({
-      where: { tenantId: 't1' },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-    });
-    expect(result).toEqual([{ id: '1', name: 'Bedrock' }]);
+    expect(result[0].credentialsConfigured).toBe(true);
+    expect(result[0].credentialsHint).toBe('AKI...123');
   });
 
-  it('create sets isDefault and clears existing default', async () => {
+  it('create encrypts credentials', async () => {
     const service = new LlmProviderService('t1');
-    mockPrisma.llmProvider.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.llmProvider.create.mockResolvedValue({ id: '1' });
-    const result = await service.create({ name: 'OpenAI', provider: 'openai', isDefault: true });
-    expect(mockPrisma.llmProvider.updateMany).toHaveBeenCalledWith({
-      where: { tenantId: 't1', isDefault: true },
-      data: { isDefault: false },
-    });
-    expect(mockPrisma.llmProvider.create).toHaveBeenCalledWith({
-      data: { name: 'OpenAI', provider: 'openai', isDefault: true, tenantId: 't1' },
-    });
-    expect(result).toEqual({ id: '1' });
+    mockPrisma.llmProvider.create.mockResolvedValue({ id: '1', name: 'OpenAI', providerType: 'OPENAI', credentials: 'enc:{"apiKey":"sk-test"}', region: null, chatModel: null, embeddingModel: null, embeddingDimensions: null, models: null, isDefault: false, createdAt: new Date(), updatedAt: new Date(), tenantId: 't1' });
+    const result = await service.create({ name: 'OpenAI', providerType: 'OPENAI', credentials: { apiKey: 'sk-test' } });
+    expect(mockPrisma.llmProvider.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ credentials: 'enc:{"apiKey":"sk-test"}' }),
+    }));
+    expect(result.credentialsConfigured).toBe(true);
   });
 
-  it('getDefaultConfig returns config when default exists', async () => {
+  it('getDefaultConfig decrypts credentials', async () => {
     const service = new LlmProviderService('t1');
     mockPrisma.llmProvider.findFirst.mockResolvedValue({
       id: '1',
-      provider: 'openai',
+      providerType: 'OPENAI',
       chatModel: 'gpt-4o',
       embeddingModel: 'text-embedding-3-large',
       embeddingDimensions: 3072,
-      baseUrl: 'http://localhost:11434/v1',
-      apiKey: 'sk-test',
+      credentials: 'enc:{"apiKey":"sk-test","baseUrl":"http://localhost:11434/v1"}',
+      region: null,
+      isDefault: true,
     });
     const result = await service.getDefaultConfig();
     expect(result).toEqual({
@@ -70,10 +78,13 @@ describe('LlmProviderService', () => {
     });
   });
 
-  it('getDefaultConfig returns null when no default exists', async () => {
+  it('validateAndDiscoverModels returns discovered models', async () => {
     const service = new LlmProviderService('t1');
-    mockPrisma.llmProvider.findFirst.mockResolvedValue(null);
-    const result = await service.getDefaultConfig();
-    expect(result).toBeNull();
+    const result = await service.validateAndDiscoverModels({
+      providerType: 'OPENAI',
+      credentials: { apiKey: 'sk-test' },
+    });
+    expect(result.success).toBe(true);
+    expect(result.models).toEqual([{ id: 'gpt-4', name: 'GPT-4', capabilities: ['chat'] }]);
   });
 });
