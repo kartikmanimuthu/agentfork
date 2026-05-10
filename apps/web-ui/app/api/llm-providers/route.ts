@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, LlmProviderService } from '@chatbot/shared';
+import { getSessionTenantId, authorize, LlmProviderService, createLogger } from '@chatbot/shared';
 import { CreateLlmProviderSchema } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:llm-providers');
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,8 +13,10 @@ export async function GET(req: NextRequest) {
 
     const service = new LlmProviderService(tenantId);
     const providers = await service.list();
+    logger.info({ tenantId, count: providers.length }, 'Listed LLM providers');
     return NextResponse.json(providers);
   } catch (error) {
+    logger.error({ error }, 'Failed to list LLM providers');
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
@@ -27,8 +31,14 @@ export async function POST(req: NextRequest) {
     if (authError) return authError;
 
     const body = await req.json();
+    logger.info(
+      { tenantId, name: body.name, providerType: body.providerType, isDefault: body.isDefault },
+      'Creating LLM provider'
+    );
+
     const parsed = CreateLlmProviderSchema.safeParse(body);
     if (!parsed.success) {
+      logger.warn({ issues: parsed.error.issues }, 'Create schema rejected input');
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
         { status: 400 }
@@ -37,8 +47,10 @@ export async function POST(req: NextRequest) {
 
     const service = new LlmProviderService(tenantId);
     const provider = await service.create(parsed.data);
+    logger.info({ tenantId, providerId: provider.id }, 'Created LLM provider');
     return NextResponse.json(provider, { status: 201 });
   } catch (error) {
+    logger.error({ error }, 'Failed to create LLM provider');
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

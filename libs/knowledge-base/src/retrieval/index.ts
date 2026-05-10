@@ -1,4 +1,5 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
+import { LlmProviderService } from '@chatbot/shared/workers';
 import {
   createDocumentChunkRepository,
   createKnowledgeBaseRepository,
@@ -34,9 +35,10 @@ export class RetrievalService {
     const useCompression = options.useCompression ?? (kb.retrievalConfig as any).useCompression ?? false;
 
     // Generate query embedding
-    const embeddingProvider = getEmbeddingProvider(
-      kb.embeddingProvider as any,
-      { model: kb.embeddingModel, dimensions: kb.embeddingDimensions }
+    const embeddingProvider = await this.resolveEmbeddingProvider(
+      kb.embeddingProvider,
+      kb.embeddingModel,
+      kb.embeddingDimensions
     );
 
     // For sparse-only search we don't need an embedding
@@ -98,9 +100,10 @@ export class RetrievalService {
     const rerankTopK = options.rerankTopK ?? (kb.retrievalConfig as any).rerankTopK ?? topK;
     const useCompression = options.useCompression ?? (kb.retrievalConfig as any).useCompression ?? false;
 
-    const embeddingProvider = getEmbeddingProvider(
-      kb.embeddingProvider as any,
-      { model: kb.embeddingModel, dimensions: kb.embeddingDimensions }
+    const embeddingProvider = await this.resolveEmbeddingProvider(
+      kb.embeddingProvider,
+      kb.embeddingModel,
+      kb.embeddingDimensions
     );
 
     let queryEmbedding: number[] = [];
@@ -135,6 +138,31 @@ export class RetrievalService {
     }
 
     return results;
+  }
+
+  private async resolveEmbeddingProvider(
+    embeddingProvider: string,
+    embeddingModel: string,
+    embeddingDimensions: number
+  ): Promise<ReturnType<typeof getEmbeddingProvider>> {
+    const legacyProviders = ['BEDROCK_TITAN', 'OPENAI', 'COHERE', 'LOCAL'];
+
+    if (legacyProviders.includes(embeddingProvider)) {
+      return getEmbeddingProvider(embeddingProvider as any, {
+        model: embeddingModel,
+        dimensions: embeddingDimensions,
+      });
+    }
+
+    const llmProviderService = new LlmProviderService(this.tenantId);
+    const config = await llmProviderService.getConfigById(embeddingProvider);
+    if (!config) {
+      throw new Error(`LLM provider ${embeddingProvider} not found for tenant ${this.tenantId}`);
+    }
+    return getEmbeddingProvider(config, {
+      model: embeddingModel,
+      dimensions: embeddingDimensions,
+    });
   }
 }
 

@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Database, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
+import { useLlmProviders } from '@/hooks/use-llm-providers';
 
 const STEPS = ['Basic Info', 'Embedding', 'Chunking', 'Review'];
 
@@ -26,12 +28,13 @@ interface FormData {
   chunkOverlap: number;
 }
 
-const EMBEDDING_PRESETS: Record<string, { model: string; dimensions: number }> = {
-  BEDROCK_TITAN: { model: 'amazon.titan-embed-text-v2:0', dimensions: 1024 },
-  OPENAI: { model: 'text-embedding-3-large', dimensions: 3072 },
-  COHERE: { model: 'embed-english-v3.0', dimensions: 1024 },
-  LOCAL: { model: 'nomic-embed-text', dimensions: 768 },
-};
+interface SelectedProviderInfo {
+  id: string;
+  name: string;
+  embeddingDimensions: number | null;
+}
+
+
 
 export default function NewKnowledgeBasePage() {
   const router = useRouter();
@@ -40,26 +43,41 @@ export default function NewKnowledgeBasePage() {
   const [form, setForm] = useState<FormData>({
     name: '',
     description: '',
-    embeddingProvider: 'BEDROCK_TITAN',
-    embeddingModel: 'amazon.titan-embed-text-v2:0',
+    embeddingProvider: '',
+    embeddingModel: '',
     embeddingDimensions: 1024,
     chunkStrategy: 'RECURSIVE_CHARACTER',
     chunkSize: 512,
     chunkOverlap: 50,
   });
+  const [selectedProvider, setSelectedProvider] = useState<SelectedProviderInfo | null>(null);
+  const { data: providers } = useLlmProviders();
+
+  const handleModelChange = (modelId: string) => {
+    if (!providers) return;
+    // Find which provider owns this model
+    for (const provider of providers) {
+      const discovered = (provider.models as { models?: Array<{ id: string; name: string }> } | null)?.models ?? [];
+      const match = discovered.find((m) => m.id === modelId);
+      if (match) {
+        setSelectedProvider({ id: provider.id, name: provider.name, embeddingDimensions: provider.embeddingDimensions });
+        setForm((prev) => ({
+          ...prev,
+          embeddingProvider: provider.id,
+          embeddingModel: modelId,
+          embeddingDimensions: provider.embeddingDimensions ?? prev.embeddingDimensions,
+        }));
+        return;
+      }
+    }
+    // Fallback: if no discovered model matches, just store the model ID
+    setForm((prev) => ({ ...prev, embeddingModel: modelId }));
+  };
 
   const update = (key: keyof FormData, value: string | number) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleProviderChange = (provider: string) => {
-    const preset = EMBEDDING_PRESETS[provider];
-    setForm((prev) => ({
-      ...prev,
-      embeddingProvider: provider,
-      embeddingModel: preset?.model ?? prev.embeddingModel,
-      embeddingDimensions: preset?.dimensions ?? prev.embeddingDimensions,
-    }));
-  };
+
 
   const canAdvance = () => {
     if (step === 0) return form.name.trim().length > 0;
@@ -161,26 +179,18 @@ export default function NewKnowledgeBasePage() {
           {step === 1 && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="provider">Embedding Provider</Label>
-                <Select value={form.embeddingProvider} onValueChange={handleProviderChange}>
-                  <SelectTrigger id="provider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BEDROCK_TITAN">Amazon Bedrock Titan</SelectItem>
-                    <SelectItem value="OPENAI">OpenAI</SelectItem>
-                    <SelectItem value="COHERE">Cohere</SelectItem>
-                    <SelectItem value="LOCAL">Local (Ollama)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
+                <Label htmlFor="model">Embedding Model</Label>
+                <ProviderModelSelect
+                  capability="embedding"
                   value={form.embeddingModel}
-                  onChange={(e) => update('embeddingModel', e.target.value)}
+                  onChange={handleModelChange}
+                  placeholder="Select an embedding model"
                 />
+                {selectedProvider && (
+                  <p className="text-xs text-muted-foreground">
+                    Provider: {selectedProvider.name}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dims">Dimensions</Label>

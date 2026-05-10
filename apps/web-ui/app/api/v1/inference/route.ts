@@ -14,6 +14,22 @@ import { validateInferenceApiKey } from './lib/auth';
 
 const logger = createLogger('api:inference');
 
+async function resolveProviderForModel(
+  tenantId: string,
+  modelId: string | undefined
+): Promise<TenantLLMConfig | null> {
+  if (!modelId) return null;
+  const llmProviderService = new LlmProviderService(tenantId);
+  const providers = await llmProviderService.list();
+  for (const provider of providers) {
+    const discovered = (provider.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+    if (discovered.some((m) => m.id === modelId)) {
+      return llmProviderService.getConfigById(provider.id);
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const authResult = await validateInferenceApiKey(req);
   if (!authResult.success) {
@@ -169,9 +185,10 @@ export async function POST(req: NextRequest) {
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
       const effectiveMaxTokens = maxTokens ?? simpleConfig.maxTokens ?? 4096;
 
-      // Resolve LLM provider
+      // Resolve LLM provider: match model first, then fall back to default
       const llmProviderService = new LlmProviderService(tenantId);
-      const llmConfig = await llmProviderService.getDefaultConfig()
+      const llmConfig = await resolveProviderForModel(tenantId, effectiveModel)
+        ?? await llmProviderService.getDefaultConfig()
         ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
       const provider = createLLMProvider(llmConfig);
 

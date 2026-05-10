@@ -13,6 +13,22 @@ import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
 
+async function resolveProviderForModel(
+  tenantId: string,
+  modelId: string | undefined
+): Promise<TenantLLMConfig | null> {
+  if (!modelId) return null;
+  const llmProviderService = new LlmProviderService(tenantId);
+  const providers = await llmProviderService.list();
+  for (const provider of providers) {
+    const discovered = (provider.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+    if (discovered.some((m) => m.id === modelId)) {
+      return llmProviderService.getConfigById(provider.id);
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const tenantId = await getSessionTenantId(authOptions);
@@ -21,12 +37,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id } = await params;
-
-    // Resolve tenant LLM config: new table first, then legacy tenant_configs
-    const llmProviderService = new LlmProviderService(tenantId);
-    const llmConfig = await llmProviderService.getDefaultConfig()
-      ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
-    const provider = createLLMProvider(llmConfig);
 
     const db = getPrismaClient();
 
@@ -108,6 +118,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const simpleConfig = resolvedConfig as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number; tools?: string[] };
       const effectiveModel = model ?? simpleConfig.model ?? undefined;
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
+
+      // Resolve LLM provider by model, then fall back to default
+      const llmProviderService = new LlmProviderService(tenantId);
+      const llmConfig = await resolveProviderForModel(tenantId, effectiveModel)
+        ?? await llmProviderService.getDefaultConfig()
+        ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
+      const provider = createLLMProvider(llmConfig);
 
       const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',

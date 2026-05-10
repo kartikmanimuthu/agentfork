@@ -10,8 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Settings, ArrowLeft, Save } from 'lucide-react';
+import { Settings, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
+import { useLlmProviders } from '@/hooks/use-llm-providers';
 
 interface KbConfig {
   id: string;
@@ -21,6 +24,9 @@ interface KbConfig {
   chunkStrategy: string;
   chunkSize: number;
   chunkOverlap: number;
+  embeddingProvider: string;
+  embeddingModel: string;
+  embeddingDimensions: number;
 }
 
 export default function KnowledgeBaseSettingsPage() {
@@ -29,6 +35,7 @@ export default function KnowledgeBaseSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Partial<KbConfig>>({});
+  const { data: providers } = useLlmProviders();
 
   useEffect(() => {
     fetch(`/api/knowledge-bases/${id}`)
@@ -42,6 +49,9 @@ export default function KnowledgeBaseSettingsPage() {
           chunkStrategy: data.chunkStrategy,
           chunkSize: data.chunkSize,
           chunkOverlap: data.chunkOverlap,
+          embeddingProvider: data.embeddingProvider,
+          embeddingModel: data.embeddingModel,
+          embeddingDimensions: data.embeddingDimensions,
         });
         setLoading(false);
       })
@@ -53,6 +63,21 @@ export default function KnowledgeBaseSettingsPage() {
 
   const update = (key: keyof KbConfig, value: string | number) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleModelChange = (modelId: string) => {
+    if (!providers) return;
+    for (const provider of providers) {
+      const discovered = (provider.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+      const hasModel = discovered.some((m) => m.id === modelId);
+      if (hasModel || provider.embeddingModel === modelId) {
+        update('embeddingProvider', provider.id);
+        update('embeddingModel', modelId);
+        update('embeddingDimensions', provider.embeddingDimensions ?? 1024);
+        return;
+      }
+    }
+    update('embeddingModel', modelId);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -121,6 +146,52 @@ export default function KnowledgeBaseSettingsPage() {
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Embedding</CardTitle>
+              <CardDescription>Model used to generate document embeddings.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Re-ingestion required</AlertTitle>
+                <AlertDescription>
+                  Changing embedding settings requires re-ingesting all documents. Existing vectors will become incompatible.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label htmlFor="embeddingModel">Embedding Model</Label>
+                <ProviderModelSelect
+                  capability="embedding"
+                  value={form.embeddingModel ?? ''}
+                  onChange={handleModelChange}
+                  placeholder="Select an embedding model"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="embeddingProvider">Provider ID</Label>
+                  <Input
+                    id="embeddingProvider"
+                    value={form.embeddingProvider ?? ''}
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="embeddingDimensions">Dimensions</Label>
+                  <Input
+                    id="embeddingDimensions"
+                    type="number"
+                    value={form.embeddingDimensions ?? 1024}
+                    disabled
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
