@@ -15,12 +15,12 @@ export default function NewLlmProviderPage() {
 
   const handleSubmit = async (values: {
     name: string;
-    provider: 'bedrock' | 'openai';
-    chatModel?: string | null;
-    embeddingModel?: string | null;
-    embeddingDimensions?: number | null;
-    baseUrl?: string | null;
-    apiKey?: string | null;
+    providerType: string;
+    region?: string;
+    credentials: Record<string, string>;
+    chatModel?: string;
+    embeddingModel?: string;
+    embeddingDimensions?: number;
     isDefault?: boolean;
   }) => {
     try {
@@ -35,8 +35,10 @@ export default function NewLlmProviderPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" nativeButton={false} render={<Link href="/agents/llm-providers" aria-label="Back to providers" />}>
-          <ArrowLeft className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+          <Link href="/agents/llm-providers" aria-label="Back to providers">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
         </Button>
         <h2 className="text-2xl font-bold tracking-tight">New LLM Provider</h2>
       </div>
