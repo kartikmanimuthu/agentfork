@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DocumentService, IngestionService } from '@chatbot/knowledge-base';
+import { DocumentService, IngestionService, createDocumentSchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';
 
@@ -11,14 +11,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id: knowledgeBaseId } = await params;
-    const { sourceId, fileName, mimeType, sizeBytes } = await req.json();
-
-    if (!sourceId || !fileName || !mimeType || !sizeBytes) {
+    const body = await req.json();
+    const parsed = createDocumentSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'sourceId, fileName, mimeType, and sizeBytes are required' },
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
         { status: 400 }
       );
     }
+    const { dataSourceId: sourceId, fileName, mimeType, sizeBytes } = parsed.data;
 
     const docService = new DocumentService(tenantId);
 

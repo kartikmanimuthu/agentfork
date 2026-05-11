@@ -8,12 +8,25 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { BookOpen, Link2, Unlink } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useState } from 'react';
 
 export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
   const { data: attached, isLoading: attachedLoading } = useAgentKnowledgeBases(agentId);
   const { data: allKBs, isLoading: allLoading } = useKnowledgeBases();
   const attach = useAttachKnowledgeBase(agentId);
   const detach = useDetachKnowledgeBase(agentId);
+
+  const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
   const attachedIds = new Set((attached ?? []).map((a) => a.knowledgeBaseId));
 
@@ -55,7 +68,7 @@ export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => detach.mutateAsync(kb.id).then(() => toast.success('Detached')).catch(() => toast.error('Failed'))}
+                    onClick={() => setDetachTarget(kb.id)}
                     disabled={detach.isPending}
                   >
                     <Unlink className="h-3 w-3 mr-1" />
@@ -76,6 +89,30 @@ export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
           );
         })}
       </CardContent>
+      <AlertDialog open={!!detachTarget} onOpenChange={(open) => !open && setDetachTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Detach knowledge base?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the knowledge base from this agent. The knowledge base itself will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDetachTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (detachTarget) {
+                  detach.mutateAsync(detachTarget).then(() => toast.success('Detached')).catch(() => toast.error('Failed'));
+                }
+                setDetachTarget(null);
+              }}
+            >
+              Detach
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

@@ -19,6 +19,16 @@ import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { Bot, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import { CreateAgentDialog } from '@/components/agents/create-agent-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Agent {
   id: string;
@@ -41,6 +51,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchAgents = () => {
     setLoading(true);
@@ -75,6 +86,7 @@ export default function AgentsPage() {
       await fetch(`/api/agents/${id}`, { method: 'DELETE' });
       setAgents((prev) => prev.filter((a) => a.id !== id));
       toast.success('Agent deleted');
+      setDeleteTarget(null);
     } catch {
       toast.error('Failed to delete agent');
     }
@@ -143,7 +155,7 @@ export default function AgentsPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-destructive"
-              onClick={() => handleDelete(row.original.id)}
+              onClick={() => setDeleteTarget(row.original.id)}
               aria-label="Delete agent"
             >
               <Trash2 className="h-4 w-4" />
@@ -215,6 +227,26 @@ export default function AgentsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete agent?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The agent and all its versions will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateAgentDialog
         open={dialogOpen}

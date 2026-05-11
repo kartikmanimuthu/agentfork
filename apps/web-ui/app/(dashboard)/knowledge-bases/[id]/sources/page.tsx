@@ -29,6 +29,16 @@ import {
   Database,
   Plug,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DataSource {
   id: string;
@@ -73,6 +83,7 @@ export default function KnowledgeBaseSourcesPage() {
   const { id } = useParams<{ id: string }>();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const loadSources = useCallback(() => {
     setLoading(true);
@@ -105,7 +116,6 @@ export default function KnowledgeBaseSourcesPage() {
   };
 
   const handleDelete = async (sourceId: string) => {
-    if (!confirm('Are you sure you want to delete this source?')) return;
     try {
       const res = await fetch(`/api/knowledge-bases/${id}/sources/${sourceId}`, {
         method: 'DELETE',
@@ -113,6 +123,7 @@ export default function KnowledgeBaseSourcesPage() {
       if (!res.ok) throw new Error('Delete failed');
       setSources((prev) => prev.filter((s) => s.id !== sourceId));
       toast.success('Source deleted');
+      setDeleteTarget(null);
     } catch {
       toast.error('Failed to delete source');
     }
@@ -202,7 +213,7 @@ export default function KnowledgeBaseSourcesPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive"
-            onClick={() => handleDelete(row.original.id)}
+            onClick={() => setDeleteTarget(row.original.id)}
             aria-label="Delete source"
           >
             <Trash2 className="h-4 w-4" />
@@ -269,6 +280,25 @@ export default function KnowledgeBaseSourcesPage() {
           )}
         </CardContent>
       </Card>
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete source?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the data source and all its documents. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => deleteTarget && handleDelete(deleteTarget)}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

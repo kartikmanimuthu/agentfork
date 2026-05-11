@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,83 +16,43 @@ import { Database, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
 import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import { useLlmProviders } from '@/hooks/use-llm-providers';
-
 const STEPS = ['Basic Info', 'Embedding', 'Chunking', 'Review'];
 
-interface FormData {
-  name: string;
-  description: string;
-  embeddingProvider: string;
-  embeddingModel: string;
-  embeddingDimensions: number;
-  chunkStrategy: string;
-  chunkSize: number;
-  chunkOverlap: number;
-}
+const schema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  description: z.string().max(1000).optional(),
+  embeddingProvider: z.string().min(1, 'Provider is required'),
+  embeddingModel: z.string().min(1, 'Model is required'),
+  embeddingDimensions: z.number().int().min(64).max(3072),
+  chunkStrategy: z.enum(['FIXED_SIZE', 'RECURSIVE_CHARACTER', 'SEMANTIC', 'MARKDOWN_AWARE', 'CODE_AWARE']),
+  chunkSize: z.number().int().min(64).max(8192),
+  chunkOverlap: z.number().int().min(0).max(512),
+});
 
-interface SelectedProviderInfo {
-  id: string;
-  name: string;
-  embeddingDimensions: number | null;
-}
-
-
+type CreateKbFormValues = z.infer<typeof schema>;
 
 export default function NewKnowledgeBasePage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState<FormData>({
-    name: '',
-    description: '',
-    embeddingProvider: '',
-    embeddingModel: '',
-    embeddingDimensions: 1024,
-    chunkStrategy: 'RECURSIVE_CHARACTER',
-    chunkSize: 512,
-    chunkOverlap: 50,
-  });
-  const [selectedProvider, setSelectedProvider] = useState<SelectedProviderInfo | null>(null);
   const { data: providers } = useLlmProviders();
 
-  const handleModelChange = (modelId: string) => {
-    if (!providers) return;
-    // Find which provider owns this model
-    for (const provider of providers) {
-      const discovered = (provider.models as { models?: Array<{ id: string; name: string }> } | null)?.models ?? [];
-      const match = discovered.find((m) => m.id === modelId);
-      if (match) {
-        setSelectedProvider({ id: provider.id, name: provider.name, embeddingDimensions: provider.embeddingDimensions });
-        setForm((prev) => ({
-          ...prev,
-          embeddingProvider: provider.id,
-          embeddingModel: modelId,
-          embeddingDimensions: provider.embeddingDimensions ?? prev.embeddingDimensions,
-        }));
-        return;
-      }
-    }
-    // Fallback: if no discovered model matches, just store the model ID
-    setForm((prev) => ({ ...prev, embeddingModel: modelId }));
-  };
-
-  const update = (key: keyof FormData, value: string | number) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-
-
-  const canAdvance = () => {
-    if (step === 0) return form.name.trim().length > 0;
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      embeddingProvider: '',
+      embeddingModel: '',
+      embeddingDimensions: 1024,
+      chunkStrategy: 'RECURSIVE_CHARACTER',
+      chunkSize: 512,
+      chunkOverlap: 50,
+    } as CreateKbFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
       const res = await fetch('/api/knowledge-bases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(value),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -99,10 +61,28 @@ export default function NewKnowledgeBasePage() {
       const kb = await res.json();
       toast.success('Knowledge base created');
       router.push(`/knowledge-bases/${kb.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create knowledge base');
-      setSubmitting(false);
+    },
+  });
+
+  const canAdvance = () => {
+    if (step === 0) return form.getFieldValue('name')?.trim().length > 0;
+    if (step === 1) return !!form.getFieldValue('embeddingModel');
+    return true;
+  };
+
+  const handleModelChange = (modelId: string) => {
+    if (!providers) return;
+    for (const provider of providers) {
+      const discovered = (provider.models as { models?: Array<{ id: string; name: string }> } | null)?.models ?? [];
+      const match = discovered.find((m) => m.id === modelId);
+      if (match) {
+        form.setFieldValue('embeddingProvider', provider.id);
+        form.setFieldValue('embeddingModel', modelId);
+        form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);
+        return;
+      }
     }
+    form.setFieldValue('embeddingModel', modelId);
   };
 
   return (
@@ -117,7 +97,6 @@ export default function NewKnowledgeBasePage() {
         </div>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
@@ -132,156 +111,210 @@ export default function NewKnowledgeBasePage() {
             >
               {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
             </div>
-            <span className={`text-sm ${i === step ? 'font-medium' : 'text-muted-foreground'}`}>
-              {label}
-            </span>
+            <span className={`text-sm ${i === step ? 'font-medium' : 'text-muted-foreground'}`}>{label}</span>
             {i < STEPS.length - 1 && <div className="h-px w-8 bg-border" />}
           </div>
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{STEPS[step]}</CardTitle>
-          <CardDescription>
-            {step === 0 && 'Give your knowledge base a name and description.'}
-            {step === 1 && 'Choose how documents will be embedded for semantic search.'}
-            {step === 2 && 'Configure how documents are split into chunks.'}
-            {step === 3 && 'Review your configuration before creating.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {step === 0 && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g. Product Documentation"
-                  value={form.name}
-                  onChange={(e) => update('name', e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="What documents will this knowledge base contain?"
-                  value={form.description}
-                  onChange={(e) => update('description', e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </>
-          )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>{STEPS[step]}</CardTitle>
+            <CardDescription>
+              {step === 0 && 'Give your knowledge base a name and description.'}
+              {step === 1 && 'Choose how documents will be embedded for semantic search.'}
+              {step === 2 && 'Configure how documents are split into chunks.'}
+              {step === 3 && 'Review your configuration before creating.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {step === 0 && (
+              <>
+                <form.Field name="name">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Name *</Label>
+                      <Input
+                        id={field.name}
+                        placeholder="e.g. Product Documentation"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        autoFocus
+                      />
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="description">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Description</Label>
+                      <Textarea
+                        id={field.name}
+                        placeholder="What documents will this knowledge base contain?"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        rows={3}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+              </>
+            )}
 
-          {step === 1 && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="model">Embedding Model</Label>
-                <ProviderModelSelect
-                  capability="embedding"
-                  value={form.embeddingModel}
-                  onChange={handleModelChange}
-                  placeholder="Select an embedding model"
-                />
-                {selectedProvider && (
-                  <p className="text-xs text-muted-foreground">
-                    Provider: {selectedProvider.name}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dims">Dimensions</Label>
-                <Input
-                  id="dims"
-                  type="number"
-                  value={form.embeddingDimensions}
-                  onChange={(e) => update('embeddingDimensions', parseInt(e.target.value, 10))}
-                />
-              </div>
-            </>
-          )}
+            {step === 1 && (
+              <>
+                <form.Field name="embeddingModel">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Embedding Model</Label>
+                      <ProviderModelSelect
+                        capability="embedding"
+                        value={field.state.value ?? ''}
+                        onChange={handleModelChange}
+                        placeholder="Select an embedding model"
+                      />
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="embeddingDimensions">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Dimensions</Label>
+                      <Input
+                        id={field.name}
+                        type="number"
+                        min={64}
+                        max={3072}
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                        onBlur={field.handleBlur}
+                      />
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+              </>
+            )}
 
-          {step === 2 && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="strategy">Chunking Strategy</Label>
-                <Select value={form.chunkStrategy} onValueChange={(v) => update('chunkStrategy', v)}>
-                  <SelectTrigger id="strategy">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="RECURSIVE_CHARACTER">Recursive Character (recommended)</SelectItem>
-                    <SelectItem value="FIXED_SIZE">Fixed Size</SelectItem>
-                    <SelectItem value="SEMANTIC">Semantic</SelectItem>
-                    <SelectItem value="MARKDOWN_AWARE">Markdown Aware</SelectItem>
-                    <SelectItem value="CODE_AWARE">Code Aware</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="chunkSize">Chunk Size (tokens)</Label>
-                  <Input
-                    id="chunkSize"
-                    type="number"
-                    value={form.chunkSize}
-                    onChange={(e) => update('chunkSize', parseInt(e.target.value, 10))}
-                  />
+            {step === 2 && (
+              <>
+                <form.Field name="chunkStrategy">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Chunking Strategy</Label>
+                      <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as "FIXED_SIZE" | "RECURSIVE_CHARACTER" | "SEMANTIC" | "MARKDOWN_AWARE" | "CODE_AWARE")}>
+                        <SelectTrigger id={field.name}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="RECURSIVE_CHARACTER">Recursive Character (recommended)</SelectItem>
+                          <SelectItem value="FIXED_SIZE">Fixed Size</SelectItem>
+                          <SelectItem value="SEMANTIC">Semantic</SelectItem>
+                          <SelectItem value="MARKDOWN_AWARE">Markdown Aware</SelectItem>
+                          <SelectItem value="CODE_AWARE">Code Aware</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </form.Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <form.Field name="chunkSize">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor={field.name}>Chunk Size (tokens)</Label>
+                        <Input
+                          id={field.name}
+                          type="number"
+                          min={64}
+                          max={8192}
+                          value={field.state.value ?? ''}
+                          onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                          onBlur={field.handleBlur}
+                        />
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
+                  <form.Field name="chunkOverlap">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor={field.name}>Overlap (tokens)</Label>
+                        <Input
+                          id={field.name}
+                          type="number"
+                          min={0}
+                          max={512}
+                          value={field.state.value ?? ''}
+                          onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                          onBlur={field.handleBlur}
+                        />
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="chunkOverlap">Overlap (tokens)</Label>
-                  <Input
-                    id="chunkOverlap"
-                    type="number"
-                    value={form.chunkOverlap}
-                    onChange={(e) => update('chunkOverlap', parseInt(e.target.value, 10))}
-                  />
-                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
+                {[
+                  { label: 'Name', value: form.getFieldValue('name') },
+                  { label: 'Description', value: form.getFieldValue('description') || '—' },
+                  { label: 'Embedding Provider', value: form.getFieldValue('embeddingProvider') },
+                  { label: 'Embedding Model', value: form.getFieldValue('embeddingModel') },
+                  { label: 'Dimensions', value: String(form.getFieldValue('embeddingDimensions')) },
+                  { label: 'Chunk Strategy', value: form.getFieldValue('chunkStrategy') },
+                  { label: 'Chunk Size', value: `${form.getFieldValue('chunkSize')} tokens` },
+                  { label: 'Chunk Overlap', value: `${form.getFieldValue('chunkOverlap')} tokens` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{label}</span>
+                    <Badge variant="outline">{value}</Badge>
+                  </div>
+                ))}
               </div>
-            </>
-          )}
+            )}
+          </CardContent>
+        </Card>
 
-          {step === 3 && (
-            <div className="space-y-3">
-              {[
-                { label: 'Name', value: form.name },
-                { label: 'Description', value: form.description || '—' },
-                { label: 'Embedding Provider', value: form.embeddingProvider },
-                { label: 'Embedding Model', value: form.embeddingModel },
-                { label: 'Dimensions', value: String(form.embeddingDimensions) },
-                { label: 'Chunk Strategy', value: form.chunkStrategy },
-                { label: 'Chunk Size', value: `${form.chunkSize} tokens` },
-                { label: 'Chunk Overlap', value: `${form.chunkOverlap} tokens` },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{label}</span>
-                  <Badge variant="outline">{value}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        {step < STEPS.length - 1 ? (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()}>
-            Next
-            <ArrowRight className="h-4 w-4 ml-2" />
+        <div className="flex justify-between">
+          <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
-        ) : (
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create Knowledge Base'}
-          </Button>
-        )}
-      </div>
+          {step < STEPS.length - 1 ? (
+            <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()}>
+              Next
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          ) : (
+            <Button type="submit" disabled={form.state.isSubmitting}>
+              {form.state.isSubmitting ? 'Creating...' : 'Create Knowledge Base'}
+            </Button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

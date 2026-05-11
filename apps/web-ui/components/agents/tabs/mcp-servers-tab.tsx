@@ -7,6 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Server, Plus, Minus } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useState } from 'react';
 
 interface McpServersTabProps {
   agentId: string;
@@ -17,6 +28,8 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
   const { data: attachedServers, isLoading: attachedLoading } = useAgentMcpServers(agentId);
   const attachMutation = useAttachMcpServer(agentId);
   const detachMutation = useDetachMcpServer(agentId);
+
+  const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
   const isLoading = allLoading || attachedLoading;
   const attachedIds = new Set((attachedServers ?? []).map((s) => s.id));
@@ -34,6 +47,7 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
     try {
       await detachMutation.mutateAsync(serverId);
       toast.success('MCP server detached');
+      setDetachTarget(null);
     } catch {
       toast.error('Failed to detach MCP server');
     }
@@ -99,7 +113,7 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
                   <Button
                     variant={isAttached ? 'outline' : 'default'}
                     size="sm"
-                    onClick={() => isAttached ? handleDetach(server.id) : handleAttach(server.id)}
+                    onClick={() => isAttached ? setDetachTarget(server.id) : handleAttach(server.id)}
                     disabled={attachMutation.isPending || detachMutation.isPending}
                   >
                     {isAttached ? <><Minus className="h-4 w-4 mr-1" />Remove</> : <><Plus className="h-4 w-4 mr-1" />Add</>}
@@ -110,6 +124,25 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
           </div>
         </CardContent>
       </Card>
+    <AlertDialog open={!!detachTarget} onOpenChange={(open) => !open && setDetachTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove MCP server?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will detach the MCP server from this agent.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDetachTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => detachTarget && handleDetach(detachTarget)}
+          >
+            Remove
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

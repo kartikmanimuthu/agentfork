@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSessionTenantId, getSessionUserId, authorize, getPrismaClient, ApiKeyService } from '@chatbot/shared';
+import { getSessionTenantId, getSessionUserId, authorize, getPrismaClient, ApiKeyService, createApiKeySchema } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +23,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const body = await req.json();
-  const { name, dailyReqLimit, dailyTokenLimit, minuteReqLimit, scopes, expiresAt, webhookUrl, webhookSecret } = body;
+  const parsed = createApiKeySchema.safeParse(body);
+  if (!parsed.success) {
+    return new Response(
+      JSON.stringify({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }),
+      { status: 400 }
+    );
+  }
+  const validatedBody = parsed.data;
+  const { name, dailyReqLimit, dailyTokenLimit, minuteReqLimit, scopes, expiresAt, webhookUrl, webhookSecret } = validatedBody;
 
   const db = getPrismaClient();
   const service = new ApiKeyService(tenantId, db);

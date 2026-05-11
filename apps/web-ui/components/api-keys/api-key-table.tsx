@@ -4,6 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ApiKeyItem } from '@/hooks/use-api-keys';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useState } from 'react';
 
 interface ApiKeyTableProps {
   keys: ApiKeyItem[];
@@ -12,6 +23,7 @@ interface ApiKeyTableProps {
 }
 
 export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading API keys...</div>;
   }
@@ -21,6 +33,7 @@ export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
   }
 
   return (
+    <>
     <Table>
       <TableHeader>
         <TableRow>
@@ -53,7 +66,7 @@ export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onRevoke(key.id)}
+                  onClick={() => setRevokeTarget(key.id)}
                 >
                   Revoke
                 </Button>
@@ -63,5 +76,28 @@ export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
         ))}
       </TableBody>
     </Table>
+    <AlertDialog open={!!revokeTarget} onOpenChange={(open) => !open && setRevokeTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This API key will be permanently revoked and cannot be used again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setRevokeTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              if (revokeTarget) onRevoke(revokeTarget);
+              setRevokeTarget(null);
+            }}
+          >
+            Revoke
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

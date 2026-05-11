@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +16,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const schema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  dailyReqLimit: z.number().int().min(0).optional(),
+  dailyTokenLimit: z.number().int().min(0).optional(),
+  minuteReqLimit: z.number().int().min(0).optional(),
+  webhookUrl: z.string().url().optional().or(z.literal('')),
+});
+
+type CreateKeyFormValues = z.infer<typeof schema>;
+
 interface CreateKeyDialogProps {
   agentId: string;
   onCreate: (input: Record<string, unknown>) => Promise<unknown>;
@@ -22,26 +34,26 @@ interface CreateKeyDialogProps {
 
 export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [dailyReqLimit, setDailyReqLimit] = useState('1000');
-  const [dailyTokenLimit, setDailyTokenLimit] = useState('100000');
-  const [minuteReqLimit, setMinuteReqLimit] = useState('100');
-  const [webhookUrl, setWebhookUrl] = useState('');
   const [rawKey, setRawKey] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      dailyReqLimit: 1000,
+      dailyTokenLimit: 100000,
+      minuteReqLimit: 100,
+      webhookUrl: '',
+    } as CreateKeyFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
       const input: Record<string, unknown> = {
-        name,
-        dailyReqLimit: parseInt(dailyReqLimit, 10),
-        dailyTokenLimit: parseInt(dailyTokenLimit, 10),
-        minuteReqLimit: parseInt(minuteReqLimit, 10),
+        name: value.name.trim(),
+        dailyReqLimit: value.dailyReqLimit,
+        dailyTokenLimit: value.dailyTokenLimit,
+        minuteReqLimit: value.minuteReqLimit,
       };
-      if (webhookUrl.trim()) {
-        input.webhookUrl = webhookUrl.trim();
+      if (value.webhookUrl?.trim()) {
+        input.webhookUrl = value.webhookUrl.trim();
       }
 
       const result = (await onCreate(input)) as { rawKey?: string };
@@ -50,21 +62,13 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
         setRawKey(result.rawKey);
       }
       onSuccess();
-    } catch (error) {
-      console.error('Failed to create key:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
   const handleClose = () => {
     setOpen(false);
     setRawKey(null);
-    setName('');
-    setDailyReqLimit('1000');
-    setDailyTokenLimit('100000');
-    setMinuteReqLimit('100');
-    setWebhookUrl('');
+    form.reset();
   };
 
   return (
@@ -93,60 +97,102 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
             </DialogFooter>
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              form.handleSubmit();
+            }}
+          >
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Production Key"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              <form.Field name="name">
+                {(field) => (
+                  <div className="grid gap-2">
+                    <Label htmlFor={field.name}>Name</Label>
+                    <Input
+                      id={field.name}
+                      placeholder="Production Key"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="reqLimit">Daily Requests</Label>
-                  <Input
-                    id="reqLimit"
-                    type="number"
-                    value={dailyReqLimit}
-                    onChange={(e) => setDailyReqLimit(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="tokenLimit">Daily Tokens</Label>
-                  <Input
-                    id="tokenLimit"
-                    type="number"
-                    value={dailyTokenLimit}
-                    onChange={(e) => setDailyTokenLimit(e.target.value)}
-                  />
-                </div>
+                <form.Field name="dailyReqLimit">
+                  {(field) => (
+                    <div className="grid gap-2">
+                      <Label htmlFor={field.name}>Daily Requests</Label>
+                      <Input
+                        id={field.name}
+                        type="number"
+                        min={0}
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                        onBlur={field.handleBlur}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name="dailyTokenLimit">
+                  {(field) => (
+                    <div className="grid gap-2">
+                      <Label htmlFor={field.name}>Daily Tokens</Label>
+                      <Input
+                        id={field.name}
+                        type="number"
+                        min={0}
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                        onBlur={field.handleBlur}
+                      />
+                    </div>
+                  )}
+                </form.Field>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="minuteLimit">Per-Minute Requests</Label>
-                <Input
-                  id="minuteLimit"
-                  type="number"
-                  value={minuteReqLimit}
-                  onChange={(e) => setMinuteReqLimit(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="webhook">Webhook URL (optional)</Label>
-                <Input
-                  id="webhook"
-                  placeholder="https://your-app.com/webhooks/agent"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                />
-              </div>
+
+              <form.Field name="minuteReqLimit">
+                {(field) => (
+                  <div className="grid gap-2">
+                    <Label htmlFor={field.name}>Per-Minute Requests</Label>
+                    <Input
+                      id={field.name}
+                      type="number"
+                      min={0}
+                      value={field.state.value ?? ''}
+                      onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : 0)}
+                      onBlur={field.handleBlur}
+                    />
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name="webhookUrl">
+                {(field) => (
+                  <div className="grid gap-2">
+                    <Label htmlFor={field.name}>Webhook URL (optional)</Label>
+                    <Input
+                      id={field.name}
+                      placeholder="https://your-app.com/webhooks/agent"
+                      value={field.state.value ?? ''}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={loading || !name}>
-                {loading ? 'Creating...' : 'Create'}
+              <Button type="submit" disabled={form.state.isSubmitting}>
+                {form.state.isSubmitting ? 'Creating...' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

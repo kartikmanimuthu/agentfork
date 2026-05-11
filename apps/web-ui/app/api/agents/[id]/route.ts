@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
@@ -40,9 +40,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
+    const parsed = updateAgentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const validatedBody = parsed.data;
     const db = getPrismaClient();
     const service = new AgentService(tenantId, db as any);
-    const agent = await service.update(id, body);
+    const agent = await service.update(id, validatedBody);
 
     return NextResponse.json(agent);
   } catch (error) {

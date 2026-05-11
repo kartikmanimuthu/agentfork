@@ -7,6 +7,7 @@ import {
   createLogger,
   TenantConfigService,
   LlmProviderService,
+  playgroundRequestSchema,
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
@@ -41,8 +42,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const db = getPrismaClient();
 
     const body = await req.json();
-    const { messages, systemPrompt, model, temperature, agentVersionId } = body;
-    const { alias } = body;
+    const parsed = playgroundRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }),
+        { status: 400 }
+      );
+    }
+    const { messages, systemPrompt, model, temperature, agentVersionId } = parsed.data;
+    const { alias } = parsed.data;
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id, tenantId } });

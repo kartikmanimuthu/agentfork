@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,14 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
+const schema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional(),
+  type: z.enum(['simple', 'graph']),
+});
+
+type CreateAgentFormValues = z.infer<typeof schema>;
+
 interface CreateAgentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,26 +38,28 @@ interface CreateAgentDialogProps {
 }
 
 export function CreateAgentDialog({ open, onOpenChange, onCreated }: CreateAgentDialogProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState<'simple' | 'graph'>('simple');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-
-    setSubmitting(true);
-    try {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      type: 'simple' as const,
+    } as CreateAgentFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
       const defaultConfig =
-        type === 'simple'
+        value.type === 'simple'
           ? { type: 'llm', model: 'anthropic.claude-sonnet-4-20250514', systemPrompt: '', tools: [] }
           : { nodes: [], edges: [] };
 
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, type, config: defaultConfig }),
+        body: JSON.stringify({
+          name: value.name.trim(),
+          description: value.description?.trim() || undefined,
+          type: value.type,
+          config: defaultConfig,
+        }),
       });
 
       if (!res.ok) {
@@ -57,21 +68,21 @@ export function CreateAgentDialog({ open, onOpenChange, onCreated }: CreateAgent
       }
 
       toast.success('Agent created');
-      setName('');
-      setDescription('');
-      setType('simple');
+      form.reset();
       onCreated();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create agent');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      onOpenChange(false);
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            form.handleSubmit();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Create Agent</DialogTitle>
             <DialogDescription>
@@ -80,49 +91,68 @@ export function CreateAgentDialog({ open, onOpenChange, onCreated }: CreateAgent
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="agent-name">Name</Label>
-              <Input
-                id="agent-name"
-                placeholder="My Agent"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
+            <form.Field name="name">
+              {(field) => (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>Name</Label>
+                  <Input
+                    id={field.name}
+                    placeholder="My Agent"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    autoFocus
+                  />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                  )}
+                </div>
+              )}
+            </form.Field>
 
-            <div className="grid gap-2">
-              <Label htmlFor="agent-description">Description</Label>
-              <Textarea
-                id="agent-description"
-                placeholder="What does this agent do?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
+            <form.Field name="description">
+              {(field) => (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>Description</Label>
+                  <Textarea
+                    id={field.name}
+                    placeholder="What does this agent do?"
+                    value={field.state.value ?? ''}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    rows={3}
+                  />
+                </div>
+              )}
+            </form.Field>
 
-            <div className="grid gap-2">
-              <Label htmlFor="agent-type">Type</Label>
-              <Select value={type} onValueChange={(v) => setType(v as 'simple' | 'graph')}>
-                <SelectTrigger id="agent-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="simple">Simple — single LLM call with tools</SelectItem>
-                  <SelectItem value="graph">Graph — multi-step node workflow</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <form.Field name="type">
+              {(field) => (
+                <div className="grid gap-2">
+                  <Label htmlFor={field.name}>Type</Label>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) => field.handleChange(v as 'simple' | 'graph')}
+                  >
+                    <SelectTrigger id={field.name}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="simple">Simple — single LLM call with tools</SelectItem>
+                      <SelectItem value="graph">Graph — multi-step node workflow</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </form.Field>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={form.state.isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim() || submitting}>
-              {submitting ? 'Creating...' : 'Create Agent'}
+            <Button type="submit" disabled={form.state.isSubmitting}>
+              {form.state.isSubmitting ? 'Creating...' : 'Create Agent'}
             </Button>
           </DialogFooter>
         </form>

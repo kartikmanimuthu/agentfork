@@ -12,6 +12,16 @@ import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { toast } from 'sonner';
 import { FileText, ArrowLeft, Upload, Trash2, RefreshCw, Globe } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Document {
   id: string;
@@ -44,6 +54,7 @@ export default function KnowledgeBaseDocumentsPage() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const loadSources = useCallback(() => {
     fetch(`/api/knowledge-bases/${id}/sources`)
@@ -82,6 +93,7 @@ export default function KnowledgeBaseDocumentsPage() {
       if (!res.ok) throw new Error('Delete failed');
       setDocuments((prev) => prev.filter((d) => d.id !== docId));
       toast.success('Document deleted');
+      setDeleteTarget(null);
     } catch {
       toast.error('Failed to delete document');
     }
@@ -132,7 +144,7 @@ export default function KnowledgeBaseDocumentsPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive"
-            onClick={() => handleDelete(row.original.id)}
+            onClick={() => setDeleteTarget(row.original.id)}
             aria-label="Delete document"
           >
             <Trash2 className="h-4 w-4" />
@@ -204,6 +216,25 @@ export default function KnowledgeBaseDocumentsPage() {
           )}
         </CardContent>
       </Card>
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete document?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the document. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => deleteTarget && handleDelete(deleteTarget)}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }
