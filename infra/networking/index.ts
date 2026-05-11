@@ -14,15 +14,15 @@ const vpcCidrConfig = config.get("vpcCidr") ?? "10.0.0.0/16";
 // VPC — 4-tier subnets with explicit CIDRs matching CDK allocation
 // CDK allocates largest subnets first: Private /22 -> Public /24 -> Database /24 -> Intra /26
 // Subnet CIDRs (calculated from CDK deterministic allocation, 10.0.0.0/16, 2 AZs):
-//   Private:  10.0.0.0/22 (ap-south-1a), 10.0.4.0/22 (ap-south-1b)
-//   Public:   10.0.8.0/24 (ap-south-1a), 10.0.9.0/24 (ap-south-1b)
-//   Database: 10.0.10.0/24 (ap-south-1a), 10.0.11.0/24 (ap-south-1b)
-//   Intra:    10.0.12.0/26 (ap-south-1a), 10.0.12.64/26 (ap-south-1b)
+//   Private:  10.0.0.0/22 (us-east-1a), 10.0.4.0/22 (us-east-1b)
+//   Public:   10.0.8.0/24 (us-east-1a), 10.0.9.0/24 (us-east-1b)
+//   Database: 10.0.10.0/24 (us-east-1a), 10.0.11.0/24 (us-east-1b)
+//   Intra:    10.0.12.0/26 (us-east-1a), 10.0.12.64/26 (us-east-1b)
 // ============================================================================
 
 const vpc = new awsx.ec2.Vpc("chatbot-vpc", {
     cidrBlock: vpcCidrConfig,
-    availabilityZoneNames: ["ap-south-1a", "ap-south-1b"],
+    availabilityZoneNames: ["us-east-1a", "us-east-1b"],
     enableDnsHostnames: true,
     enableDnsSupport: true,
     natGateways: { strategy: "OnePerAz" },
@@ -105,7 +105,7 @@ const endpointRouteTableIds = pulumi.all([
     return pulumi.all(routeTableOutputs).apply(ids => [...new Set(ids)]);
 });
 
-const region = aws.config.region ?? "ap-south-1";
+const region = aws.config.region ?? "us-east-1";
 
 const s3Endpoint = new aws.ec2.VpcEndpoint("chatbot-endpoint-s3", {
     vpcId: vpc.vpcId,
@@ -139,5 +139,5 @@ export const publicSubnetIds = vpc.publicSubnetIds;
 export const privateSubnetIds = vpc.privateSubnetIds;
 export { databaseSubnetIds };
 export { intraSubnetIds };
-export const availabilityZones = pulumi.output(["ap-south-1a", "ap-south-1b"]);
+export const availabilityZones = pulumi.output(["us-east-1a", "us-east-1b"]);
 export const dbSubnetGroupName = dbSubnetGroup.name;

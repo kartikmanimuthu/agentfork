@@ -1,24 +1,40 @@
 # Multi-stage Dockerfile for pg-boss workers on ECS Fargate (ARM64)
-# Build context: project root (not apps/workers/) — required to include prisma/
+# Build context: project root
 
-# ── Stage 1: Build ──
+# ── Stage 1: Dependencies ──
+FROM oven/bun:1-slim AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY apps/web-ui/package.json apps/web-ui/
+COPY apps/workers/package.json apps/workers/
+COPY libs ./libs/
+COPY infra/package.json infra/
+COPY prisma/ prisma/
+COPY tsconfig.base.json ./
+COPY nx.json ./
+RUN bun install --frozen-lockfile
+
+# ── Stage 2: Build ──
 FROM oven/bun:1-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-COPY apps/workers/package.json apps/workers/bun.lock* ./
-RUN bun install --frozen-lockfile
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/libs ./libs
+COPY --from=deps /app/prisma ./prisma
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/bun.lock ./bun.lock
+COPY --from=deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=deps /app/nx.json ./nx.json
 
-COPY apps/workers/ .
-COPY prisma/ ./prisma/
-COPY libs/ ./libs/
+COPY apps/workers/ apps/workers/
 
 RUN rm -f prisma/.env
 RUN bunx prisma@6 generate --schema=./prisma/schema.prisma
-RUN bun run build
+RUN cd apps/workers && bunx tsc --noEmit false
 
-# ── Stage 2: Production runner (Bun) ──
+# ── Stage 3: Production runner ──
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
@@ -27,8 +43,8 @@ RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lis
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
     -o /etc/ssl/certs/rds-combined-ca-bundle.pem
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/apps/workers/dist ./dist
+COPY --from=builder /app/apps/workers/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma

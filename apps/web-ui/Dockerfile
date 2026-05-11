@@ -1,38 +1,43 @@
 # Multi-stage Dockerfile for Next.js Web UI on ECS Fargate
-# Build context: project root (not apps/web-ui/) — required to include prisma/
+# Build context: project root
 
-# ── Stage 1: Install dependencies with Bun ──
+# ── Stage 1: Dependencies ──
 FROM oven/bun:1-slim AS deps
 WORKDIR /app
-
-COPY apps/web-ui/package.json apps/web-ui/bun.lock* ./
-RUN bun install --frozen-lockfile --production
-
-# ── Stage 2: Install all deps ──
-FROM oven/bun:1-slim AS deps-all
-WORKDIR /app
-
-COPY apps/web-ui/package.json apps/web-ui/bun.lock* ./
+COPY package.json bun.lock ./
+COPY apps/web-ui/package.json apps/web-ui/
+COPY apps/workers/package.json apps/workers/
+COPY libs ./libs/
+COPY infra/package.json infra/
+COPY prisma/ prisma/
+COPY tsconfig.base.json ./
+COPY nx.json ./
 RUN bun install --frozen-lockfile
 
-# ── Stage 3: Build with Node ──
+# ── Stage 2: Build ──
 FROM node:20-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-COPY --from=deps-all /app/node_modules ./node_modules
-COPY apps/web-ui/package.json ./
-COPY apps/web-ui/ .
-COPY prisma/ ./prisma/
-COPY libs/ ./libs/
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/libs ./libs
+COPY --from=deps /app/prisma ./prisma
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/bun.lock ./bun.lock
+COPY --from=deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=deps /app/nx.json ./nx.json
+
+COPY apps/web-ui/ apps/web-ui/
+COPY apps/workers/ apps/workers/
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXTAUTH_SECRET=dummy-build-secret
 
 RUN npx prisma@6 generate --schema=./prisma/schema.prisma
-RUN npm run build
+RUN cd apps/web-ui && npm run build
 
-# ── Stage 4: Production runner (Bun) ──
+# ── Stage 3: Production runner ──
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
@@ -50,13 +55,12 @@ ENV PORT=3001 \
 
 RUN mkdir -p /tmp/cache && mkdir -p .next/cache
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/apps/web-ui/.next/standalone ./
+COPY --from=builder /app/apps/web-ui/.next/static ./.next/static
+COPY --from=builder /app/apps/web-ui/public ./public
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY --from=builder /app/prisma ./prisma
 
 RUN ln -sf /tmp/cache ./.next/cache
 
