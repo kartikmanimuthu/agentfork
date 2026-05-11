@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -12,71 +14,83 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Globe, Database, Plug } from 'lucide-react';
 
-interface FormState {
-  type: 'URL' | 'FILE' | 'CONNECTOR';
-  seedUrls: string;
-  crawlDepth: string;
-  includePatterns: string;
-  excludePatterns: string;
-  syncSchedule: string;
-}
+const urlSourceSchema = z.object({
+  type: z.literal('URL'),
+  seedUrls: z.string().min(1, 'At least one seed URL is required'),
+  crawlDepth: z.string(),
+  includePatterns: z.string().optional(),
+  excludePatterns: z.string().optional(),
+  syncSchedule: z.string().optional(),
+});
+
+const fileSourceSchema = z.object({
+  type: z.literal('FILE'),
+  seedUrls: z.string().optional(),
+  crawlDepth: z.string().optional(),
+  includePatterns: z.string().optional(),
+  excludePatterns: z.string().optional(),
+  syncSchedule: z.string().optional(),
+});
+
+const connectorSourceSchema = z.object({
+  type: z.literal('CONNECTOR'),
+  seedUrls: z.string().optional(),
+  crawlDepth: z.string().optional(),
+  includePatterns: z.string().optional(),
+  excludePatterns: z.string().optional(),
+  syncSchedule: z.string().optional(),
+});
+
+const schema = z.discriminatedUnion('type', [urlSourceSchema, fileSourceSchema, connectorSourceSchema]);
+
+type SourceFormValues = z.infer<typeof schema>;
 
 export default function NewDataSourcePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState<FormState>({
-    type: 'URL',
-    seedUrls: '',
-    crawlDepth: '0',
-    includePatterns: '',
-    excludePatterns: '',
-    syncSchedule: '',
-  });
 
-  const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      const seedUrlsArray = form.seedUrls
-        .split('\n')
+  const form = useForm({
+    defaultValues: {
+      type: 'URL' as const,
+      seedUrls: '',
+      crawlDepth: '0',
+      includePatterns: '',
+      excludePatterns: '',
+      syncSchedule: '',
+    } as SourceFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
+      const seedUrlsArray = value.seedUrls
+        ?.split('\n')
         .map((u) => u.trim())
-        .filter((u) => u.length > 0);
+        .filter((u) => u.length > 0) ?? [];
 
-      const includeArray = form.includePatterns
-        .split('\n')
+      const includeArray = value.includePatterns
+        ?.split('\n')
         .map((p) => p.trim())
-        .filter((p) => p.length > 0);
+        .filter((p) => p.length > 0) ?? [];
 
-      const excludeArray = form.excludePatterns
-        .split('\n')
+      const excludeArray = value.excludePatterns
+        ?.split('\n')
         .map((p) => p.trim())
-        .filter((p) => p.length > 0);
-
-      if (form.type === 'URL' && seedUrlsArray.length === 0) {
-        toast.error('At least one seed URL is required');
-        setSubmitting(false);
-        return;
-      }
+        .filter((p) => p.length > 0) ?? [];
 
       const body: Record<string, unknown> = {
-        type: form.type,
+        type: value.type,
         config: {},
       };
 
-      if (form.type === 'URL') {
+      if (value.type === 'URL') {
         body.config = {
           urls: seedUrlsArray,
-          crawlDepth: Number(form.crawlDepth),
+          crawlDepth: Number(value.crawlDepth),
           ...(includeArray.length > 0 ? { includePatterns: includeArray } : {}),
           ...(excludeArray.length > 0 ? { excludePatterns: excludeArray } : {}),
         };
       }
 
-      if (form.syncSchedule.trim()) {
-        body.syncSchedule = form.syncSchedule.trim();
+      if (value.syncSchedule?.trim()) {
+        body.syncSchedule = value.syncSchedule.trim();
       }
 
       const res = await fetch(`/api/knowledge-bases/${id}/sources`, {
@@ -92,11 +106,10 @@ export default function NewDataSourcePage() {
 
       toast.success('Source created');
       router.push(`/knowledge-bases/${id}/sources`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create source');
-      setSubmitting(false);
-    }
-  };
+    },
+  });
+
+  const type = form.getFieldValue('type');
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-2xl mx-auto">
@@ -114,133 +127,165 @@ export default function NewDataSourcePage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Source Configuration</CardTitle>
-          <CardDescription>
-            Choose a source type and configure how data is ingested.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="type">Source Type</Label>
-            <Select value={form.type} onValueChange={(v) => update('type', v as FormState['type'])}>
-              <SelectTrigger id="type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="URL">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    URL
-                  </div>
-                </SelectItem>
-                <SelectItem value="FILE">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    File Upload
-                  </div>
-                </SelectItem>
-                <SelectItem value="CONNECTOR">
-                  <div className="flex items-center gap-2">
-                    <Plug className="h-4 w-4" />
-                    Connector
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Source Configuration</CardTitle>
+            <CardDescription>Choose a source type and configure how data is ingested.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form.Field name="type">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Source Type</Label>
+                  <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as 'URL' | 'FILE' | 'CONNECTOR')}>
+                    <SelectTrigger id={field.name}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="URL">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          URL
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="FILE">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-4 w-4" />
+                          File Upload
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="CONNECTOR">
+                        <div className="flex items-center gap-2">
+                          <Plug className="h-4 w-4" />
+                          Connector
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </form.Field>
 
-          {form.type === 'URL' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="seedUrls">Seed URLs *</Label>
-                <Textarea
-                  id="seedUrls"
-                  placeholder="Enter one URL per line"
-                  value={form.seedUrls}
-                  onChange={(e) => update('seedUrls', e.target.value)}
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="crawlDepth">Crawl Depth</Label>
-                <Select value={form.crawlDepth} onValueChange={(v) => update('crawlDepth', v)}>
-                  <SelectTrigger id="crawlDepth">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">0 (Seed URLs only)</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="includePatterns">Include Patterns</Label>
-                <Textarea
-                  id="includePatterns"
-                  placeholder="One pattern per line (optional)"
-                  value={form.includePatterns}
-                  onChange={(e) => update('includePatterns', e.target.value)}
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="excludePatterns">Exclude Patterns</Label>
-                <Textarea
-                  id="excludePatterns"
-                  placeholder="One pattern per line (optional)"
-                  value={form.excludePatterns}
-                  onChange={(e) => update('excludePatterns', e.target.value)}
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="syncSchedule">Sync Schedule</Label>
-                <Input
-                  id="syncSchedule"
-                  placeholder="Cron expression (optional), e.g. 0 2 * * *"
-                  value={form.syncSchedule}
-                  onChange={(e) => update('syncSchedule', e.target.value)}
-                />
-              </div>
-            </>
-          )}
+            {type === 'URL' && (
+              <>
+                <form.Field name="seedUrls">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Seed URLs *</Label>
+                      <Textarea
+                        id={field.name}
+                        placeholder="Enter one URL per line"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        rows={4}
+                      />
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="crawlDepth">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Crawl Depth</Label>
+                      <Select value={field.state.value ?? '0'} onValueChange={(v) => field.handleChange(v)}>
+                        <SelectTrigger id={field.name}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0 (Seed URLs only)</SelectItem>
+                          <SelectItem value="1">1</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="includePatterns">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Include Patterns</Label>
+                      <Textarea
+                        id={field.name}
+                        placeholder="One pattern per line (optional)"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="excludePatterns">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Exclude Patterns</Label>
+                      <Textarea
+                        id={field.name}
+                        placeholder="One pattern per line (optional)"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="syncSchedule">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>Sync Schedule</Label>
+                      <Input
+                        id={field.name}
+                        placeholder="Cron expression (optional), e.g. 0 2 * * *"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+              </>
+            )}
 
-          {form.type === 'FILE' && (
-            <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                File uploads are managed from the Documents page.
-              </p>
-              <Link
-                href={`/knowledge-bases/${id}/documents`}
-                className={buttonVariants({ variant: 'link', size: 'sm' }) + ' mt-2 px-0'}
-              >
-                Go to Documents &rarr;
-              </Link>
-            </div>
-          )}
+            {type === 'FILE' && (
+              <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
+                <p className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  File uploads are managed from the Documents page.
+                </p>
+                <Link
+                  href={`/knowledge-bases/${id}/documents`}
+                  className={buttonVariants({ variant: 'link', size: 'sm' }) + ' mt-2 px-0'}
+                >
+                  Go to Documents &rarr;
+                </Link>
+              </div>
+            )}
 
-          {form.type === 'CONNECTOR' && (
-            <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2">
-                <Plug className="h-4 w-4" />
-                Connector configuration coming soon.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {type === 'CONNECTOR' && (
+              <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
+                <p className="flex items-center gap-2">
+                  <Plug className="h-4 w-4" />
+                  Connector configuration coming soon.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={submitting || form.type !== 'URL'}>
-          {submitting ? 'Creating...' : 'Create Source'}
-        </Button>
-      </div>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={form.state.isSubmitting || type !== 'URL'}>
+            {form.state.isSubmitting ? 'Creating...' : 'Create Source'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

@@ -87,6 +87,7 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
   const providerType = form.getFieldValue('providerType');
   const chatModels = discoveredModels.filter((m) => m.capabilities.includes('chat'));
   const embeddingModels = discoveredModels.filter((m) => m.capabilities.includes('embedding'));
+  const hasAnyModels = discoveredModels.length > 0;
 
   const handleValidate = async () => {
     setValidateError(null);
@@ -151,17 +152,6 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
             )}
           </form.Field>
 
-          {providerType === 'BEDROCK' && (
-            <form.Field name="region">
-              {(field) => (
-                <div className="grid gap-1.5">
-                  <Label>Region</Label>
-                  <Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="us-east-1" />
-                </div>
-              )}
-            </form.Field>
-          )}
-
           <Button type="button" onClick={() => setStep(2)}>Next: Credentials</Button>
         </div>
       )}
@@ -173,6 +163,14 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
 
           {providerType === 'BEDROCK' && (
             <>
+              <form.Field name="region">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <Label>Region</Label>
+                    <Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="us-east-1" />
+                  </div>
+                )}
+              </form.Field>
               <form.Field name="accessKeyId">
                 {(field) => (
                   <div className="grid gap-1.5">
@@ -217,7 +215,7 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
               <form.Field name="apiKey">
                 {(field) => (
                   <div className="grid gap-1.5">
-                    <Label>API Key {providerType === 'OLLAMA' && <span className="text-muted-foreground">(optional)</span>}</Label>
+                    <Label>API Key {(providerType === 'OLLAMA' || providerType === 'VLLM' || providerType === 'OPENAI_COMPATIBLE') && <span className="text-muted-foreground">(optional)</span>}</Label>
                     <Input type="password" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="sk-..." />
                   </div>
                 )}
@@ -240,11 +238,17 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
           <h3 className="text-lg font-medium">Step 3: Select Models</h3>
           <Button type="button" variant="ghost" size="sm" onClick={() => setStep(2)} className="mb-2">← Back</Button>
 
-          {chatModels.length > 0 && (
-            <form.Field name="chatModel">
-              {(field) => (
-                <div className="grid gap-1.5">
-                  <Label>Chat Model</Label>
+          {!hasAnyModels && (
+            <p className="text-sm text-muted-foreground">
+              No models were discovered automatically. You can enter model names manually below.
+            </p>
+          )}
+
+          <form.Field name="chatModel">
+            {(field) => (
+              <div className="grid gap-1.5">
+                <Label>Chat Model</Label>
+                {chatModels.length > 0 ? (
                   <Select value={field.state.value} onValueChange={(v) => field.handleChange(v)}>
                     <SelectTrigger><SelectValue placeholder="Select chat model" /></SelectTrigger>
                     <SelectContent>
@@ -253,16 +257,18 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
-            </form.Field>
-          )}
+                ) : (
+                  <Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., gemma-4-e4b-it-mlx" />
+                )}
+              </div>
+            )}
+          </form.Field>
 
-          {embeddingModels.length > 0 && (
-            <form.Field name="embeddingModel">
-              {(field) => (
-                <div className="grid gap-1.5">
-                  <Label>Embedding Model</Label>
+          <form.Field name="embeddingModel">
+            {(field) => (
+              <div className="grid gap-1.5">
+                <Label>Embedding Model</Label>
+                {embeddingModels.length > 0 ? (
                   <Select value={field.state.value} onValueChange={(v) => field.handleChange(v)}>
                     <SelectTrigger><SelectValue placeholder="Select embedding model" /></SelectTrigger>
                     <SelectContent>
@@ -271,10 +277,12 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
-            </form.Field>
-          )}
+                ) : (
+                  <Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., text-embedding-nomic-embed-text-v1.5" />
+                )}
+              </div>
+            )}
+          </form.Field>
 
           <form.Field name="embeddingDimensions">
             {(field) => (

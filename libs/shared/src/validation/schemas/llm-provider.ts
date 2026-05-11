@@ -11,42 +11,12 @@ export const ProviderTypeEnum = z.enum([
 
 export type ProviderType = z.infer<typeof ProviderTypeEnum>;
 
-export const BedrockCredentialsSchema = z.object({
+export const CredentialsSchema = z.object({
   accessKeyId: z.string().min(1).optional(),
   secretAccessKey: z.string().min(1).optional(),
-});
-
-export const OpenAICredentialsSchema = z.object({
-  apiKey: z.string().min(1),
-});
-
-export const AnthropicCredentialsSchema = z.object({
-  apiKey: z.string().min(1),
-});
-
-export const OllamaCredentialsSchema = z.object({
-  baseUrl: z.string().url(),
   apiKey: z.string().optional(),
+  baseUrl: z.string().url().optional(),
 });
-
-export const VllmCredentialsSchema = z.object({
-  baseUrl: z.string().url(),
-  apiKey: z.string().optional(),
-});
-
-export const OpenAiCompatibleCredentialsSchema = z.object({
-  baseUrl: z.string().url(),
-  apiKey: z.string().min(1),
-});
-
-export const CredentialsSchema = z.union([
-  BedrockCredentialsSchema,
-  OpenAICredentialsSchema,
-  AnthropicCredentialsSchema,
-  OllamaCredentialsSchema,
-  VllmCredentialsSchema,
-  OpenAiCompatibleCredentialsSchema,
-]);
 
 export const ValidateInputSchema = z.object({
   providerType: ProviderTypeEnum,

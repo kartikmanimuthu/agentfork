@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createAgentSchema } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
@@ -42,9 +42,16 @@ export async function POST(req: NextRequest) {
     if (authError) return authError;
 
     const body = await req.json();
+    const parsed = createAgentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
     const db = getPrismaClient();
     const service = new AgentService(tenantId, db as any);
-    const agent = await service.create({ ...body, tenantId });
+    const agent = await service.create({ ...parsed.data, tenantId });
 
     return NextResponse.json(agent, { status: 201 });
   } catch (error) {

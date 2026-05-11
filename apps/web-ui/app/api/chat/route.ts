@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     const llmProviderService = new LlmProviderService(tenantId);
     const llmConfig = await llmProviderService.getDefaultConfig()
       ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
+    logger.info({ tenantId, provider: llmConfig?.provider, model: llmConfig?.chatModel, baseUrl: llmConfig?.baseUrl }, 'Resolved LLM config for chat');
     const provider = createLLMProvider(llmConfig);
 
     const result = streamChat({

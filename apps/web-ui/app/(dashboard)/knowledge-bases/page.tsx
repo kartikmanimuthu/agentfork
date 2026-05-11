@@ -12,6 +12,16 @@ import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 import { toast } from 'sonner';
 import { Database, Plus, Search, Trash2, Settings, FileText } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface KnowledgeBase {
   id: string;
@@ -30,6 +40,7 @@ export default function KnowledgeBasesPage() {
   const [kbs, setKbs] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/knowledge-bases?limit=50')
@@ -55,12 +66,12 @@ export default function KnowledgeBasesPage() {
   }, [kbs, search]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this knowledge base and all its data?')) return;
     try {
       const res = await fetch(`/api/knowledge-bases/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       setKbs((prev) => prev.filter((kb) => kb.id !== id));
       toast.success('Knowledge base deleted');
+      setDeleteTarget(null);
     } catch {
       toast.error('Failed to delete knowledge base');
     }
@@ -146,7 +157,7 @@ export default function KnowledgeBasesPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-destructive"
-              onClick={() => handleDelete(row.original.id)}
+              onClick={() => setDeleteTarget(row.original.id)}
               aria-label="Delete"
             >
               <Trash2 className="h-4 w-4" />
@@ -219,6 +230,25 @@ export default function KnowledgeBasesPage() {
           )}
         </CardContent>
       </Card>
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete knowledge base?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the knowledge base and all its data. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => deleteTarget && handleDelete(deleteTarget)}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

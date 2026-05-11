@@ -1,8 +1,19 @@
 import { embed, embedMany } from 'ai';
-import { getBedrockProvider } from '@chatbot/ai';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createCohere } from '@ai-sdk/cohere';
+import { getBedrockProvider } from '@chatbot/ai';
 import type { EmbeddingProvider } from '../types';
+
+// ─── Credentials helper ───────────────────────────────────────────────────────
+
+interface EmbeddingCredentials {
+  baseUrl?: string;
+  apiKey?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  region?: string;
+}
 
 // ─── Bedrock Titan ────────────────────────────────────────────────────────────
 
@@ -11,28 +22,40 @@ export class BedrockTitanEmbeddingProvider implements EmbeddingProvider {
   readonly model: string;
   readonly dimensions: number;
   readonly maxBatchSize = 100;
+  private readonly client: ReturnType<typeof createAmazonBedrock>;
 
   constructor(
     model = 'amazon.titan-embed-text-v2:0',
-    dimensions = 1024
+    dimensions = 1024,
+    config?: EmbeddingCredentials
   ) {
     this.model = model;
     this.dimensions = dimensions;
+    if (config?.accessKeyId && config?.secretAccessKey && config?.region) {
+      this.client = createAmazonBedrock({
+        region: config.region,
+        credentialProvider: () =>
+          Promise.resolve({
+            accessKeyId: config.accessKeyId!,
+            secretAccessKey: config.secretAccessKey!,
+          }),
+      });
+    } else {
+      this.client = getBedrockProvider();
+    }
   }
 
   async embed(text: string): Promise<number[]> {
-    const bedrock = getBedrockProvider();
     const { embedding } = await embed({
-      model: bedrock.textEmbeddingModel(this.model),
+      model: this.client.textEmbeddingModel(this.model),
       value: text,
     });
     return embedding;
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const bedrock = getBedrockProvider();
     const { embeddings } = await embedMany({
-      model: bedrock.textEmbeddingModel(this.model),
+      model: this.client.textEmbeddingModel(this.model),
       values: texts,
     });
     return embeddings;
@@ -46,10 +69,18 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   readonly model: string;
   readonly dimensions: number;
   readonly maxBatchSize = 2048;
+  private readonly apiKey: string;
+  private readonly baseUrl?: string;
 
-  constructor(model = 'text-embedding-3-large', dimensions = 3072) {
+  constructor(
+    model = 'text-embedding-3-large',
+    dimensions = 3072,
+    config?: EmbeddingCredentials
+  ) {
     this.model = model;
     this.dimensions = dimensions;
+    this.apiKey = config?.apiKey ?? process.env['OPENAI_API_KEY'] ?? '';
+    this.baseUrl = config?.baseUrl;
   }
 
   async embed(text: string): Promise<number[]> {
@@ -58,10 +89,9 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const apiKey = process.env['OPENAI_API_KEY'];
-    if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is required');
+    if (!this.apiKey) throw new Error('OpenAI API key is required');
 
-    const openai = createOpenAI({ apiKey });
+    const openai = createOpenAI({ apiKey: this.apiKey, baseURL: this.baseUrl });
     const { embeddings } = await embedMany({
       model: openai.textEmbeddingModel(this.model),
       values: texts,
@@ -108,10 +138,16 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   readonly model: string;
   readonly dimensions: number;
   readonly maxBatchSize = 32;
+  private readonly baseUrl: string;
 
-  constructor(model = 'nomic-embed-text', dimensions = 768) {
+  constructor(
+    model = 'nomic-embed-text',
+    dimensions = 768,
+    config?: EmbeddingCredentials
+  ) {
     this.model = model;
     this.dimensions = dimensions;
+    this.baseUrl = config?.baseUrl ?? process.env['OLLAMA_BASE_URL'] ?? 'http://localhost:11434';
   }
 
   async embed(text: string): Promise<number[]> {
@@ -120,11 +156,10 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const baseUrl = process.env['OLLAMA_BASE_URL'] ?? 'http://localhost:11434';
     const results: number[][] = [];
 
     for (const text of texts) {
-      const res = await fetch(`${baseUrl}/api/embeddings`, {
+      const res = await fetch(`${this.baseUrl}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: this.model, prompt: text }),
@@ -140,7 +175,7 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
+// ─── Legacy factory ───────────────────────────────────────────────────────────
 
 export type EmbeddingProviderName = 'BEDROCK_TITAN' | 'OPENAI' | 'COHERE' | 'LOCAL';
 
@@ -149,7 +184,13 @@ export interface EmbeddingProviderOptions {
   dimensions?: number;
 }
 
-export function getEmbeddingProvider(
+const LEGACY_PROVIDER_NAMES: string[] = ['BEDROCK_TITAN', 'OPENAI', 'COHERE', 'LOCAL'];
+
+function isLegacyProviderName(value: string): value is EmbeddingProviderName {
+  return LEGACY_PROVIDER_NAMES.includes(value);
+}
+
+function getLegacyEmbeddingProvider(
   providerName: EmbeddingProviderName,
   options: EmbeddingProviderOptions = {}
 ): EmbeddingProvider {
@@ -166,5 +207,71 @@ export function getEmbeddingProvider(
       const _exhaustive: never = providerName;
       throw new Error(`Unknown embedding provider: ${_exhaustive}`);
     }
+  }
+}
+
+// ─── Config-aware factory ─────────────────────────────────────────────────────
+
+interface EmbeddingProviderConfig {
+  provider: 'bedrock' | 'openai' | 'anthropic' | 'ollama' | 'vllm' | 'openai_compatible';
+  chatModel?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
+  baseUrl?: string;
+  apiKey?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  region?: string;
+}
+
+
+export function getEmbeddingProvider(
+  config: EmbeddingProviderConfig,
+  options?: EmbeddingProviderOptions
+): EmbeddingProvider;
+
+export function getEmbeddingProvider(
+  providerName: EmbeddingProviderName,
+  options?: EmbeddingProviderOptions
+): EmbeddingProvider;
+
+export function getEmbeddingProvider(
+  input: EmbeddingProviderConfig | EmbeddingProviderName,
+  options: EmbeddingProviderOptions = {}
+): EmbeddingProvider {
+  if (typeof input === 'string') {
+    if (isLegacyProviderName(input)) {
+      return getLegacyEmbeddingProvider(input, options);
+    }
+    throw new Error(
+      `Unknown embedding provider: ${input}. Expected a legacy provider name or a TenantLLMConfig object.`
+    );
+  }
+
+  const model = options.model ?? input.embeddingModel;
+  const dimensions = options.dimensions ?? input.embeddingDimensions;
+
+  switch (input.provider) {
+    case 'bedrock':
+      return new BedrockTitanEmbeddingProvider(model, dimensions, {
+        accessKeyId: input.accessKeyId,
+        secretAccessKey: input.secretAccessKey,
+        region: input.region,
+      });
+    case 'openai':
+    case 'openai_compatible':
+    case 'vllm':
+      return new OpenAIEmbeddingProvider(model, dimensions, {
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
+      });
+    case 'ollama':
+      return new OllamaEmbeddingProvider(model, dimensions, {
+        baseUrl: input.baseUrl,
+      });
+    case 'anthropic':
+      throw new Error('Anthropic does not support embeddings');
+    default:
+      throw new Error(`Unknown embedding provider: ${(input as any).provider}`);
   }
 }

@@ -36,6 +36,16 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { PlaygroundVersionSelector } from '@/components/agents/playground/version-selector';
 
 export default function PlaygroundPage() {
@@ -59,6 +69,7 @@ export default function PlaygroundPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
   const [sessionName, setSessionName] = useState('New Session');
   const [showTrace, setShowTrace] = useState(true);
+  const [deleteSessionTarget, setDeleteSessionTarget] = useState<string | null>(null);
 
   const createSession = useCreatePlaygroundSession(agentId);
   const updateSession = useUpdatePlaygroundSession(agentId);
@@ -151,6 +162,7 @@ export default function PlaygroundPage() {
 
   const handleDeleteSession = async (sessionId: string) => {
     await deleteSession.mutateAsync(sessionId);
+    setDeleteSessionTarget(null);
     if (activeSessionId === sessionId) {
       handleNewSession();
     }
@@ -387,6 +399,25 @@ export default function PlaygroundPage() {
           </ScrollArea>
         </div>
       </div>
+    <AlertDialog open={!!deleteSessionTarget} onOpenChange={(open) => !open && setDeleteSessionTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete session?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteSessionTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => deleteSessionTarget && handleDeleteSession(deleteSessionTarget)}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

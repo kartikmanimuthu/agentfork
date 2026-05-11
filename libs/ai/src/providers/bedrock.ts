@@ -1,8 +1,7 @@
 import { streamText, embed, embedMany } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import type { LLMProvider } from '../provider';
-import type { BaseStreamChatOptions } from '../provider';
+import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
 import type { TenantLLMConfig, ProviderName } from '../types';
 import {
   DEFAULT_BEDROCK_CHAT_MODEL,
@@ -27,7 +26,7 @@ export class BedrockLLMProvider implements LLMProvider {
     this.embeddingDimensions = config.embeddingDimensions ?? 1024;
   }
 
-  streamChat(options: BaseStreamChatOptions) {
+  streamChat(options: BaseStreamChatOptions): StreamChatResult {
     const {
       messages,
       model,

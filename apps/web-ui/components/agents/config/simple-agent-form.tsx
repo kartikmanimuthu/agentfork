@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { SimpleAgentConfig } from '@chatbot/agent-studio';
 
 const schema = z.object({
@@ -56,12 +57,11 @@ export function SimpleAgentForm({ config, onSave, saving }: SimpleAgentFormProps
         {(field) => (
           <div className="grid gap-1.5">
             <Label htmlFor={field.name}>Model</Label>
-            <Input
-              id={field.name}
+            <ProviderModelSelect
+              capability="chat"
               value={field.state.value ?? ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="anthropic.claude-sonnet-4-20250514"
+              onChange={(v) => field.handleChange(v)}
+              placeholder="Select a model"
             />
             {field.state.meta.errors.length > 0 && (
               <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>

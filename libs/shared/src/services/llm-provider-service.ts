@@ -1,7 +1,10 @@
 import { getPrismaClient } from '../db/prisma-client';
 import type { PrismaClient } from '@prisma/client';
 import { EncryptionService } from './encryption-service';
+import { createLogger } from '../logging/logger';
 import type { CreateLlmProviderInput, UpdateLlmProviderInput, ValidateLlmProviderInput } from '../validation/schemas/llm-provider';
+
+const logger = createLogger('llm-provider-service');
 
 export interface DiscoveredModel {
   id: string;
@@ -65,6 +68,11 @@ export class LlmProviderService {
       ? this.encryption.encrypt(JSON.stringify(input.credentials))
       : null;
 
+    logger.info(
+      { tenantId: this.tenantId, name: input.name, providerType: input.providerType, isDefault: input.isDefault },
+      'Creating LLM provider record'
+    );
+
     const row = await this.prisma.llmProvider.create({
       data: {
         tenantId: this.tenantId,
@@ -78,6 +86,7 @@ export class LlmProviderService {
         isDefault: input.isDefault ?? false,
       },
     });
+    logger.info({ tenantId: this.tenantId, providerId: row.id }, 'Created LLM provider record');
     return this.toResponse(row);
   }
 
@@ -107,6 +116,7 @@ export class LlmProviderService {
         isDefault: input.isDefault ?? existing.isDefault,
       },
     });
+    logger.info({ tenantId: this.tenantId, providerId: row.id }, 'Updated LLM provider record');
     return this.toResponse(row);
   }
 
@@ -115,6 +125,7 @@ export class LlmProviderService {
       where: { id, tenantId: this.tenantId },
     });
     if (!existing) return null;
+    logger.info({ tenantId: this.tenantId, providerId: id }, 'Deleting LLM provider record');
     return this.prisma.llmProvider.delete({ where: { id } });
   }
 
@@ -129,14 +140,23 @@ export class LlmProviderService {
       where: { id },
       data: { isDefault: true },
     });
+    logger.info({ tenantId: this.tenantId, providerId: id }, 'Set default LLM provider');
     return this.toResponse(row);
   }
 
   async validateAndDiscoverModels(input: ValidateLlmProviderInput, discover: DiscoverFn) {
+    logger.info(
+      { tenantId: this.tenantId, providerType: input.providerType, region: input.region, baseUrl: input.credentials?.baseUrl, hasApiKey: !!input.credentials?.apiKey },
+      'Starting provider validation and model discovery'
+    );
     const models = await discover(
       input.providerType,
       input.credentials as Record<string, string>,
       input.region
+    );
+    logger.info(
+      { tenantId: this.tenantId, providerType: input.providerType, modelCount: models.length },
+      'Provider validation completed'
     );
     return { success: true as const, models };
   }
@@ -151,12 +171,20 @@ export class LlmProviderService {
       ? JSON.parse(this.encryption.decrypt(existing.credentials))
       : {};
 
+    logger.info(
+      { tenantId: this.tenantId, providerId: id, providerType: existing.providerType },
+      'Refreshing models for provider'
+    );
     const models = await discover(existing.providerType, credentials, existing.region ?? undefined);
 
     const row = await this.prisma.llmProvider.update({
       where: { id },
       data: { models: { models } as any },
     });
+    logger.info(
+      { tenantId: this.tenantId, providerId: id, modelCount: models.length },
+      'Refreshed models for provider'
+    );
     return this.toResponse(row);
   }
 
@@ -164,13 +192,30 @@ export class LlmProviderService {
     const row = await this.prisma.llmProvider.findFirst({
       where: { tenantId: this.tenantId, isDefault: true },
     });
-    if (!row) return null;
+    if (!row) {
+      logger.info({ tenantId: this.tenantId }, 'No default LLM provider configured');
+      return null;
+    }
+    return this.buildConfig(row);
+  }
 
+  async getConfigById(id: string) {
+    const row = await this.prisma.llmProvider.findFirst({
+      where: { id, tenantId: this.tenantId },
+    });
+    if (!row) {
+      logger.info({ tenantId: this.tenantId, providerId: id }, 'Provider not found for config resolution');
+      return null;
+    }
+    return this.buildConfig(row);
+  }
+
+  private buildConfig(row: any) {
     const credentials = row.credentials
       ? JSON.parse(this.encryption.decrypt(row.credentials))
       : undefined;
 
-    return {
+    const config = {
       provider: row.providerType.toLowerCase() as any,
       chatModel: row.chatModel ?? undefined,
       embeddingModel: row.embeddingModel ?? undefined,
@@ -181,6 +226,11 @@ export class LlmProviderService {
       secretAccessKey: credentials?.secretAccessKey,
       region: row.region ?? undefined,
     };
+    logger.info(
+      { tenantId: this.tenantId, providerId: row.id, providerType: row.providerType, chatModel: config.chatModel },
+      'Resolved LLM config'
+    );
+    return config;
   }
 
   private async clearDefault() {

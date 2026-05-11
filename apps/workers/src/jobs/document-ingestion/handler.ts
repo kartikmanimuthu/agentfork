@@ -1,5 +1,5 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
-import { S3Service } from '@chatbot/shared';
+import { S3Service, LlmProviderService } from '@chatbot/shared';
 import {
   createDocumentRepository,
   createDocumentChunkRepository,
@@ -76,10 +76,25 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     log.info('Embedding chunks', { provider: kb.embeddingProvider });
     await docRepo.update(documentId, { status: 'EMBEDDING' });
 
-    const embeddingProvider = getEmbeddingProvider(kb.embeddingProvider as any, {
-      model: kb.embeddingModel,
-      dimensions: kb.embeddingDimensions,
-    });
+    const legacyProviders = ['BEDROCK_TITAN', 'OPENAI', 'COHERE', 'LOCAL'];
+    let embeddingProvider: ReturnType<typeof getEmbeddingProvider>;
+
+    if (legacyProviders.includes(kb.embeddingProvider)) {
+      embeddingProvider = getEmbeddingProvider(kb.embeddingProvider as any, {
+        model: kb.embeddingModel,
+        dimensions: kb.embeddingDimensions,
+      });
+    } else {
+      const llmProviderService = new LlmProviderService(tenantId);
+      const providerConfig = await llmProviderService.getConfigById(kb.embeddingProvider);
+      if (!providerConfig) {
+        throw new Error(`LLM provider ${kb.embeddingProvider} not found for tenant ${tenantId}`);
+      }
+      embeddingProvider = getEmbeddingProvider(providerConfig, {
+        model: kb.embeddingModel,
+        dimensions: kb.embeddingDimensions,
+      });
+    }
 
     // Fetch the stored chunk IDs
     const storedChunks = await chunkRepo.findByDocumentId(documentId, { limit: chunks.length + 10 });

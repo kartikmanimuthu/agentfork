@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { useAgentAliases, useCreateAlias, useUpdateAlias, useDeleteAlias } from '@/hooks/use-agent-aliases';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
 import { Button } from '@/components/ui/button';
@@ -9,9 +11,27 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus } from 'lucide-react';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  versionId: z.string().min(1, 'Version is required'),
+  isDefault: z.boolean().optional(),
+});
+
+type AliasFormValues = z.infer<typeof schema>;
 
 export function AliasManager({ agentId }: { agentId: string }) {
   const { data: aliases } = useAgentAliases(agentId);
@@ -20,27 +40,27 @@ export function AliasManager({ agentId }: { agentId: string }) {
   const update = useUpdateAlias(agentId);
   const remove = useDeleteAlias(agentId);
 
-  const [name, setName] = useState('');
-  const [versionId, setVersionId] = useState('');
-  const [isDefault, setIsDefault] = useState(false);
   const [open, setOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!name.trim() || !versionId) {
-      toast.error('Name and version are required');
-      return;
-    }
-    try {
-      await create.mutateAsync({ name: name.trim(), versionId, isDefault });
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      versionId: '',
+      isDefault: false,
+    } as AliasFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
+      await create.mutateAsync({
+        name: value.name.trim(),
+        versionId: value.versionId,
+        isDefault: value.isDefault,
+      });
       toast.success('Alias created');
-      setName('');
-      setVersionId('');
-      setIsDefault(false);
+      form.reset();
       setOpen(false);
-    } catch {
-      toast.error('Failed to create alias');
-    }
-  };
+    },
+  });
 
   return (
     <div className="space-y-4">
@@ -58,36 +78,76 @@ export function AliasManager({ agentId }: { agentId: string }) {
               <DialogTitle>Create Alias</DialogTitle>
               <DialogDescription>Map a name like "dev" or "prod" to a specific version.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="alias-name">Name</Label>
-                <Input id="alias-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. dev" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Version</Label>
-                <Select value={versionId} onValueChange={setVersionId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select version" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {versions?.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        Version {v.version} ({v.status})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch id="alias-default" checked={isDefault} onCheckedChange={setIsDefault} />
-                <Label htmlFor="alias-default">Set as default alias</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreate} disabled={create.isPending}>
-                {create.isPending ? 'Creating...' : 'Create'}
-              </Button>
-            </DialogFooter>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                form.handleSubmit();
+              }}
+              className="space-y-4 py-2"
+            >
+              <form.Field name="name">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor={field.name}>Name</Label>
+                    <Input
+                      id={field.name}
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="e.g. dev"
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name="versionId">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <Label>Version</Label>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(v) => field.handleChange(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select version" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {versions?.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            Version {v.version} ({v.status})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name="isDefault">
+                {(field) => (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="alias-default"
+                      checked={field.state.value ?? false}
+                      onCheckedChange={(v) => field.handleChange(v)}
+                    />
+                    <Label htmlFor="alias-default">Set as default alias</Label>
+                  </div>
+                )}
+              </form.Field>
+
+              <DialogFooter>
+                <Button type="submit" disabled={create.isPending}>
+                  {create.isPending ? 'Creating...' : 'Create'}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -117,13 +177,37 @@ export function AliasManager({ agentId }: { agentId: string }) {
               size="icon"
               variant="ghost"
               className="h-7 w-7 text-destructive"
-              onClick={() => remove.mutateAsync(alias.id).then(() => toast.success('Deleted')).catch(() => toast.error('Failed'))}
+              onClick={() => setDeleteTarget(alias.id)}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
           </div>
         </div>
       ))}
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete alias?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              if (deleteTarget) {
+                remove.mutateAsync(deleteTarget).then(() => toast.success('Deleted')).catch(() => toast.error('Failed'));
+              }
+              setDeleteTarget(null);
+            }}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

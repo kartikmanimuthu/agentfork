@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createAliasSchema } from '@chatbot/shared';
 import { AgentAliasService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
@@ -30,7 +30,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id } = await params;
-    const { name, versionId, isDefault } = await req.json();
+    const body = await req.json();
+    const parsed = createAliasSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const { name, versionId, isDefault } = parsed.data;
     const db = getPrismaClient();
     const service = new AgentAliasService(tenantId, db as any);
 

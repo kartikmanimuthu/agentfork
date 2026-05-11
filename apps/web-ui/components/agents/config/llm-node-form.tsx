@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { LlmNodeConfig } from '@chatbot/agent-studio';
 
 const schema = z.object({
@@ -56,12 +57,11 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
         {(field) => (
           <div className="grid gap-1.5">
             <Label htmlFor={field.name}>Model</Label>
-            <Input
-              id={field.name}
+            <ProviderModelSelect
+              capability="chat"
               value={field.state.value ?? ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="anthropic.claude-sonnet-4-20250514"
+              onChange={(v) => { field.handleChange(v); handleBlur(); }}
+              placeholder="Select a model"
             />
             {field.state.meta.errors.length > 0 && (
               <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>

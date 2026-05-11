@@ -1,7 +1,6 @@
 import { streamText, embed, embedMany } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
-import type { LLMProvider } from '../provider';
-import type { BaseStreamChatOptions } from '../provider';
+import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
 import type { TenantLLMConfig, ProviderName } from '../types';
 import {
   DEFAULT_OPENAI_CHAT_MODEL,
@@ -30,7 +29,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     });
   }
 
-  streamChat(options: BaseStreamChatOptions) {
+  streamChat(options: BaseStreamChatOptions): StreamChatResult {
     const {
       messages,
       model,

@@ -1,6 +1,8 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { useAgent, useUpdateAgent, useDeleteAgent } from '@/hooks/use-agents';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +32,15 @@ import {
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional(),
+  status: z.enum(['draft', 'active', 'inactive']),
+});
+
+type AgentSettingsFormValues = z.infer<typeof schema>;
 
 export default function AgentSettingsPage() {
   const params = useParams<{ id: string }>();
@@ -41,17 +51,40 @@ export default function AgentSettingsPage() {
   const updateMutation = useUpdateAgent(agentId);
   const deleteMutation = useDeleteAgent();
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<'draft' | 'active' | 'inactive'>('draft');
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      status: 'draft' as const,
+    } as AgentSettingsFormValues,
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
+      await updateMutation.mutateAsync({
+        name: value.name,
+        description: value.description || undefined,
+        status: value.status,
+      });
+      toast.success('Settings saved');
+    },
+  });
 
   useEffect(() => {
     if (agent) {
-      setName(agent.name);
-      setDescription(agent.description ?? '');
-      setStatus(agent.status);
+      form.setFieldValue('name', agent.name);
+      form.setFieldValue('description', agent.description ?? '');
+      form.setFieldValue('status', agent.status);
     }
   }, [agent]);
+
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(agentId);
+      toast.success('Agent deleted');
+      router.push('/agents');
+    } catch {
+      toast.error('Failed to delete agent');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,26 +102,6 @@ export default function AgentSettingsPage() {
       </div>
     );
   }
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await updateMutation.mutateAsync({ name, description: description || undefined, status });
-      toast.success('Settings saved');
-    } catch {
-      toast.error('Failed to save settings');
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await deleteMutation.mutateAsync(agentId);
-      toast.success('Agent deleted');
-      router.push('/agents');
-    } catch {
-      toast.error('Failed to delete agent');
-    }
-  };
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
@@ -111,41 +124,66 @@ export default function AgentSettingsPage() {
           <CardDescription>Update the agent name, description, and status.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="agent-name">Name</Label>
-              <Input
-                id="agent-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              form.handleSubmit();
+            }}
+            className="space-y-4"
+          >
+            <form.Field name="name">
+              {(field) => (
+                <div className="grid gap-1.5">
+                  <Label htmlFor={field.name}>Name</Label>
+                  <Input
+                    id={field.name}
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                  )}
+                </div>
+              )}
+            </form.Field>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="agent-description">Description</Label>
-              <Textarea
-                id="agent-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="What does this agent do?"
-              />
-            </div>
+            <form.Field name="description">
+              {(field) => (
+                <div className="grid gap-1.5">
+                  <Label htmlFor={field.name}>Description</Label>
+                  <Textarea
+                    id={field.name}
+                    value={field.state.value ?? ''}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    rows={3}
+                    placeholder="What does this agent do?"
+                  />
+                </div>
+              )}
+            </form.Field>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="agent-status">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-                <SelectTrigger id="agent-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <form.Field name="status">
+              {(field) => (
+                <div className="grid gap-1.5">
+                  <Label htmlFor={field.name}>Status</Label>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) => field.handleChange(v as 'draft' | 'active' | 'inactive')}
+                  >
+                    <SelectTrigger id={field.name}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </form.Field>
 
             <Button type="submit" disabled={updateMutation.isPending}>
               {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
@@ -171,7 +209,7 @@ export default function AgentSettingsPage() {
             />
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete &quot;{agent.name}&quot;?</AlertDialogTitle>
+                <AlertDialogTitle>Delete "{agent.name}"?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This will permanently delete the agent and all its versions. This action cannot be undone.
                 </AlertDialogDescription>

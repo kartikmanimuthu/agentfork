@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── Shared enums ────────────────────────────────────────────────────────────
 
-export const embeddingProviderSchema = z.enum(['BEDROCK_TITAN', 'OPENAI', 'COHERE', 'LOCAL']);
+export const embeddingProviderSchema = z.string().min(1);
 
 export const chunkStrategySchema = z.enum([
   'FIXED_SIZE',
@@ -58,8 +58,8 @@ export const retrievalConfigSchema = z.object({
 export const createKnowledgeBaseSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
-  embeddingProvider: embeddingProviderSchema.default('BEDROCK_TITAN'),
-  embeddingModel: z.string().default('amazon.titan-embed-text-v2:0'),
+  embeddingProvider: embeddingProviderSchema,
+  embeddingModel: z.string().min(1),
   embeddingDimensions: z.number().int().min(64).max(3072).default(1024),
   chunkStrategy: chunkStrategySchema.default('RECURSIVE_CHARACTER'),
   chunkSize: z.number().int().min(64).max(8192).default(512),
@@ -71,6 +71,9 @@ export const createKnowledgeBaseSchema = z.object({
 export const updateKnowledgeBaseSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
+  embeddingProvider: embeddingProviderSchema.optional(),
+  embeddingModel: z.string().min(1).optional(),
+  embeddingDimensions: z.number().int().min(64).max(3072).optional(),
   chunkStrategy: chunkStrategySchema.optional(),
   chunkSize: z.number().int().min(64).max(8192).optional(),
   chunkOverlap: z.number().int().min(0).max(512).optional(),

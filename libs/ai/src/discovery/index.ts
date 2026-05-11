@@ -5,9 +5,15 @@ import { AnthropicModelDiscovery } from './anthropic';
 import { OllamaModelDiscovery } from './ollama';
 import { VllmModelDiscovery } from './vllm';
 
+function logDiscovery(message: string, data?: Record<string, unknown>) {
+  // eslint-disable-next-line no-console
+  console.log(`[discovery:factory] ${message}`, data ?? '');
+}
+
 type ProviderType = 'BEDROCK' | 'OPENAI' | 'ANTHROPIC' | 'OLLAMA' | 'VLLM' | 'OPENAI_COMPATIBLE';
 
 export function createDiscovery(providerType: ProviderType): ModelDiscovery {
+  logDiscovery('Selecting discovery implementation', { providerType });
   switch (providerType) {
     case 'BEDROCK':
       return new BedrockModelDiscovery();
