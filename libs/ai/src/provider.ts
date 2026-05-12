@@ -14,6 +14,7 @@ export interface StreamChatResult {
   toUIMessageStreamResponse(options?: { headers?: Record<string, string> }): Response;
   text: PromiseLike<string>;
   usage: PromiseLike<LanguageModelUsage>;
+  textStream: AsyncIterable<string>;
 }
 
 export interface LLMProvider {
@@ -25,4 +26,6 @@ export interface LLMProvider {
   streamChat(options: BaseStreamChatOptions): StreamChatResult;
   embed(text: string): Promise<number[]>;
   embedBatch(texts: string[]): Promise<number[][]>;
+  /** Validate that the provider is usable (e.g. credentials are resolvable). Throws on failure. */
+  validate(): Promise<void>;
 }

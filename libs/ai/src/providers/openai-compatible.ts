@@ -63,4 +63,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
     });
     return embeddings;
   }
+
+  async validate(): Promise<void> {
+    // Constructor already validates baseUrl; nothing additional needed.
+  }
 }

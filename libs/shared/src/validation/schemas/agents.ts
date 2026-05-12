@@ -35,7 +35,10 @@ export const createApiKeySchema = z.object({
 
 export const playgroundMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
-  content: z.string().min(1, 'Message content is required'),
+  content: z.string().optional(),
+  parts: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
+}).refine((data) => Boolean(data.content || data.parts?.length), {
+  message: 'Message content or parts is required',
 });
 
 export const playgroundRequestSchema = z.object({

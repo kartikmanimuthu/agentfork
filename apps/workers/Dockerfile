@@ -21,6 +21,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/workers/node_modules ./apps/workers/node_modules
 COPY --from=deps /app/libs ./libs
 COPY --from=deps /app/prisma ./prisma
 COPY --from=deps /app/package.json ./package.json
@@ -31,7 +32,7 @@ COPY --from=deps /app/nx.json ./nx.json
 COPY apps/workers/ apps/workers/
 
 RUN rm -f prisma/.env
-RUN bunx prisma@6 generate --schema=./prisma/schema.prisma
+RUN ./node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 RUN cd apps/workers && bunx tsc --noEmit false
 
 # ── Stage 3: Production runner ──
@@ -46,9 +47,8 @@ RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem 
 COPY --from=builder /app/apps/workers/dist ./dist
 COPY --from=builder /app/apps/workers/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/workers/node_modules ./apps/workers/node_modules
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 ENV NODE_ENV=production
 USER bun
