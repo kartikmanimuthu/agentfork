@@ -31,6 +31,8 @@ async function resolveProviderForModel(
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = crypto.randomUUID();
+  let agentId: string | undefined;
   try {
     const tenantId = await getSessionTenantId(authOptions);
     const userId = await getSessionUserId(authOptions);
@@ -38,6 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id } = await params;
+    agentId = id;
+
+    logger.info({ requestId, agentId, tenantId, userId }, 'Playground execution started');
 
     const db = getPrismaClient();
 
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 400 }
       );
     }
-    const { messages, systemPrompt, model, temperature, agentVersionId } = parsed.data;
+    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId } = parsed.data;
     const { alias } = parsed.data;
 
     // Fetch agent
@@ -121,6 +126,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
+    logger.info({ requestId, executionId: execution.id, agentId: id, agentType: agent.type }, 'Execution record created');
+
     // Simple agent execution
     if (agent.type === 'simple') {
       const simpleConfig = resolvedConfig as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number; tools?: string[] };
@@ -132,8 +139,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const llmConfig = await resolveProviderForModel(tenantId, effectiveModel)
         ?? await llmProviderService.getDefaultConfig()
         ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
+
+      logger.info({ requestId, provider: llmConfig?.provider, chatModel: llmConfig?.chatModel, region: llmConfig?.region, hasAccessKey: !!llmConfig?.accessKeyId }, 'Resolved LLM config');
+
       const provider = createLLMProvider(llmConfig);
+      logger.info({ requestId, providerName: provider.name, providerChatModel: provider.chatModel }, 'LLM provider instantiated');
+
       await provider.validate();
+      logger.info({ requestId }, 'Provider validation passed');
 
       const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',
@@ -148,13 +161,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
+      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext }, 'Starting stream chat');
+
       const result = streamChat({
         provider,
         messages: coreMessages,
         model: effectiveModel,
         system: effectiveSystem,
         temperature: effectiveTemperature,
-        maxOutputTokens: simpleConfig.maxTokens ?? 4096,
+        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
         onFinish: async ({ text, usage }) => {
           const completedAt = new Date();
           await db.agentExecution.update({
@@ -165,6 +180,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               completedAt,
             },
           });
+          logger.info({ requestId, executionId: execution.id, usage }, 'Execution completed');
         },
       });
 
@@ -220,8 +236,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return new Response(JSON.stringify({ error: 'Unauthenticated' }), { status: 401 });
     }
-    logger.error({ error }, 'Playground execution error');
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error(
+      { err, errorMessage: err.message, errorStack: err.stack, requestId, agentId },
+      'Playground execution error'
+    );
+    return new Response(JSON.stringify({ error: 'Internal server error', message: err.message }), { status: 500 });
   }
 }
 
@@ -253,12 +273,12 @@ async function buildKbContext(
       });
 
       if (results.length > 0) {
-        contexts.push(`--- From ${kb.name} ---\n${results.map((r: any) => r.content).join('\n\n')}`);
+        contexts.push(`--- From ${kb.name} ---\\n${results.map((r: any) => r.content).join('\\n\\n')}`);
       }
     } catch {
       // Skip KBs that fail retrieval
     }
   }
 
-  return contexts.join('\n\n');
+  return contexts.join('\\n\\n');
 }

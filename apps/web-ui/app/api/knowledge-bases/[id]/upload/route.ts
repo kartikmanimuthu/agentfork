@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DocumentService, IngestionService, createDocumentSchema } from '@chatbot/knowledge-base';
+import { DocumentService, IngestionService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';
+import { z } from 'zod';
+
+const uploadRequestSchema = z.object({
+  dataSourceId: z.string().min(1),
+  fileName: z.string().min(1).max(512),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+});
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { id: knowledgeBaseId } = await params;
     const body = await req.json();
-    const parsed = createDocumentSchema.safeParse(body);
+    const parsed = uploadRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? 'Invalid input' },

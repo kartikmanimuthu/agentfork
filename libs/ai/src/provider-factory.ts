@@ -11,11 +11,17 @@ function logFactory(message: string, data?: Record<string, unknown>) {
 
 export function createLLMProvider(config?: TenantLLMConfig | null): LLMProvider {
   const effectiveConfig = config ?? getDefaultLLMConfig('bedrock');
+  const isBedrock = effectiveConfig.provider === 'bedrock';
   logFactory('Creating LLM provider', {
     provider: effectiveConfig.provider,
     chatModel: effectiveConfig.chatModel,
     baseUrl: effectiveConfig.baseUrl,
+    region: effectiveConfig.region,
     hasApiKey: !!effectiveConfig.apiKey,
+    hasAccessKey: !!(effectiveConfig.accessKeyId && effectiveConfig.secretAccessKey),
+    credentialSource: isBedrock
+      ? (effectiveConfig.accessKeyId && effectiveConfig.secretAccessKey ? 'explicit' : 'defaultProvider')
+      : (effectiveConfig.apiKey ? 'apiKey' : 'none'),
   });
 
   switch (effectiveConfig.provider) {

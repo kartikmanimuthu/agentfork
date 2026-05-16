@@ -17,7 +17,7 @@ export function PlaygroundVersionSelector({
   const { data: versions } = useAgentVersions(agentId);
 
   const options: Array<{ label: string; value: string; group: string }> = [
-    { label: 'Latest draft (agent config)', value: '', group: 'Default' },
+    { label: 'Latest draft (agent config)', value: 'current', group: 'Default' },
   ];
 
   aliases?.forEach((a) => {

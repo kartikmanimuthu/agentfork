@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAgent } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
 import { usePlayground } from '@/hooks/use-playground';
@@ -57,15 +57,51 @@ export default function PlaygroundPage() {
   const { data: versions } = useAgentVersions(agentId);
   const { data: sessions, isLoading: sessionsLoading } = usePlaygroundSessions(agentId);
 
-  const [versionValue, setVersionValue] = useState('');
+  const [versionValue, setVersionValue] = useState('current');
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const v = searchParams.get('version');
+    if (v) {
+      setVersionValue(v);
+    }
+  }, [searchParams]);
+
   const selectedVersionId = versionValue.startsWith('version:')
     ? versionValue.replace('version:', '')
     : undefined;
   const selectedAlias = versionValue.startsWith('alias:')
     ? versionValue.replace('alias:', '')
     : undefined;
+
+  // Load config into override fields when version/agent selection changes
+  const lastSelectionRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const currentSelection = selectedVersionId ?? selectedAlias ?? 'agent';
+    if (selectedVersionId && !versions) return;
+    if (!selectedVersionId && !selectedAlias && !agent) return;
+    if (currentSelection === lastSelectionRef.current) return;
+    lastSelectionRef.current = currentSelection;
+
+    let config: Record<string, unknown> = {};
+    if (selectedVersionId && versions) {
+      const version = versions.find((v) => v.id === selectedVersionId);
+      if (version) {
+        config = (version.config as Record<string, unknown>) ?? {};
+      }
+    } else if (!selectedAlias && agent) {
+      config = (agent.config as Record<string, unknown>) ?? {};
+    }
+
+    setSystemPrompt(String(config.systemPrompt ?? ''));
+    setTemperature(Number(config.temperature ?? 0.7));
+    setModel(String(config.model ?? ''));
+    setMaxTokens(config.maxTokens ? Number(config.maxTokens) : undefined);
+  }, [selectedVersionId, selectedAlias, versions, agent]);
+
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
+  const [model, setModel] = useState('');
+  const [maxTokens, setMaxTokens] = useState<number | undefined>(undefined);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
   const [sessionName, setSessionName] = useState('New Session');
   const [showTrace, setShowTrace] = useState(true);
@@ -94,13 +130,18 @@ export default function PlaygroundPage() {
   });
 
   const handleVersionChange = (val: string) => {
-    setVersionValue(val);
+    if (val !== versionValue) {
+      setVersionValue(val);
+      setMessages([]);
+    }
   };
 
   const handleApplyOverrides = () => {
     setOverrides({
       systemPrompt: systemPrompt || undefined,
       temperature: temperature,
+      model: model || undefined,
+      maxTokens: maxTokens,
     });
     toast.success('Overrides applied');
   };
@@ -118,6 +159,8 @@ export default function PlaygroundPage() {
       })),
       configOverrides: overrides as Record<string, unknown>,
       agentVersionId: selectedVersionId ?? null,
+      model: model || undefined,
+      maxTokens: maxTokens,
     };
 
     if (activeSessionId) {
@@ -133,12 +176,14 @@ export default function PlaygroundPage() {
   const handleLoadSession = (session: any) => {
     setActiveSessionId(session.id);
     setSessionName(session.name);
-    setVersionValue(session.agentVersionId ? `version:${session.agentVersionId}` : '');
+    setVersionValue(session.agentVersionId ? `version:${session.agentVersionId}` : 'current');
     setOverrides((session.configOverrides as Record<string, unknown>) ?? {});
     if (session.configOverrides) {
       const co = session.configOverrides as Record<string, unknown>;
       if (co.systemPrompt) setSystemPrompt(String(co.systemPrompt));
       if (co.temperature) setTemperature(Number(co.temperature));
+      if (co.model) setModel(String(co.model));
+      if (co.maxTokens) setMaxTokens(Number(co.maxTokens));
     }
     setMessages(
       (session.messages as Array<{ id: string; role: string; content: string }>).map((m) => ({
@@ -157,7 +202,13 @@ export default function PlaygroundPage() {
     setOverrides({});
     setSystemPrompt('');
     setTemperature(0.7);
-    setVersionValue('');
+    setModel('');
+    setMaxTokens(undefined);
+    setVersionValue('current');
+    // Clear query params so version doesn't re-apply from URL
+    if (searchParams.toString()) {
+      router.replace(`/agents/${agentId}/playground`, { scroll: false });
+    }
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -207,6 +258,11 @@ export default function PlaygroundPage() {
         {currentVersion && (
           <Badge variant="secondary" className="text-[10px]">
             v{currentVersion.version}
+          </Badge>
+        )}
+        {selectedAlias && (
+          <Badge variant="secondary" className="text-[10px]">
+            {selectedAlias}
           </Badge>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -314,6 +370,15 @@ export default function PlaygroundPage() {
                   <label className="text-xs font-semibold uppercase text-muted-foreground">Overrides</label>
                 </div>
                 <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Model</label>
+                  <Input
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="Override model..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">System Prompt</label>
                   <Textarea
                     value={systemPrompt}
@@ -333,6 +398,19 @@ export default function PlaygroundPage() {
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
                     className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Max Tokens: {maxTokens ?? 'default'}</label>
+                  <Input
+                    type="number"
+                    value={maxTokens ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setMaxTokens(val ? parseInt(val, 10) : undefined);
+                    }}
+                    placeholder="Leave blank for default"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <Button size="sm" className="w-full" onClick={handleApplyOverrides}>

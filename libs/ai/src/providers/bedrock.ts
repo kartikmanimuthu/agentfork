@@ -14,16 +14,24 @@ export class BedrockLLMProvider implements LLMProvider {
   readonly chatModel: string;
   readonly embeddingModel: string;
   readonly embeddingDimensions: number;
+  readonly region: string;
+  private readonly hasExplicitCredentials: boolean;
 
-  private readonly client = createAmazonBedrock({
-    region: env.AWS_REGION,
-    credentialProvider: defaultProvider(),
-  });
+  private readonly client: ReturnType<typeof createAmazonBedrock>;
 
   constructor(config: TenantLLMConfig) {
     this.chatModel = config.chatModel ?? DEFAULT_BEDROCK_CHAT_MODEL;
     this.embeddingModel = config.embeddingModel ?? DEFAULT_BEDROCK_EMBEDDING_MODEL;
     this.embeddingDimensions = config.embeddingDimensions ?? 1024;
+    this.region = config.region ?? env.AWS_REGION;
+    this.hasExplicitCredentials = !!(config.accessKeyId && config.secretAccessKey);
+
+    this.client = createAmazonBedrock({
+      region: this.region,
+      ...(this.hasExplicitCredentials
+        ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
+        : { credentialProvider: defaultProvider() }),
+    });
   }
 
   streamChat(options: BaseStreamChatOptions): StreamChatResult {
@@ -62,6 +70,11 @@ export class BedrockLLMProvider implements LLMProvider {
   }
 
   async validate(): Promise<void> {
+    // When explicit credentials are provided, skip defaultProvider validation
+    if (this.hasExplicitCredentials) {
+      return;
+    }
+
     try {
       const credentials = await defaultProvider()();
       if (!credentials?.accessKeyId || !credentials?.secretAccessKey) {

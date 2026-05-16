@@ -63,7 +63,7 @@ export function VersionsTab({ agentId }: { agentId: string }) {
                   variant="outline"
                   size="sm"
                   render={
-                    <Link href={`/agents/${agentId}/playground?version=${v.id}`}>
+                    <Link href={`/agents/${agentId}/playground?version=version:${v.id}`}>
                       <Play className="h-3 w-3 mr-1" />
                       Test
                     </Link>

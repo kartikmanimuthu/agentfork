@@ -8,6 +8,7 @@ export interface PlaygroundOverrides {
   systemPrompt?: string;
   model?: string;
   temperature?: number;
+  maxTokens?: number;
 }
 
 export interface PlaygroundMessage extends UIMessage {
@@ -53,6 +54,7 @@ export function usePlayground({
           systemPrompt: overrides.systemPrompt,
           model: overrides.model,
           temperature: overrides.temperature,
+          maxTokens: overrides.maxTokens,
         },
       }),
     [agentId, versionId, alias, overrides]
@@ -109,6 +111,7 @@ export function usePlayground({
             systemPrompt: overrides.systemPrompt,
             model: overrides.model,
             temperature: overrides.temperature,
+            maxTokens: overrides.maxTokens,
           }),
         });
 
