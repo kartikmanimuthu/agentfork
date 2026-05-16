@@ -44,6 +44,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  log.error('Fatal error', { error: String(err) });
+  log.error('Fatal error', { error: String(err), stack: err?.stack, errors: err?.errors ? err.errors.map((e: any) => ({ msg: e.message, stack: e.stack })) : undefined });
   process.exit(1);
 });

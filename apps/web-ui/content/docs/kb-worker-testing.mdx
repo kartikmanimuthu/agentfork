@@ -1,0 +1,94 @@
+---
+title: KB Worker Testing
+description: How to test the knowledge base sync, web crawler, and document ingestion pipeline locally.
+---
+
+## Overview
+
+Knowledge base sync is driven by a **pg-boss** job queue. The flow:
+
+1. **Frontend** — user clicks the play icon on a URL-type source
+2. **API** — `POST /api/knowledge-bases/{id}/sources/{sourceId}/sync` enqueues a `web-crawl` job
+3. **Worker** — `handleWebCrawl` crawls the URL, uploads text to S3, creates `Document` records, then enqueues `document-ingestion` jobs
+4. **Worker (ingestion)** — `handleDocumentIngestion` parses, chunks, embeds, and stores searchable vectors
+
+## Local Testing Script
+
+A standalone script in `apps/workers/src/scripts/test-kb-sync.ts` exercises the entire pipeline directly without needing the frontend running.
+
+### Commands
+
+```bash
+cd apps/workers
+
+# 1. Test the web crawler in isolation (no DB writes)
+npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts \
+  --crawl-only --url https://example.com --max-pages 1
+
+# 2. Test sync for an existing source
+npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts \
+  --kb-id <kb-id> --source-id <source-id> --tenant-id <tenant-id>
+
+# 3. Full pipeline — auto-create test records, run sync + ingestion, then clean up
+npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts \
+  --create --full-pipeline --cleanup
+
+# Or use the package.json alias
+bun run test:kb-sync -- --create --cleanup
+```
+
+### Script Options
+
+| Flag | Description |
+|------|-------------|
+| `--create` | Auto-create a test `KnowledgeBase` + URL `DataSource` |
+| `--kb-id` | Existing KnowledgeBase ID |
+| `--source-id` | Existing DataSource ID |
+| `--tenant-id` | Tenant ID (defaults to first active tenant when `--create`) |
+| `--full-pipeline` | Also run `document-ingestion` (chunking + embeddings) after sync |
+| `--cleanup` | Delete created test records after the run |
+| `--crawl-only` | Test the web crawler without any database writes |
+| `--url` | Target URL for `--crawl-only` |
+| `--crawl-depth` | Link hops to follow (default: `0`) |
+| `--max-pages` | Pages to crawl (default: `10`) |
+
+### What the Script Validates
+
+- **Sync phase** — data source status transitions from `syncing` to `active`, `lastSyncAt` is set, and `Document` records are created
+- **Ingestion phase** (with `--full-pipeline`) — documents reach `READY` status, chunks are stored, and embeddings are generated
+- **Cleanup phase** (with `--cleanup`) — removes test documents, chunks, data source, and knowledge base
+
+## Running the Worker Server
+
+To process jobs via the actual worker daemon:
+
+```bash
+# Terminal 1 — start the worker
+cd apps/workers
+bun run dev
+
+# Terminal 2 — trigger a sync via curl (or use the UI)
+curl -X POST \
+  http://localhost:3001/api/knowledge-bases/{kb-id}/sources/{source-id}/sync
+```
+
+The worker polls pg-boss every few seconds and picks up the `web-crawl` job automatically.
+
+## Common Issues
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Crawl complete, pages: 0" | `excludePatterns` was an empty array `[]`; the crawler treated it as "exclude all" | Fixed in `libs/knowledge-base/src/web-crawler/index.ts` — check `excludePatterns.length > 0` before filtering |
+| "Could not load credentials from any providers" | AWS credentials are not configured | Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env`, or configure an AWS CLI profile |
+| "No active tenant found" | Database has no `Tenant` record | Create a tenant first, or pass `--tenant-id` |
+| Job never picked up | Worker is not running | Start `bun run dev` in `apps/workers`, or run the test script directly |
+
+## Files to Know
+
+| File | Purpose |
+|------|---------|
+| `apps/workers/src/scripts/test-kb-sync.ts` | Local testing script |
+| `apps/workers/src/jobs/web-crawl/handler.ts` | Crawl + S3 upload + document creation |
+| `apps/workers/src/jobs/document-ingestion/handler.ts` | Parse + chunk + embed pipeline |
+| `libs/knowledge-base/src/web-crawler/index.ts` | `BreadthFirstCrawler` implementation |
+| `apps/web-ui/app/api/knowledge-bases/[id]/sources/[sourceId]/sync/route.ts` | API route that enqueues the sync job |

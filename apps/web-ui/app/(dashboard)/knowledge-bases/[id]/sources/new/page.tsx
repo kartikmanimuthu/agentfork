@@ -7,47 +7,35 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Globe, Database, Plug } from 'lucide-react';
 
-const urlSourceSchema = z.object({
-  type: z.literal('URL'),
-  seedUrls: z.string().min(1, 'At least one seed URL is required'),
-  crawlDepth: z.string(),
-  includePatterns: z.string().optional(),
-  excludePatterns: z.string().optional(),
-  syncSchedule: z.string().optional(),
-});
-
-const fileSourceSchema = z.object({
-  type: z.literal('FILE'),
+const schema = z.object({
+  type: z.enum(['URL', 'FILE', 'CONNECTOR']),
   seedUrls: z.string().optional(),
   crawlDepth: z.string().optional(),
   includePatterns: z.string().optional(),
   excludePatterns: z.string().optional(),
   syncSchedule: z.string().optional(),
 });
-
-const connectorSourceSchema = z.object({
-  type: z.literal('CONNECTOR'),
-  seedUrls: z.string().optional(),
-  crawlDepth: z.string().optional(),
-  includePatterns: z.string().optional(),
-  excludePatterns: z.string().optional(),
-  syncSchedule: z.string().optional(),
-});
-
-const schema = z.discriminatedUnion('type', [urlSourceSchema, fileSourceSchema, connectorSourceSchema]);
 
 type SourceFormValues = z.infer<typeof schema>;
+
+const SYNC_SCHEDULE_OPTIONS = [
+  { label: 'Manual', value: 'manual' },
+  { label: 'Hourly', value: '0 * * * *' },
+  { label: 'Daily', value: '0 2 * * *' },
+  { label: 'Weekly', value: '0 2 * * 0' },
+  { label: 'Monthly', value: '0 2 1 * *' },
+];
 
 export default function NewDataSourcePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const [type, setType] = useState<'URL' | 'FILE' | 'CONNECTOR'>('URL');
 
   const form = useForm({
     defaultValues: {
@@ -56,7 +44,7 @@ export default function NewDataSourcePage() {
       crawlDepth: '0',
       includePatterns: '',
       excludePatterns: '',
-      syncSchedule: '',
+      syncSchedule: 'manual',
     } as SourceFormValues,
     validators: { onChange: schema },
     onSubmit: async ({ value }) => {
@@ -89,7 +77,7 @@ export default function NewDataSourcePage() {
         };
       }
 
-      if (value.syncSchedule?.trim()) {
+      if (value.syncSchedule && value.syncSchedule !== 'manual') {
         body.syncSchedule = value.syncSchedule.trim();
       }
 
@@ -104,12 +92,16 @@ export default function NewDataSourcePage() {
         throw new Error(err.error ?? 'Failed to create source');
       }
 
+      const result = await res.json();
       toast.success('Source created');
-      router.push(`/knowledge-bases/${id}/sources`);
+
+      if (value.type === 'FILE') {
+        router.push(`/knowledge-bases/${id}/upload?source=${result.id}`);
+      } else {
+        router.push(`/knowledge-bases/${id}/sources`);
+      }
     },
   });
-
-  const type = form.getFieldValue('type');
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-2xl mx-auto">
@@ -143,7 +135,13 @@ export default function NewDataSourcePage() {
               {(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Source Type</Label>
-                  <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as 'URL' | 'FILE' | 'CONNECTOR')}>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) => {
+                      field.handleChange(v as 'URL' | 'FILE' | 'CONNECTOR');
+                      setType(v as 'URL' | 'FILE' | 'CONNECTOR');
+                    }}
+                  >
                     <SelectTrigger id={field.name}>
                       <SelectValue />
                     </SelectTrigger>
@@ -174,7 +172,14 @@ export default function NewDataSourcePage() {
 
             {type === 'URL' && (
               <>
-                <form.Field name="seedUrls">
+                <form.Field name="seedUrls"
+                  validators={{
+                    onChange: ({ value }) =>
+                      !value || value.trim().length === 0
+                        ? 'At least one seed URL is required'
+                        : undefined,
+                  }}
+                >
                   {(field) => (
                     <div className="space-y-2">
                       <Label htmlFor={field.name}>Seed URLs *</Label>
@@ -238,19 +243,6 @@ export default function NewDataSourcePage() {
                     </div>
                   )}
                 </form.Field>
-                <form.Field name="syncSchedule">
-                  {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor={field.name}>Sync Schedule</Label>
-                      <Input
-                        id={field.name}
-                        placeholder="Cron expression (optional), e.g. 0 2 * * *"
-                        value={field.state.value ?? ''}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
               </>
             )}
 
@@ -258,14 +250,8 @@ export default function NewDataSourcePage() {
               <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
                 <p className="flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  File uploads are managed from the Documents page.
+                  After creating the file source, you will be able to upload documents.
                 </p>
-                <Link
-                  href={`/knowledge-bases/${id}/documents`}
-                  className={buttonVariants({ variant: 'link', size: 'sm' }) + ' mt-2 px-0'}
-                >
-                  Go to Documents &rarr;
-                </Link>
               </div>
             )}
 
@@ -277,11 +263,31 @@ export default function NewDataSourcePage() {
                 </p>
               </div>
             )}
+
+            <form.Field name="syncSchedule">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Sync Schedule</Label>
+                  <Select value={field.state.value ?? ''} onValueChange={(v) => field.handleChange(v)}>
+                    <SelectTrigger id={field.name}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SYNC_SCHEDULE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </form.Field>
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={form.state.isSubmitting || type !== 'URL'}>
+          <Button type="submit" disabled={form.state.isSubmitting || type === 'CONNECTOR'}>
             {form.state.isSubmitting ? 'Creating...' : 'Create Source'}
           </Button>
         </div>

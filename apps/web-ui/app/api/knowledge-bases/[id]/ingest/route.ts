@@ -1,30 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DocumentService } from '@chatbot/knowledge-base';
+import { IngestionService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+import { createBoss } from '@/lib/boss';
 import { createLogger } from '@chatbot/shared';
 import { z } from 'zod';
 
-const logger = createLogger('api:kb:upload');
+const logger = createLogger('api:kb:ingest');
 
-const uploadRequestSchema = z.object({
-  dataSourceId: z.string().min(1),
-  fileName: z.string().min(1).max(512),
+const ingestRequestSchema = z.object({
+  documentId: z.string().cuid(),
+  s3Key: z.string().min(1),
   mimeType: z.string().min(1),
-  sizeBytes: z.number().int().nonnegative(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: knowledgeBaseId } = await params;
-    logger.info({ knowledgeBaseId }, 'Upload request received');
 
     const tenantId = await getSessionTenantId(authOptions);
     const authError = await authorize('create', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
     const body = await req.json();
-    const parsed = uploadRequestSchema.safeParse(body);
+    const parsed = ingestRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
@@ -32,31 +31,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    const { dataSourceId: sourceId, fileName, mimeType, sizeBytes } = parsed.data;
+    const { documentId, s3Key, mimeType } = parsed.data;
 
-    const docService = new DocumentService(tenantId);
-    const { uploadUrl, s3Key } = await docService.getUploadUrl(sourceId, fileName, mimeType);
+    const boss = createBoss();
+    await boss.start();
+    await boss.createQueue('document-ingestion');
 
-    const document = await docService.create({
-      dataSourceId: sourceId,
-      sourceKey: s3Key,
-      fileName,
+    const ingestionService = new IngestionService(tenantId);
+    const jobId = await ingestionService.enqueueIngestion(boss, {
+      documentId,
+      tenantId,
+      s3Key,
       mimeType,
-      sizeBytes,
+      knowledgeBaseId,
     });
 
-    logger.info({ documentId: document.id, s3Key }, 'Document record created, returning upload URL');
+    await boss.stop({ graceful: false });
 
-    return NextResponse.json({ uploadUrl, document }, { status: 201 });
+    logger.info({ documentId, jobId }, 'Ingestion job enqueued');
+
+    return NextResponse.json({ jobId }, { status: 202 });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ errorMessage: err.message }, 'Upload flow failed');
+    logger.error({ errorMessage: err.message }, 'Failed to enqueue ingestion job');
 
     if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-    if (err.message.includes('not found')) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     return NextResponse.json(
       { error: 'Internal server error', detail: err.message },

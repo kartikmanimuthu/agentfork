@@ -1,5 +1,6 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
 import { S3Service } from '@chatbot/shared';
+import { createLogger } from '@chatbot/shared/workers';
 import {
   createKnowledgeBaseRepository,
   createDataSourceRepository,
@@ -114,6 +115,8 @@ export class DataSourceService {
 
 // ─── DocumentService ──────────────────────────────────────────────────────────
 
+const docLogger = createLogger('kb:document-service');
+
 export class DocumentService {
   private readonly docRepo: ReturnType<typeof createDocumentRepository>;
   private readonly dsRepo: ReturnType<typeof createDataSourceRepository>;
@@ -152,8 +155,23 @@ export class DocumentService {
   }
 
   async create(input: CreateDocumentRecord): Promise<DocumentRecord> {
+    docLogger.info(
+      { dataSourceId: input.dataSourceId, fileName: input.fileName, mimeType: input.mimeType, sizeBytes: input.sizeBytes },
+      'Creating document record'
+    );
     await this.assertDataSourceOwnership(input.dataSourceId);
-    return this.docRepo.create(input);
+    try {
+      const doc = await this.docRepo.create(input);
+      docLogger.info({ documentId: doc.id }, 'Document record created successfully');
+      return doc;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      docLogger.error(
+        { dataSourceId: input.dataSourceId, fileName: input.fileName, errorMessage: error.message, errorStack: error.stack },
+        'Failed to create document record'
+      );
+      throw error;
+    }
   }
 
   async update(id: string, input: UpdateDocumentRecord): Promise<DocumentRecord | null> {
@@ -178,11 +196,27 @@ export class DocumentService {
     mimeType: string,
     expiresIn = 3600
   ): Promise<{ uploadUrl: string; s3Key: string }> {
+    docLogger.info(
+      { dataSourceId, fileName, mimeType, expiresIn },
+      'Generating pre-signed S3 upload URL'
+    );
     await this.assertDataSourceOwnership(dataSourceId);
 
     const s3Key = `${this.tenantId}/${dataSourceId}/${Date.now()}-${fileName}`;
-    const uploadUrl = await this.s3.getUploadUrl(s3Key, mimeType, expiresIn);
-    return { uploadUrl, s3Key };
+    docLogger.debug({ s3Key }, 'S3 key generated');
+
+    try {
+      const uploadUrl = await this.s3.getUploadUrl(s3Key, mimeType, expiresIn);
+      docLogger.info({ s3Key }, 'Pre-signed S3 upload URL generated successfully');
+      return { uploadUrl, s3Key };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      docLogger.error(
+        { dataSourceId, fileName, s3Key, errorMessage: error.message, errorStack: error.stack },
+        'Failed to generate pre-signed S3 upload URL'
+      );
+      throw error;
+    }
   }
 
   /**
@@ -194,6 +228,8 @@ export class DocumentService {
 }
 
 // ─── IngestionService ─────────────────────────────────────────────────────────
+
+const ingestionLogger = createLogger('kb:ingestion-service');
 
 export interface IngestionJobPayload {
   documentId: string;
@@ -210,7 +246,25 @@ export class IngestionService {
    * Enqueue a document ingestion job via pg-boss.
    * The boss instance must be passed in to avoid a circular dependency.
    */
-  async enqueueIngestion(boss: { send: (name: string, data: object) => Promise<string | null> }, payload: IngestionJobPayload): Promise<string | null> {
-    return boss.send('document-ingestion', payload);
+  async enqueueIngestion(
+    boss: { send: (name: string, data: object) => Promise<string | null> },
+    payload: IngestionJobPayload
+  ): Promise<string | null> {
+    ingestionLogger.info(
+      { documentId: payload.documentId, knowledgeBaseId: payload.knowledgeBaseId, tenantId: payload.tenantId },
+      'Enqueuing document ingestion job'
+    );
+    try {
+      const jobId = await boss.send('document-ingestion', payload);
+      ingestionLogger.info({ jobId, documentId: payload.documentId }, 'Document ingestion job enqueued successfully');
+      return jobId;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      ingestionLogger.error(
+        { documentId: payload.documentId, knowledgeBaseId: payload.knowledgeBaseId, errorMessage: error.message, errorStack: error.stack },
+        'Failed to enqueue document ingestion job'
+      );
+      throw error;
+    }
   }
 }
