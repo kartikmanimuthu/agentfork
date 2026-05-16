@@ -54,6 +54,7 @@ import {
   FolderOpen,
   Server,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 
 const mainNav = [
@@ -61,6 +62,11 @@ const mainNav = [
   { name: 'Chat', href: '/chat', icon: MessageSquare },
   { name: 'History', href: '/conversations', icon: History },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
+];
+
+const analyticsNav = [
+  { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
+  { name: 'Sessions', href: '/analytics/sessions', icon: History },
 ];
 
 const agentStudioNav = [
@@ -92,6 +98,9 @@ export function AppSidebar() {
 
   const isKbActive = pathname === '/knowledge-bases' || pathname.startsWith('/knowledge-bases/');
   const [kbOpen, setKbOpen] = useState(isKbActive);
+
+  const isAnalyticsActive = pathname === '/analytics' || pathname.startsWith('/analytics/');
+  const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
 
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
   const [agentStudioOpen, setAgentStudioOpen] = useState(isAgentStudioActive);
@@ -135,6 +144,47 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               );
             })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton
+                      isActive={isAnalyticsActive}
+                      tooltip="Analytics"
+                    >
+                      <BarChart3 className="size-4" />
+                      <span>Analytics</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {analyticsNav.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton
+                            isActive={isActive}
+                            onClick={() => router.push(item.href)}
+                          >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
           </SidebarMenu>
         </SidebarGroup>
 
