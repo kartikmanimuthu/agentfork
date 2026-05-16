@@ -52,7 +52,7 @@ export class BreadthFirstCrawler implements WebCrawler {
         continue;
       }
 
-      if (excludePatterns && matchesPatterns(url, excludePatterns)) {
+      if (excludePatterns && excludePatterns.length > 0 && matchesPatterns(url, excludePatterns)) {
         continue;
       }
 
@@ -80,7 +80,7 @@ export class BreadthFirstCrawler implements WebCrawler {
             continue;
           }
 
-          if (excludePatterns && matchesPatterns(normalized, excludePatterns)) {
+          if (excludePatterns && excludePatterns.length > 0 && matchesPatterns(normalized, excludePatterns)) {
             continue;
           }
 

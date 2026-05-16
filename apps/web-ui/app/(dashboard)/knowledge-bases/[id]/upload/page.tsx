@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -26,6 +26,8 @@ interface UploadFile {
 export default function KnowledgeBaseUploadPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sourceParam = searchParams.get('source');
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [loadingSources, setLoadingSources] = useState(true);
@@ -39,7 +41,10 @@ export default function KnowledgeBaseUploadPage() {
         const items = (data.items ?? []) as Source[];
         const fileSources = items.filter((s) => s.type === 'FILE');
         setSources(fileSources);
-        if (fileSources.length > 0 && !selectedSource) {
+        // Pre-select from query param if provided and valid
+        if (sourceParam && fileSources.some((s) => s.id === sourceParam)) {
+          setSelectedSource(sourceParam);
+        } else if (fileSources.length > 0 && !selectedSource) {
           setSelectedSource(fileSources[0].id);
         }
         setLoadingSources(false);
@@ -48,11 +53,11 @@ export default function KnowledgeBaseUploadPage() {
         toast.error('Failed to load sources');
         setLoadingSources(false);
       });
-  }, [id, selectedSource]);
+  }, [id, sourceParam, selectedSource]);
 
   useEffect(() => {
     loadSources();
-  }, [id]);
+  }, [id, loadSources]);
 
   const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
@@ -118,6 +123,7 @@ export default function KnowledgeBaseUploadPage() {
       toast.success(`${uploadFile.file.name} uploaded`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed';
+      console.error("[KB Upload] Upload failed:", error);
       setFiles((prev) =>
         prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'error' as const, error: message } : f))
       );

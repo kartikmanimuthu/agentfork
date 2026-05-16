@@ -28,6 +28,7 @@ import {
   Globe,
   Database,
   Plug,
+  Upload,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -77,6 +78,18 @@ function formatDate(dateStr: string | null): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleString();
+}
+
+function formatScheduleLabel(schedule: string | null): string {
+  if (!schedule) return 'Manual';
+  const map: Record<string, string> = {
+    'manual': 'Manual',
+    '0 * * * *': 'Hourly',
+    '0 2 * * *': 'Daily',
+    '0 2 * * 0': 'Weekly',
+    '0 2 1 * *': 'Monthly',
+  };
+  return map[schedule] ?? schedule;
 }
 
 export default function KnowledgeBaseSourcesPage() {
@@ -166,7 +179,7 @@ export default function KnowledgeBaseSourcesPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Schedule" />,
       cell: ({ row }) => (
         <span className="text-muted-foreground">
-          {row.original.syncSchedule ?? 'Manual'}
+          {formatScheduleLabel(row.original.syncSchedule)}
         </span>
       ),
     },
@@ -208,6 +221,15 @@ export default function KnowledgeBaseSourcesPage() {
             >
               <Play className="h-4 w-4" />
             </Button>
+          )}
+          {row.original.type === 'FILE' && (
+            <Link
+              href={`/knowledge-bases/${id}/upload?source=${row.original.id}`}
+              className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8'}
+              aria-label="Upload files"
+            >
+              <Upload className="h-4 w-4" />
+            </Link>
           )}
           <Button
             variant="ghost"

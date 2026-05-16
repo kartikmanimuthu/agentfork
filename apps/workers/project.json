@@ -4,27 +4,11 @@
   "sourceRoot": "apps/workers/src",
   "projectType": "application",
   "targets": {
-    "build": {
-      "executor": "@nx/js:tsc",
-      "outputs": ["{options.outputPath}"],
-      "options": {
-        "outputPath": "dist/apps/workers",
-        "tsConfig": "apps/workers/tsconfig.json",
-        "main": "apps/workers/src/index.ts"
-      }
-    },
     "serve": {
       "executor": "nx:run-commands",
       "continuous": true,
       "options": {
-        "command": "tsx --watch src/index.ts",
-        "cwd": "apps/workers"
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bunx vitest run --passWithNoTests",
+        "command": "tsx --env-file=../../.env --watch src/index.ts",
         "cwd": "apps/workers"
       }
     }
