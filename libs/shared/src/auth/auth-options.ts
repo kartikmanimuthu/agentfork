@@ -126,6 +126,7 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
               clientSecret: env.COGNITO_APP_CLIENT_SECRET!,
               issuer: env.COGNITO_ISSUER!,
               allowDangerousEmailAccountLinking: true,
+              httpOptions: { timeout: 10000 },
             }),
           ]
         : []),

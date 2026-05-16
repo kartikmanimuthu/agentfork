@@ -60,4 +60,17 @@ export class BedrockLLMProvider implements LLMProvider {
     });
     return embeddings;
   }
+
+  async validate(): Promise<void> {
+    try {
+      const credentials = await defaultProvider()();
+      if (!credentials?.accessKeyId || !credentials?.secretAccessKey) {
+        throw new Error('Incomplete AWS credentials');
+      }
+    } catch {
+      throw new Error(
+        'AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials.'
+      );
+    }
+  }
 }

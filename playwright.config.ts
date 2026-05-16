@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html'], ['list']],
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3005',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -31,7 +31,7 @@ export default defineConfig({
 
   webServer: {
     command: 'cd apps/web-ui && NEXTAUTH_SECRET=test-secret-for-e2e NEXTAUTH_URL=http://localhost:3001 bun run dev',
-    url: 'http://localhost:3001',
+    url: 'http://localhost:3005',
     reuseExistingServer: true,
   },
 });

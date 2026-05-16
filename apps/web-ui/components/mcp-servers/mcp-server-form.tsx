@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const transportSchema = z.discriminatedUnion('transport', [
-  z.object({ transport: z.literal('sse'), endpoint: z.string().url(), headers: z.record(z.string()).optional() }),
-  z.object({ transport: z.literal('stdio'), command: z.string().min(1), args: z.array(z.string()).optional(), env: z.record(z.string()).optional() }),
+  z.object({ transport: z.literal('sse'), endpoint: z.string().url(), headers: z.record(z.string(), z.string()).optional() }),
+  z.object({ transport: z.literal('stdio'), command: z.string().min(1), args: z.array(z.string()).optional(), env: z.record(z.string(), z.string()).optional() }),
   z.object({ transport: z.literal('http_bridge'), bridgeUrl: z.string().url(), targetCommand: z.string().min(1) }),
 ]);
 

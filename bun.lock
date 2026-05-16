@@ -159,6 +159,10 @@
       "name": "@chatbot/agent-studio",
       "version": "0.0.1",
     },
+    "libs/ai": {
+      "name": "@chatbot/ai",
+      "version": "0.0.1",
+    },
     "libs/knowledge-base": {
       "name": "@chatbot/knowledge-base",
     },
@@ -499,6 +503,8 @@
     "@bufbuild/protobuf": ["@bufbuild/protobuf@2.12.0", "", {}, "sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA=="],
 
     "@chatbot/agent-studio": ["@chatbot/agent-studio@workspace:libs/agent-studio"],
+
+    "@chatbot/ai": ["@chatbot/ai@workspace:libs/ai"],
 
     "@chatbot/infra": ["@chatbot/infra@workspace:infra"],
 

@@ -133,6 +133,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ?? await llmProviderService.getDefaultConfig()
         ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
       const provider = createLLMProvider(llmConfig);
+      await provider.validate();
 
       const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',

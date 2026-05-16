@@ -179,10 +179,10 @@ const userPoolClient = new aws.cognito.UserPoolClient("web-ui-user-pool-client",
     allowedOauthFlowsUserPoolClient: true,
     allowedOauthScopes: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
     callbackUrls: [
-        "http://localhost:3001/api/auth/callback/cognito",
+        "http://localhost:3005/api/auth/callback/cognito",
         `${appUrl}/api/auth/callback/cognito`,
     ],
-    logoutUrls: ["http://localhost:3001", appUrl],
+    logoutUrls: ["http://localhost:3005", appUrl],
     preventUserExistenceErrors: "ENABLED",
     enableTokenRevocation: true,
     accessTokenValidity: 1,
@@ -593,7 +593,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         name: "WebUIContainer",
         image: imageUri,
         essential: true,
-        portMappings: [{ containerPort: 3001, hostPort: 3001, protocol: "tcp" }],
+        portMappings: [{ containerPort: 3005, hostPort: 3005, protocol: "tcp" }],
         logConfiguration: {
             logDriver: "awslogs",
             options: {
@@ -608,7 +608,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         ],
         environment: [
             { name: "NODE_ENV", value: "production" },
-            { name: "PORT", value: "3001" },
+            { name: "PORT", value: "3005" },
             { name: "AWS_REGION", value: region },
             { name: "NEXT_PUBLIC_AWS_REGION", value: region },
             { name: "COGNITO_USER_POOL_ID", value: cognitoPoolId },
@@ -656,14 +656,14 @@ const albSecurityGroup = new aws.ec2.SecurityGroup("alb-sg", {
     }],
 });
 
-// ECS Service Security Group — inbound port 3001 from ALB security group only
+// ECS Service Security Group — inbound port 3005 from ALB security group only
 const ecsServiceSecurityGroup = new aws.ec2.SecurityGroup("ecs-service-sg", {
     name: `${appName}-ecs-service-sg`,
     description: "Security group for WebUI ECS tasks - ALB traffic only",
     vpcId: vpcId,
     ingress: [{
-        fromPort: 3001,
-        toPort: 3001,
+        fromPort: 3005,
+        toPort: 3005,
         protocol: "tcp",
         securityGroups: [albSecurityGroup.id],
         description: "Container port from ALB",
@@ -687,10 +687,10 @@ const alb = new aws.lb.LoadBalancer("web-ui-alb", {
     idleTimeout: 1200,
 });
 
-// Target Group — IP target type, port 3001, /api/health health check
+// Target Group — IP target type, port 3005, /api/health health check
 const webUiTargetGroup = new aws.lb.TargetGroup("web-ui-tg", {
     name: `${appName}-web-ui-tg`,
-    port: 3001,
+    port: 3005,
     protocol: "HTTP",
     targetType: "ip",
     vpcId: vpcId,
@@ -742,7 +742,7 @@ const webUiService = new aws.ecs.Service("web-ui-service", {
     loadBalancers: [{
         targetGroupArn: webUiTargetGroup.arn,
         containerName: "WebUIContainer",
-        containerPort: 3001,
+        containerPort: 3005,
     }],
 }, { dependsOn: [httpListener] });
 
