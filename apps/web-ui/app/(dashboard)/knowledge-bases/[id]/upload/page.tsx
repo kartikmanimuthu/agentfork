@@ -102,7 +102,7 @@ export default function KnowledgeBaseUploadPage() {
         throw new Error(err.error ?? 'Upload failed');
       }
 
-      const { uploadUrl } = await res.json();
+      const { uploadUrl, document } = await res.json();
 
       // 2. Upload file directly to S3
       const uploadRes = await fetch(uploadUrl, {
@@ -117,10 +117,25 @@ export default function KnowledgeBaseUploadPage() {
         throw new Error('Failed to upload file to storage');
       }
 
+      // 3. Trigger ingestion now that the file is in S3
+      const ingestRes = await fetch(`/api/knowledge-bases/${id}/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: document.id,
+          s3Key: document.sourceKey,
+          mimeType: uploadFile.file.type || 'application/octet-stream',
+        }),
+      });
+
+      if (!ingestRes.ok) {
+        throw new Error('File uploaded but failed to start processing');
+      }
+
       setFiles((prev) =>
         prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'done' as const, progress: 100 } : f))
       );
-      toast.success(`${uploadFile.file.name} uploaded`);
+      toast.success(`${uploadFile.file.name} uploaded and queued for processing`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed';
       console.error("[KB Upload] Upload failed:", error);
