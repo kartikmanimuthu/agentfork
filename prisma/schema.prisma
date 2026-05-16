@@ -203,23 +203,27 @@ model Invitation {
 }
 
 model Conversation {
-  id           String   @id @default(cuid())
-  tenantId     String
-  userId       String
-  title        String   @default("New Conversation")
-  model        String   @default("anthropic.claude-sonnet-4-20250514")
-  status       String   @default("active")
-  messageCount Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  title           String   @default("New Conversation")
+  model           String   @default("anthropic.claude-sonnet-4-20250514")
+  status          String   @default("active")
+  messageCount    Int      @default(0)
+  feedbackRating  Int?
+  feedbackComment String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   messages  Message[]
   summaries ConversationSummary[]
+  analytics ConversationAnalytics?
 
   @@index([tenantId])
   @@index([tenantId, userId])
   @@index([tenantId, updatedAt])
+  @@index([tenantId, status])
   @@map("conversations")
 }
 
@@ -250,6 +254,31 @@ model ConversationSummary {
 
   @@index([conversationId])
   @@map("conversation_summaries")
+}
+
+model ConversationAnalytics {
+  id              String   @id @default(cuid())
+  conversationId  String   @unique
+  tenantId        String
+  sentiment       String?
+  sentimentScores Json?
+  isResolved      Boolean?
+  confidenceScore Float?
+  emotionalTone   Json?
+  summary         String?
+  firstUserQuery  String?
+  language        String?
+  messageCount    Int?
+  createdAt       DateTime
+  analyzedAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, sentiment])
+  @@index([tenantId, isResolved])
+  @@index([tenantId, createdAt])
+  @@map("conversation_analytics")
 }
 
 model AuditLog {

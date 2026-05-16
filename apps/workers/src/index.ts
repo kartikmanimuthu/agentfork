@@ -5,6 +5,7 @@ import { register as registerMessageEmbedding } from './jobs/message-embedding/r
 import { register as registerConversationSummary } from './jobs/conversation-summary/register.js';
 import { register as registerDocumentIngestion } from './jobs/document-ingestion/register.js';
 import { register as registerWebCrawl } from './jobs/web-crawl/register.js';
+import { register as registerConversationAnalytics } from './jobs/conversation-analytics/register.js';
 import { registerSchedules } from './jobs/web-crawl/scheduler.js';
 import { env } from './env';
 
@@ -26,6 +27,7 @@ async function main() {
   await registerConversationSummary(boss, executor);
   await registerDocumentIngestion(boss, executor);
   await registerWebCrawl(boss, executor);
+  await registerConversationAnalytics(boss, executor);
 
   await registerSchedules(boss);
   log.info('Schedules registered. Waiting for work...');
