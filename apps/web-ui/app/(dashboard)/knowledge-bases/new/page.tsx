@@ -64,12 +64,6 @@ export default function NewKnowledgeBasePage() {
     },
   });
 
-  const canAdvance = () => {
-    if (step === 0) return form.getFieldValue('name')?.trim().length > 0;
-    if (step === 1) return !!form.getFieldValue('embeddingModel');
-    return true;
-  };
-
   const handleModelChange = (modelId: string) => {
     if (!providers) return;
     for (const provider of providers) {
@@ -298,22 +292,35 @@ export default function NewKnowledgeBasePage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-between">
-          <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          {step < STEPS.length - 1 ? (
-            <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()}>
-              Next
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={form.state.isSubmitting}>
-              {form.state.isSubmitting ? 'Creating...' : 'Create Knowledge Base'}
-            </Button>
-          )}
-        </div>
+        <form.Subscribe
+          selector={(state) => ({
+            name: state.values.name,
+            embeddingModel: state.values.embeddingModel,
+          })}
+        >
+          {({ name, embeddingModel }) => {
+            const advanceable =
+              step === 0 ? name?.trim().length > 0 : step === 1 ? !!embeddingModel : true;
+            return (
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                {step < STEPS.length - 1 ? (
+                  <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={!advanceable}>
+                    Next
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={form.state.isSubmitting}>
+                    {form.state.isSubmitting ? 'Creating...' : 'Create Knowledge Base'}
+                  </Button>
+                )}
+              </div>
+            );
+          }}
+        </form.Subscribe>
       </form>
     </div>
   );

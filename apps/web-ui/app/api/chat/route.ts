@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return new Response(JSON.stringify({ error: 'Unauthenticated' }), { status: 401 });
     }
-    logger.error({ error }, 'Chat error');
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ err, errorMessage: err.message, errorStack: err.stack }, 'Chat error');
+    return new Response(JSON.stringify({ error: 'Internal server error', message: err.message }), { status: 500 });
   }
 }

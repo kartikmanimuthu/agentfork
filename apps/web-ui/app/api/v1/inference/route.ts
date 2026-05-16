@@ -430,9 +430,10 @@ export async function POST(req: NextRequest) {
 
     return new Response(JSON.stringify({ error: 'Unsupported agent type' }), { status: 400 });
   } catch (error) {
-    logger.error({ error }, 'Inference execution error');
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ err, errorMessage: err.message, errorStack: err.stack, agentId, tenantId }, 'Inference execution error');
     return new Response(
-      JSON.stringify({ error: { type: 'llm_error', message: 'Internal server error' } }),
+      JSON.stringify({ error: { type: 'llm_error', message: 'Internal server error', detail: err.message } }),
       { status: 500 }
     );
   }
@@ -466,12 +467,12 @@ async function buildKbContext(
       });
 
       if (results.length > 0) {
-        contexts.push(`--- From ${kb.name} ---\n${results.map((r: any) => r.content).join('\n\n')}`);
+        contexts.push(`--- From ${kb.name} ---\\n${results.map((r: any) => r.content).join('\\n\\n')}`);
       }
     } catch {
       // Skip KBs that fail retrieval
     }
   }
 
-  return contexts.join('\n\n');
+  return contexts.join('\\n\\n');
 }
