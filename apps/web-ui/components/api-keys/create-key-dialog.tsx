@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Code2 } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ApiGuideDialog } from '@/components/api-keys/api-guide-dialog';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -32,9 +34,14 @@ interface CreateKeyDialogProps {
   onSuccess: () => void;
 }
 
+interface CreateKeyResult {
+  rawKey?: string;
+}
+
 export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
   const [open, setOpen] = useState(false);
   const [rawKey, setRawKey] = useState<string | null>(null);
+  const [createdKeyName, setCreatedKeyName] = useState<string>('');
 
   const form = useForm({
     defaultValues: {
@@ -56,10 +63,11 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
         input.webhookUrl = value.webhookUrl.trim();
       }
 
-      const result = (await onCreate(input)) as { rawKey?: string };
+      const result = (await onCreate(input)) as CreateKeyResult;
 
       if (result.rawKey) {
         setRawKey(result.rawKey);
+        setCreatedKeyName(value.name.trim());
       }
       onSuccess();
     },
@@ -92,7 +100,17 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
                 {rawKey}
               </code>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <ApiGuideDialog
+                keyName={createdKeyName}
+                rawKey={rawKey}
+                trigger={
+                  <Button variant="outline">
+                    <Code2 className="h-4 w-4 mr-2" />
+                    View Integration Guide
+                  </Button>
+                }
+              />
               <Button onClick={handleClose}>Done</Button>
             </DialogFooter>
           </div>
