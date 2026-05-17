@@ -3,6 +3,9 @@ import { LlmNode } from './nodes/llm-node';
 import { ToolNode } from './nodes/tool-node';
 import { RouterNode } from './nodes/router-node';
 import { StateSchemaNode } from './nodes/state-schema-node';
+import { InputNode } from './nodes/input-node';
+import { OutputNode } from './nodes/output-node';
+import { MemoryNode } from './nodes/memory-node';
 
 /**
  * Pass this object to the `nodeTypes` prop of <ReactFlow />.
@@ -13,4 +16,7 @@ export const nodeTypes: NodeTypes = {
   tool: ToolNode,
   router: RouterNode,
   state_schema: StateSchemaNode,
+  input: InputNode,
+  output: OutputNode,
+  memory: MemoryNode,
 };

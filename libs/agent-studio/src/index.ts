@@ -21,6 +21,9 @@ export type {
   ToolNodeConfig,
   RouterNodeConfig,
   StateSchemaNodeConfig,
+  InputNodeConfig,
+  OutputNodeConfig,
+  MemoryNodeConfig,
   ToolConfig,
   SchemaField,
   ValidationError,
@@ -80,6 +83,9 @@ export {
   RouterNodeExecutor,
   ToolNodeExecutor,
   StateSchemaNodeExecutor,
+  InputNodeExecutor,
+  OutputNodeExecutor,
+  MemoryNodeExecutor,
 } from './execution/node-executors';
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 export type {

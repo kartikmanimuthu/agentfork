@@ -3,6 +3,9 @@ import { llmNodeSchema } from './schemas/llm';
 import { toolNodeSchema } from './schemas/tool';
 import { routerNodeSchema } from './schemas/router';
 import { stateSchemaNodeSchema } from './schemas/state-schema';
+import { inputNodeSchema } from './schemas/input';
+import { outputNodeSchema } from './schemas/output';
+import { memoryNodeSchema } from './schemas/memory';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -11,6 +14,9 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   toolNodeSchema,
   routerNodeSchema,
   stateSchemaNodeSchema,
+  inputNodeSchema,
+  outputNodeSchema,
+  memoryNodeSchema,
 ]);
 
 export interface NodeDefinition {
@@ -89,6 +95,62 @@ const definitions: NodeDefinition[] = [
     },
     validate(config) {
       const result = stateSchemaNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'input',
+    label: 'Input',
+    description: 'Entry point that defines expected input and populates initial state.',
+    defaultConfig: {
+      type: 'input',
+      mode: 'messages',
+    },
+    validate(config) {
+      const result = inputNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'output',
+    label: 'Output',
+    description: 'Terminal node that formats and returns the final response.',
+    defaultConfig: {
+      type: 'output',
+      responseChannel: 'response',
+      format: 'text',
+    },
+    validate(config) {
+      const result = outputNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'memory',
+    label: 'Memory',
+    description: 'Manages conversation context window with configurable strategies.',
+    defaultConfig: {
+      type: 'memory',
+      strategy: 'full',
+      messagesChannel: 'messages',
+    },
+    validate(config) {
+      const result = memoryNodeSchema.safeParse(config);
       if (result.success) return [];
       return result.error.issues.map((issue) => ({
         field: issue.path.join('.'),

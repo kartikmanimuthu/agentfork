@@ -4,14 +4,17 @@ import type { NodeType } from '../types/nodes';
 
 describe('NodeRegistry', () => {
   describe('getAll', () => {
-    it('returns all four node types', () => {
+    it('returns all seven node types', () => {
       const all = NodeRegistry.getAll();
       const types = all.map((d) => d.type);
       expect(types).toContain('llm');
       expect(types).toContain('tool');
       expect(types).toContain('router');
       expect(types).toContain('state_schema');
-      expect(all).toHaveLength(4);
+      expect(types).toContain('input');
+      expect(types).toContain('output');
+      expect(types).toContain('memory');
+      expect(all).toHaveLength(7);
     });
   });
 

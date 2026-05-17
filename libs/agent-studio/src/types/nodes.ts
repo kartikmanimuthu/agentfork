@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory';
 
 export interface SchemaField {
   name: string;
@@ -51,12 +51,35 @@ export interface StateSchemaNodeConfig {
   fields: SchemaField[];
 }
 
+export interface InputNodeConfig {
+  type: 'input';
+  mode: 'messages' | 'structured';
+  inputSchema?: SchemaField[];
+}
+
+export interface OutputNodeConfig {
+  type: 'output';
+  responseChannel: string;
+  format: 'text' | 'json' | 'stream';
+}
+
+export interface MemoryNodeConfig {
+  type: 'memory';
+  strategy: 'full' | 'sliding_window' | 'summary' | 'token_limit';
+  maxMessages?: number;
+  maxTokens?: number;
+  messagesChannel: string;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
   | ToolNodeConfig
   | RouterNodeConfig
-  | StateSchemaNodeConfig;
+  | StateSchemaNodeConfig
+  | InputNodeConfig
+  | OutputNodeConfig
+  | MemoryNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
