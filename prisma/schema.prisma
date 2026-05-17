@@ -31,6 +31,7 @@ model Tenant {
   mcpServers        McpServer[]
   llmProviders      LlmProvider[]
   apiKeys           ApiKey[]
+  whatsappAccounts  WhatsAppAccount[]
 
   @@index([status])
   @@map("tenants")
@@ -670,6 +671,124 @@ model DocumentChunk {
   @@index([documentId])
   @@index([documentId, chunkIndex])
   @@map("document_chunks")
+}
+
+model WhatsAppAccount {
+  id             String   @id @default(cuid())
+  tenantId       String
+  wabaId         String
+  phoneNumberId  String   @unique
+  displayPhone   String
+  displayName    String
+  accessToken    String
+  webhookSecret  String
+  status         String   @default("active")
+  qualityRating  String?
+  messagingLimit String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  routingConfig WhatsAppRouting?
+  sessions      WhatsAppSession[]
+  messages      WhatsAppMessage[]
+  templates     WhatsAppTemplate[]
+
+  @@unique([tenantId, wabaId])
+  @@index([tenantId])
+  @@map("whatsapp_accounts")
+}
+
+model WhatsAppRouting {
+  id              String   @id @default(cuid())
+  accountId       String   @unique
+  strategy        String
+  config          Json     @default("{}")
+  fallbackAgentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account WhatsAppAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  rules   WhatsAppRoutingRule[]
+
+  @@map("whatsapp_routing")
+}
+
+model WhatsAppRoutingRule {
+  id        String  @id @default(cuid())
+  routingId String
+  agentId   String
+  priority  Int     @default(0)
+  condition Json
+  isActive  Boolean @default(true)
+
+  routing WhatsAppRouting @relation(fields: [routingId], references: [id], onDelete: Cascade)
+
+  @@index([routingId, priority])
+  @@map("whatsapp_routing_rules")
+}
+
+model WhatsAppSession {
+  id              String   @id @default(cuid())
+  accountId       String
+  contactPhone    String
+  contactName     String?
+  agentId         String
+  state           String   @default("active")
+  context         Json     @default("{}")
+  lastMessageAt   DateTime
+  windowExpiresAt DateTime
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account  WhatsAppAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages WhatsAppMessage[]
+
+  @@unique([accountId, contactPhone, state])
+  @@index([accountId, contactPhone])
+  @@index([windowExpiresAt])
+  @@map("whatsapp_sessions")
+}
+
+model WhatsAppMessage {
+  id              String    @id @default(cuid())
+  accountId       String
+  sessionId       String?
+  waMessageId     String    @unique
+  direction       String
+  contactPhone    String
+  type            String
+  content         Json
+  status          String    @default("received")
+  statusTimestamp DateTime?
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+
+  account WhatsAppAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  session WhatsAppSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, contactPhone, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("whatsapp_messages")
+}
+
+model WhatsAppTemplate {
+  id         String   @id @default(cuid())
+  accountId  String
+  name       String
+  language   String
+  category   String
+  status     String
+  components Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  account WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, name, language])
+  @@map("whatsapp_templates")
 }
 
 model LlmResponseCache {
