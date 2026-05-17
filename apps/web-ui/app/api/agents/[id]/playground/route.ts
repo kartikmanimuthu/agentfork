@@ -193,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Graph agent execution with real GraphExecutor
     if (agent.type === 'graph') {
-      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor } = await import('@chatbot/agent-studio');
+      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor } = await import('@chatbot/agent-studio/server');
 
       const graphDef = resolvedConfig as { nodes?: any[]; edges?: any[] };
       const nodes = graphDef.nodes ?? [];

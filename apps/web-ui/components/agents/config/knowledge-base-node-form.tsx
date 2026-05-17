@@ -136,7 +136,8 @@ export function KnowledgeBaseNodeForm({ config, onChange }: KnowledgeBaseNodeFor
               max={1}
               step={0.05}
               value={[field.state.value ?? 0]}
-              onValueChange={([v]) => {
+              onValueChange={(values) => {
+                const v = Array.isArray(values) ? values[0] : values;
                 field.handleChange(v > 0 ? v : undefined);
                 handleBlur();
               }}

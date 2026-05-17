@@ -129,7 +129,7 @@ export function InputNodeForm({ config, onChange }: InputNodeFormProps) {
                             <Select
                               value={typeField.state.value as string}
                               onValueChange={(v) => {
-                                typeField.handleChange(v);
+                                typeField.handleChange(v as 'string' | 'number' | 'boolean' | 'array' | 'object');
                                 handleBlur();
                               }}
                             >
