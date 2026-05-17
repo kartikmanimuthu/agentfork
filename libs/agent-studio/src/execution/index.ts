@@ -15,3 +15,5 @@ export {
   writeChannel,
   applyStateUpdates,
 } from './state';
+
+export { GraphExecutor } from './graph-executor';
