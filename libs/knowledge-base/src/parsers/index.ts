@@ -1,11 +1,22 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { DocumentParser } from '../types';
+
+const parserLogger = createLogger('kb:parser');
 
 /**
  * Plain text parser — returns the buffer decoded as UTF-8.
  */
 export class TextParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
-    return buffer.toString('utf-8');
+    try {
+      const text = buffer.toString('utf-8');
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed text');
+      return text;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      parserLogger.error({ mimeType: _mimeType, errorMessage: error.message, errorStack: error.stack }, 'Failed to parse text');
+      throw error;
+    }
   }
 }
 
@@ -15,8 +26,16 @@ export class TextParser implements DocumentParser {
  */
 export class HtmlParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
-    const html = buffer.toString('utf-8');
-    return stripHtml(html);
+    try {
+      const html = buffer.toString('utf-8');
+      const text = stripHtml(html);
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed HTML');
+      return text;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      parserLogger.error({ mimeType: _mimeType, errorMessage: error.message, errorStack: error.stack }, 'Failed to parse HTML');
+      throw error;
+    }
   }
 }
 
@@ -47,8 +66,16 @@ export function stripHtml(html: string): string {
  */
 export class MarkdownParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
-    const md = buffer.toString('utf-8');
-    return stripMarkdown(md);
+    try {
+      const md = buffer.toString('utf-8');
+      const text = stripMarkdown(md);
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed markdown');
+      return text;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      parserLogger.error({ mimeType: _mimeType, errorMessage: error.message, errorStack: error.stack }, 'Failed to parse markdown');
+      throw error;
+    }
   }
 }
 
@@ -85,16 +112,15 @@ export function stripMarkdown(md: string): string {
 export class PdfParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
     try {
-      // Dynamic import so the package is optional.
-      // Import from the internal lib path directly to bypass pdf-parse v1's
-      // test runner, which tries to open ./test/data/05-versions-space.pdf
-      // relative to CWD on import and throws ENOENT in non-test environments.
       // @ts-ignore — pdf-parse is an optional peer dependency
       const pdfParse = await import('pdf-parse/lib/pdf-parse.js').then((m) => m.default ?? m);
       const data = await pdfParse(buffer);
-      return data.text ?? '';
+      const text = data.text ?? '';
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed PDF');
+      return text;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      parserLogger.error({ mimeType: _mimeType, errorMessage: msg }, 'Failed to parse PDF');
       if (msg.includes('Cannot find module')) {
         throw new Error(
           'PDF parsing requires the "pdf-parse" package. Install it with: bun add pdf-parse'
@@ -114,9 +140,12 @@ export class DocxParser implements DocumentParser {
       // @ts-ignore — mammoth is an optional peer dependency
       const mammoth = await import('mammoth').then((m) => m.default ?? m);
       const result = await mammoth.extractRawText({ buffer });
-      return result.value ?? '';
+      const text = result.value ?? '';
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed DOCX');
+      return text;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      parserLogger.error({ mimeType: _mimeType, errorMessage: msg }, 'Failed to parse DOCX');
       if (msg.includes('Cannot find module')) {
         throw new Error(
           'DOCX parsing requires the "mammoth" package. Install it with: bun add mammoth'
@@ -142,9 +171,12 @@ export class XlsxParser implements DocumentParser {
         const csv = XLSX.utils.sheet_to_csv(sheet);
         lines.push(`## Sheet: ${sheetName}\n${csv}`);
       }
-      return lines.join('\n\n');
+      const text = lines.join('\n\n');
+      parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed XLSX');
+      return text;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      parserLogger.error({ mimeType: _mimeType, errorMessage: msg }, 'Failed to parse XLSX');
       if (msg.includes('Cannot find module')) {
         throw new Error(
           'XLSX parsing requires the "xlsx" package. Install it with: bun add xlsx'

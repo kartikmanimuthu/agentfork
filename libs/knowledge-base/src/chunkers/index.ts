@@ -1,4 +1,7 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { ChunkResult, Chunker } from '../types';
+
+const chunkerLogger = createLogger('kb:chunker');
 
 // ─── Token counting ───────────────────────────────────────────────────────────
 
@@ -14,36 +17,43 @@ function estimateTokens(text: string): number {
 
 export class FixedSizeChunker implements Chunker {
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
-    const results: ChunkResult[] = [];
-    const words = text.split(/\s+/).filter(Boolean);
-    let i = 0;
+    try {
+      const results: ChunkResult[] = [];
+      const words = text.split(/\s+/).filter(Boolean);
+      let i = 0;
 
-    while (i < words.length) {
-      const slice: string[] = [];
-      let tokens = 0;
+      while (i < words.length) {
+        const slice: string[] = [];
+        let tokens = 0;
 
-      for (let j = i; j < words.length; j++) {
-        const wordTokens = estimateTokens(words[j] + ' ');
-        if (tokens + wordTokens > chunkSize && slice.length > 0) break;
-        slice.push(words[j]);
-        tokens += wordTokens;
+        for (let j = i; j < words.length; j++) {
+          const wordTokens = estimateTokens(words[j] + ' ');
+          if (tokens + wordTokens > chunkSize && slice.length > 0) break;
+          slice.push(words[j]);
+          tokens += wordTokens;
+        }
+
+        const content = slice.join(' ');
+        results.push({ content, metadata: { chunkIndex: results.length }, tokenCount: estimateTokens(content) });
+
+        // Advance by (chunkSize - chunkOverlap) tokens worth of words
+        const overlapTokens = chunkOverlap;
+        let advanced = 0;
+        let step = 0;
+        while (step < slice.length && advanced < chunkSize - overlapTokens) {
+          advanced += estimateTokens(slice[step] + ' ');
+          step++;
+        }
+        i += Math.max(1, step);
       }
 
-      const content = slice.join(' ');
-      results.push({ content, metadata: { chunkIndex: results.length }, tokenCount: estimateTokens(content) });
-
-      // Advance by (chunkSize - chunkOverlap) tokens worth of words
-      const overlapTokens = chunkOverlap;
-      let advanced = 0;
-      let step = 0;
-      while (step < slice.length && advanced < chunkSize - overlapTokens) {
-        advanced += estimateTokens(slice[step] + ' ');
-        step++;
-      }
-      i += Math.max(1, step);
+      chunkerLogger.info({ strategy: 'FIXED_SIZE', chunkCount: results.length, textLength: text.length }, 'Chunked text');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      chunkerLogger.error({ strategy: 'FIXED_SIZE', textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to chunk text');
+      throw error;
     }
-
-    return results;
   }
 }
 
@@ -59,13 +69,21 @@ export class RecursiveCharacterChunker implements Chunker {
   }
 
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
-    if (!text.trim()) return [];
-    const rawChunks = this._split(text, chunkSize, chunkOverlap, this.separators);
-    return rawChunks.map((content, idx) => ({
-      content,
-      metadata: { chunkIndex: idx },
-      tokenCount: estimateTokens(content),
-    }));
+    try {
+      if (!text.trim()) return [];
+      const rawChunks = this._split(text, chunkSize, chunkOverlap, this.separators);
+      const results = rawChunks.map((content, idx) => ({
+        content,
+        metadata: { chunkIndex: idx },
+        tokenCount: estimateTokens(content),
+      }));
+      chunkerLogger.info({ strategy: 'RECURSIVE_CHARACTER', chunkCount: results.length, textLength: text.length }, 'Chunked text');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      chunkerLogger.error({ strategy: 'RECURSIVE_CHARACTER', textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to chunk text');
+      throw error;
+    }
   }
 
   private _split(
@@ -113,27 +131,32 @@ export class RecursiveCharacterChunker implements Chunker {
 
 export class MarkdownAwareChunker implements Chunker {
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
-    // Split on markdown headings, keeping the heading with its section
-    const sections = text.split(/(?=^#{1,6}\s)/m).filter(Boolean);
-    const results: ChunkResult[] = [];
+    try {
+      const sections = text.split(/(?=^#{1,6}\s)/m).filter(Boolean);
+      const results: ChunkResult[] = [];
 
-    for (const section of sections) {
-      if (estimateTokens(section) <= chunkSize) {
-        results.push({
-          content: section.trim(),
-          metadata: { chunkIndex: results.length, type: 'markdown-section' },
-          tokenCount: estimateTokens(section),
-        });
-      } else {
-        // Fall back to recursive chunking for large sections
-        const sub = new RecursiveCharacterChunker().chunk(section, chunkSize, chunkOverlap);
-        for (const s of sub) {
-          results.push({ ...s, metadata: { ...s.metadata, chunkIndex: results.length, type: 'markdown-section' } });
+      for (const section of sections) {
+        if (estimateTokens(section) <= chunkSize) {
+          results.push({
+            content: section.trim(),
+            metadata: { chunkIndex: results.length, type: 'markdown-section' },
+            tokenCount: estimateTokens(section),
+          });
+        } else {
+          const sub = new RecursiveCharacterChunker().chunk(section, chunkSize, chunkOverlap);
+          for (const s of sub) {
+            results.push({ ...s, metadata: { ...s.metadata, chunkIndex: results.length, type: 'markdown-section' } });
+          }
         }
       }
-    }
 
-    return results;
+      chunkerLogger.info({ strategy: 'MARKDOWN_AWARE', chunkCount: results.length, textLength: text.length }, 'Chunked text');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      chunkerLogger.error({ strategy: 'MARKDOWN_AWARE', textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to chunk text');
+      throw error;
+    }
   }
 }
 
@@ -141,31 +164,37 @@ export class MarkdownAwareChunker implements Chunker {
 
 export class CodeAwareChunker implements Chunker {
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
-    // Split on top-level function/class boundaries (heuristic)
-    const boundaries = /(?=^(?:export\s+)?(?:async\s+)?(?:function|class|const\s+\w+\s*=\s*(?:async\s+)?\(|interface|type\s+\w+\s*=)\s)/m;
-    const sections = text.split(boundaries).filter(Boolean);
-    const results: ChunkResult[] = [];
+    try {
+      const boundaries = /(?=^(?:export\s+)?(?:async\s+)?(?:function|class|const\s+\w+\s*=\s*(?:async\s+)?\(|interface|type\s+\w+\s*=)\s)/m;
+      const sections = text.split(boundaries).filter(Boolean);
+      const results: ChunkResult[] = [];
 
-    for (const section of sections) {
-      if (estimateTokens(section) <= chunkSize) {
-        results.push({
-          content: section.trim(),
-          metadata: { chunkIndex: results.length, type: 'code-block' },
-          tokenCount: estimateTokens(section),
-        });
-      } else {
-        const sub = new RecursiveCharacterChunker(['\n\n', '\n', ' ', '']).chunk(
-          section,
-          chunkSize,
-          chunkOverlap
-        );
-        for (const s of sub) {
-          results.push({ ...s, metadata: { ...s.metadata, chunkIndex: results.length, type: 'code-block' } });
+      for (const section of sections) {
+        if (estimateTokens(section) <= chunkSize) {
+          results.push({
+            content: section.trim(),
+            metadata: { chunkIndex: results.length, type: 'code-block' },
+            tokenCount: estimateTokens(section),
+          });
+        } else {
+          const sub = new RecursiveCharacterChunker(['\n\n', '\n', ' ', '']).chunk(
+            section,
+            chunkSize,
+            chunkOverlap
+          );
+          for (const s of sub) {
+            results.push({ ...s, metadata: { ...s.metadata, chunkIndex: results.length, type: 'code-block' } });
+          }
         }
       }
-    }
 
-    return results;
+      chunkerLogger.info({ strategy: 'CODE_AWARE', chunkCount: results.length, textLength: text.length }, 'Chunked text');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      chunkerLogger.error({ strategy: 'CODE_AWARE', textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to chunk text');
+      throw error;
+    }
   }
 }
 
@@ -178,51 +207,56 @@ export class CodeAwareChunker implements Chunker {
  */
 export class SemanticChunker implements Chunker {
   chunk(text: string, chunkSize: number, chunkOverlap: number): ChunkResult[] {
-    // Split into sentences
-    const sentences = text
-      .split(/(?<=[.!?])\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    try {
+      const sentences = text
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-    const results: ChunkResult[] = [];
-    let current = '';
+      const results: ChunkResult[] = [];
+      let current = '';
 
-    for (const sentence of sentences) {
-      const candidate = current ? current + ' ' + sentence : sentence;
-      if (estimateTokens(candidate) <= chunkSize) {
-        current = candidate;
-      } else {
-        if (current) {
-          results.push({
-            content: current,
-            metadata: { chunkIndex: results.length, type: 'semantic' },
-            tokenCount: estimateTokens(current),
-          });
-          // Overlap
-          const overlapChars = chunkOverlap * 4;
-          current = current.length > overlapChars
-            ? current.slice(-overlapChars) + ' ' + sentence
-            : sentence;
+      for (const sentence of sentences) {
+        const candidate = current ? current + ' ' + sentence : sentence;
+        if (estimateTokens(candidate) <= chunkSize) {
+          current = candidate;
         } else {
-          results.push({
-            content: sentence,
-            metadata: { chunkIndex: results.length, type: 'semantic' },
-            tokenCount: estimateTokens(sentence),
-          });
-          current = '';
+          if (current) {
+            results.push({
+              content: current,
+              metadata: { chunkIndex: results.length, type: 'semantic' },
+              tokenCount: estimateTokens(current),
+            });
+            const overlapChars = chunkOverlap * 4;
+            current = current.length > overlapChars
+              ? current.slice(-overlapChars) + ' ' + sentence
+              : sentence;
+          } else {
+            results.push({
+              content: sentence,
+              metadata: { chunkIndex: results.length, type: 'semantic' },
+              tokenCount: estimateTokens(sentence),
+            });
+            current = '';
+          }
         }
       }
-    }
 
-    if (current.trim()) {
-      results.push({
-        content: current,
-        metadata: { chunkIndex: results.length, type: 'semantic' },
-        tokenCount: estimateTokens(current),
-      });
-    }
+      if (current.trim()) {
+        results.push({
+          content: current,
+          metadata: { chunkIndex: results.length, type: 'semantic' },
+          tokenCount: estimateTokens(current),
+        });
+      }
 
-    return results;
+      chunkerLogger.info({ strategy: 'SEMANTIC', chunkCount: results.length, textLength: text.length }, 'Chunked text');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      chunkerLogger.error({ strategy: 'SEMANTIC', textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to chunk text');
+      throw error;
+    }
   }
 }
 

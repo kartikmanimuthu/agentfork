@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DataSourceService } from '@chatbot/knowledge-base';
+import { getSessionTenantId, authorize, createLogger, parseJson, ValidationError } from '@chatbot/shared';
+import { DataSourceService, crawlTriggerSchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';
+
+const logger = createLogger('api:knowledge-bases:crawl');
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,11 +13,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (authError) return authError;
 
     const { id: knowledgeBaseId } = await params;
-    const { sourceId } = await req.json();
+    logger.info({ tenantId, knowledgeBaseId }, 'Crawl trigger request');
 
-    if (!sourceId) {
-      return NextResponse.json({ error: 'sourceId is required' }, { status: 400 });
-    }
+    const { sourceId } = await parseJson(req, crawlTriggerSchema);
 
     const service = new DataSourceService(tenantId);
     const dataSource = await service.get(sourceId);
@@ -40,14 +40,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const jobId = await boss.send('web-crawl', { dataSourceId: sourceId, tenantId, knowledgeBaseId });
     await boss.stop({ graceful: false });
 
+    logger.info({ tenantId, knowledgeBaseId, sourceId, jobId }, 'Crawl job queued');
+
     return NextResponse.json({ jobId, message: 'Crawl queued' }, { status: 202 });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Crawl trigger failed');
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    if (error instanceof Error && error.message.includes('not found')) {
+    if (err.message.includes('not found')) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

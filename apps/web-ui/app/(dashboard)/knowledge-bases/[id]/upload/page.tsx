@@ -3,11 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { ArrowLeft, Upload, FileUp, X } from 'lucide-react';
+
+const uploadSchema = z.object({
+  dataSourceId: z.string().min(1, 'Please select a file source'),
+  fileName: z.string().min(1, 'File name is required').max(512, 'File name too long'),
+  mimeType: z.string().min(1, 'MIME type is required'),
+  sizeBytes: z.number().int().nonnegative('File size must be non-negative'),
+});
 
 interface Source {
   id: string;
@@ -85,16 +93,22 @@ export default function KnowledgeBaseUploadPage() {
     );
 
     try {
+      const metadata = {
+        dataSourceId: selectedSource,
+        fileName: uploadFile.file.name,
+        mimeType: uploadFile.file.type || 'application/octet-stream',
+        sizeBytes: uploadFile.file.size,
+      };
+      const parsed = uploadSchema.safeParse(metadata);
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? 'Invalid upload metadata');
+      }
+
       // 1. Get pre-signed upload URL and create document record
       const res = await fetch(`/api/knowledge-bases/${id}/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dataSourceId: selectedSource,
-          fileName: uploadFile.file.name,
-          mimeType: uploadFile.file.type || 'application/octet-stream',
-          sizeBytes: uploadFile.file.size,
-        }),
+        body: JSON.stringify(parsed.data),
       });
 
       if (!res.ok) {

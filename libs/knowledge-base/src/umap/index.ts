@@ -1,4 +1,7 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { RetrievalResult } from '../types';
+
+const umapLogger = createLogger('kb:umap');
 
 // ─── UMAP projection ──────────────────────────────────────────────────────────
 
@@ -47,6 +50,7 @@ export async function projectEmbeddings(
     return { points, computedAt: new Date() };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    umapLogger.error({ itemCount: items.length, errorMessage: msg }, 'UMAP projection failed');
     if (msg.includes('umap-js')) throw err;
     throw new Error(`UMAP projection failed: ${msg}`);
   }

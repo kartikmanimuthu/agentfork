@@ -3,6 +3,7 @@ import { getPrismaClient } from '@chatbot/shared/workers';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('web-crawl-scheduler');
+const BASE_JOB_NAME = 'web-crawl';
 
 export async function registerSchedules(boss: PgBoss): Promise<void> {
   const db = getPrismaClient();
@@ -12,22 +13,17 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
   });
 
   for (const source of sources) {
+    const jobName = `${BASE_JOB_NAME}:${source.id}`;
     try {
-      // Note: pg-boss schedule table uses `name` as PRIMARY KEY, so calling
-      // schedule() multiple times with the same job name overwrites the data.
-      // If multiple URL data sources have syncSchedule, only the last one's
-      // schedule will be retained. To support multiple concurrent schedules,
-      // use unique job names per data source (e.g. `web-crawl:${source.id}`)
-      // and register corresponding workers.
-      await boss.schedule('web-crawl', source.syncSchedule!, {
+      await boss.schedule(jobName, source.syncSchedule!, {
         dataSourceId: source.id,
         tenantId: source.knowledgeBase.tenantId,
         knowledgeBaseId: source.knowledgeBaseId,
       });
-      log.info('Scheduled recurring crawl', { dataSourceId: source.id, schedule: source.syncSchedule });
+      log.info({ dataSourceId: source.id, schedule: source.syncSchedule, jobName }, 'Scheduled recurring crawl');
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      log.error('Failed to schedule crawl', { dataSourceId: source.id, error: message });
+      const error = err instanceof Error ? err : new Error(String(err));
+      log.error({ dataSourceId: source.id, errorMessage: error.message, errorStack: error.stack }, 'Failed to schedule crawl');
     }
   }
 }

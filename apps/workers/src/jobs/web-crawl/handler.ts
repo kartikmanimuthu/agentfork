@@ -1,5 +1,6 @@
 import type PgBoss from 'pg-boss';
 import { getPrismaClient } from '@chatbot/shared/workers';
+import { S3Service } from '@chatbot/shared';
 import {
   createDataSourceRepository,
   createDocumentRepository,
@@ -61,18 +62,10 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       const mimeType = 'text/plain';
       const textBuffer = Buffer.from(page.text, 'utf-8');
 
-      // Get pre-signed upload URL and upload text
-      const { uploadUrl, s3Key } = await docService.getUploadUrl(dataSourceId, fileName, mimeType);
-
-      // Upload the text content to the pre-signed URL
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: textBuffer,
-        headers: { 'Content-Type': mimeType },
-      });
-      if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload crawled page to S3: ${uploadResponse.statusText}`);
-      }
+      // Generate S3 key and upload text directly via SDK (pre-signed URLs break on region redirects)
+      const { s3Key } = await docService.getUploadUrl(dataSourceId, fileName, mimeType);
+      const s3 = new S3Service();
+      await s3.uploadBuffer(s3Key, textBuffer, mimeType);
 
       // Create document record
       const document = await docRepo.create({

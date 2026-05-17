@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
+import { getSessionTenantId, authorize, createLogger, parseJson, ValidationError } from '@chatbot/shared';
 import { IngestionService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';
-import { createLogger } from '@chatbot/shared';
 import { z } from 'zod';
 
 const logger = createLogger('api:kb:ingest');
@@ -22,16 +21,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const authError = await authorize('create', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const body = await req.json();
-    const parsed = ingestRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      );
-    }
+    logger.info({ tenantId, knowledgeBaseId }, 'Ingest request');
 
-    const { documentId, s3Key, mimeType } = parsed.data;
+    const { documentId, s3Key, mimeType } = await parseJson(req, ingestRequestSchema);
 
     const boss = createBoss();
     await boss.start();
@@ -53,8 +45,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ jobId }, { status: 202 });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ errorMessage: err.message }, 'Failed to enqueue ingestion job');
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Failed to enqueue ingestion job');
 
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
     if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
