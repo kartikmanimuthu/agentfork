@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeRegistry } from '@chatbot/agent-studio';
-import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain } from 'lucide-react';
+import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain, BookOpen, Plug } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 const NODE_ICONS: Record<string, LucideIcon> = {
@@ -12,6 +12,8 @@ const NODE_ICONS: Record<string, LucideIcon> = {
   input: ArrowDownToLine,
   output: ArrowUpFromLine,
   memory: Brain,
+  knowledge_base: BookOpen,
+  mcp_server: Plug,
 };
 
 const NODE_COLORS: Record<string, string> = {
@@ -22,6 +24,8 @@ const NODE_COLORS: Record<string, string> = {
   input: 'text-green-500',
   output: 'text-red-500',
   memory: 'text-indigo-500',
+  knowledge_base: 'text-amber-500',
+  mcp_server: 'text-cyan-500',
 };
 
 export function NodePalette() {

@@ -10,6 +10,8 @@ import { StateSchemaNodeForm } from './state-schema-node-form';
 import { InputNodeForm } from './input-node-form';
 import { OutputNodeForm } from './output-node-form';
 import { MemoryNodeForm } from './memory-node-form';
+import { KnowledgeBaseNodeForm } from './knowledge-base-node-form';
+import { McpServerNodeForm } from './mcp-server-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 
@@ -58,6 +60,12 @@ export function ConfigPanel({ node, onClose, onConfigChange }: ConfigPanelProps)
           )}
           {node.config.type === 'memory' && (
             <MemoryNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'knowledge_base' && (
+            <KnowledgeBaseNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'mcp_server' && (
+            <McpServerNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

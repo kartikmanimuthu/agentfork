@@ -4,7 +4,7 @@ import type { NodeType } from '../types/nodes';
 
 describe('NodeRegistry', () => {
   describe('getAll', () => {
-    it('returns all seven node types', () => {
+    it('returns all nine node types', () => {
       const all = NodeRegistry.getAll();
       const types = all.map((d) => d.type);
       expect(types).toContain('llm');
@@ -14,7 +14,9 @@ describe('NodeRegistry', () => {
       expect(types).toContain('input');
       expect(types).toContain('output');
       expect(types).toContain('memory');
-      expect(all).toHaveLength(7);
+      expect(types).toContain('knowledge_base');
+      expect(types).toContain('mcp_server');
+      expect(all).toHaveLength(9);
     });
   });
 
@@ -127,7 +129,7 @@ describe('NodeRegistry', () => {
       for (const def of NodeRegistry.getAll()) {
         const errors = def.validate(def.defaultConfig);
         // router/state_schema/tool defaults are intentionally incomplete — user must fill them in
-        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool') continue;
+        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server') continue;
         expect(errors, `${def.type} default config should be valid`).toHaveLength(0);
       }
     });

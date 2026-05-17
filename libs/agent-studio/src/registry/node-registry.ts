@@ -6,6 +6,8 @@ import { stateSchemaNodeSchema } from './schemas/state-schema';
 import { inputNodeSchema } from './schemas/input';
 import { outputNodeSchema } from './schemas/output';
 import { memoryNodeSchema } from './schemas/memory';
+import { knowledgeBaseNodeSchema } from './schemas/knowledge-base';
+import { mcpServerNodeSchema } from './schemas/mcp-server';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -17,6 +19,8 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   inputNodeSchema,
   outputNodeSchema,
   memoryNodeSchema,
+  knowledgeBaseNodeSchema,
+  mcpServerNodeSchema,
 ]);
 
 export interface NodeDefinition {
@@ -151,6 +155,48 @@ const definitions: NodeDefinition[] = [
     },
     validate(config) {
       const result = memoryNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'knowledge_base',
+    label: 'Knowledge Base',
+    description: 'Retrieves relevant context from one or more knowledge bases.',
+    defaultConfig: {
+      type: 'knowledge_base',
+      knowledgeBaseIds: [],
+      queryChannel: 'query',
+      outputChannel: 'kb_results',
+      topK: 5,
+    },
+    validate(config) {
+      const result = knowledgeBaseNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'mcp_server',
+    label: 'MCP Server',
+    description: 'Invokes a tool on a connected MCP server.',
+    defaultConfig: {
+      type: 'mcp_server',
+      serverId: '',
+      toolName: '',
+      argumentSource: 'from_state',
+      outputChannel: 'mcp_result',
+    },
+    validate(config) {
+      const result = mcpServerNodeSchema.safeParse(config);
       if (result.success) return [];
       return result.error.issues.map((issue) => ({
         field: issue.path.join('.'),

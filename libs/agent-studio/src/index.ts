@@ -24,6 +24,8 @@ export type {
   InputNodeConfig,
   OutputNodeConfig,
   MemoryNodeConfig,
+  KnowledgeBaseNodeConfig,
+  McpServerNodeConfig,
   ToolConfig,
   SchemaField,
   ValidationError,
@@ -86,6 +88,8 @@ export {
   InputNodeExecutor,
   OutputNodeExecutor,
   MemoryNodeExecutor,
+  KnowledgeBaseNodeExecutor,
+  McpServerNodeExecutor,
 } from './execution/node-executors';
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 export type {

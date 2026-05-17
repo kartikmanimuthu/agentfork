@@ -26,4 +26,6 @@ export {
   InputNodeExecutor,
   OutputNodeExecutor,
   MemoryNodeExecutor,
+  KnowledgeBaseNodeExecutor,
+  McpServerNodeExecutor,
 } from './node-executors';

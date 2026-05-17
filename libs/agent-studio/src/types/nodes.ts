@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server';
 
 export interface SchemaField {
   name: string;
@@ -71,6 +71,25 @@ export interface MemoryNodeConfig {
   messagesChannel: string;
 }
 
+export interface KnowledgeBaseNodeConfig {
+  type: 'knowledge_base';
+  knowledgeBaseIds: string[];
+  queryChannel: string;
+  outputChannel: string;
+  topK: number;
+  threshold?: number;
+}
+
+export interface McpServerNodeConfig {
+  type: 'mcp_server';
+  serverId: string;
+  toolName: string;
+  argumentSource: 'from_state' | 'static';
+  staticArguments?: Record<string, unknown>;
+  channelMappings?: Record<string, string>;
+  outputChannel: string;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
@@ -79,7 +98,9 @@ export type NodeConfig =
   | StateSchemaNodeConfig
   | InputNodeConfig
   | OutputNodeConfig
-  | MemoryNodeConfig;
+  | MemoryNodeConfig
+  | KnowledgeBaseNodeConfig
+  | McpServerNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
