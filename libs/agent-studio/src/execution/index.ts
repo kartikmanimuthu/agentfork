@@ -28,4 +28,7 @@ export {
   MemoryNodeExecutor,
   KnowledgeBaseNodeExecutor,
   McpServerNodeExecutor,
+  CodeNodeExecutor,
+  ConditionNodeExecutor,
+  HttpNodeExecutor,
 } from './node-executors';

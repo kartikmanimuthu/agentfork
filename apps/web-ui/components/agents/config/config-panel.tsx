@@ -12,6 +12,9 @@ import { OutputNodeForm } from './output-node-form';
 import { MemoryNodeForm } from './memory-node-form';
 import { KnowledgeBaseNodeForm } from './knowledge-base-node-form';
 import { McpServerNodeForm } from './mcp-server-node-form';
+import { CodeNodeForm } from './code-node-form';
+import { ConditionNodeForm } from './condition-node-form';
+import { HttpNodeForm } from './http-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 
@@ -66,6 +69,15 @@ export function ConfigPanel({ node, onClose, onConfigChange }: ConfigPanelProps)
           )}
           {node.config.type === 'mcp_server' && (
             <McpServerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'code' && (
+            <CodeNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'condition' && (
+            <ConditionNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'http' && (
+            <HttpNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

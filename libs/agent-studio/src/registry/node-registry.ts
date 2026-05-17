@@ -8,6 +8,9 @@ import { outputNodeSchema } from './schemas/output';
 import { memoryNodeSchema } from './schemas/memory';
 import { knowledgeBaseNodeSchema } from './schemas/knowledge-base';
 import { mcpServerNodeSchema } from './schemas/mcp-server';
+import { codeNodeSchema } from './schemas/code';
+import { conditionNodeSchema } from './schemas/condition';
+import { httpNodeSchema } from './schemas/http';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -21,6 +24,9 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   memoryNodeSchema,
   knowledgeBaseNodeSchema,
   mcpServerNodeSchema,
+  codeNodeSchema,
+  conditionNodeSchema,
+  httpNodeSchema,
 ]);
 
 export interface NodeDefinition {

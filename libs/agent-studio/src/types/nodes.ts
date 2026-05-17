@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http';
 
 export interface SchemaField {
   name: string;
@@ -90,6 +90,33 @@ export interface McpServerNodeConfig {
   outputChannel: string;
 }
 
+export interface CodeNodeConfig {
+  type: 'code';
+  code: string;
+  language: 'javascript' | 'typescript';
+  inputChannels: string[];
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
+export interface ConditionNodeConfig {
+  type: 'condition';
+  expression: string;
+  trueBranch: string;
+  falseBranch: string;
+}
+
+export interface HttpNodeConfig {
+  type: 'http';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  url: string;
+  headers?: Record<string, string>;
+  bodyTemplate?: string;
+  bodyChannel?: string;
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
@@ -100,7 +127,10 @@ export type NodeConfig =
   | OutputNodeConfig
   | MemoryNodeConfig
   | KnowledgeBaseNodeConfig
-  | McpServerNodeConfig;
+  | McpServerNodeConfig
+  | CodeNodeConfig
+  | ConditionNodeConfig
+  | HttpNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 

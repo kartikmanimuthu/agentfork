@@ -26,6 +26,9 @@ export type {
   MemoryNodeConfig,
   KnowledgeBaseNodeConfig,
   McpServerNodeConfig,
+  CodeNodeConfig,
+  ConditionNodeConfig,
+  HttpNodeConfig,
   ToolConfig,
   SchemaField,
   ValidationError,
@@ -90,6 +93,9 @@ export {
   MemoryNodeExecutor,
   KnowledgeBaseNodeExecutor,
   McpServerNodeExecutor,
+  CodeNodeExecutor,
+  ConditionNodeExecutor,
+  HttpNodeExecutor,
 } from './execution/node-executors';
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 export type {

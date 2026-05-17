@@ -8,6 +8,9 @@ import { OutputNode } from './nodes/output-node';
 import { MemoryNode } from './nodes/memory-node';
 import { KnowledgeBaseNode } from './nodes/knowledge-base-node';
 import { McpServerNode } from './nodes/mcp-server-node';
+import { CodeNode } from './nodes/code-node';
+import { ConditionNode } from './nodes/condition-node';
+import { HttpNode } from './nodes/http-node';
 
 /**
  * Pass this object to the `nodeTypes` prop of <ReactFlow />.
@@ -23,4 +26,7 @@ export const nodeTypes: NodeTypes = {
   memory: MemoryNode,
   knowledge_base: KnowledgeBaseNode,
   mcp_server: McpServerNode,
+  code: CodeNode,
+  condition: ConditionNode,
+  http: HttpNode,
 };
