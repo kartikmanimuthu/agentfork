@@ -17,6 +17,10 @@ function getS3Client(): S3Client {
   logger.info({ region, endpoint, forcePathStyle }, 'Initializing S3 client');
 
   sharedClient = new S3Client({
+    followRegionRedirects: true,
+    ...(env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
+      ? { credentials: { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY } }
+      : {}),
     region,
     ...(endpoint ? { endpoint } : {}),
     ...(forcePathStyle ? { forcePathStyle: true } : {}),

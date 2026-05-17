@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "If the file path matches `.env` (but NOT `.env.example`, `.env.local`, etc.), STOP and ask for explicit confirmation. Explain that .env files may contain secrets."
+            "prompt": "Evaluate the target file path. CRITICAL: If the file path is NOT exactly `.env` (e.g., `CLAUDE.md`), you MUST remain completely silent, output absolutely nothing, and let the tool execute. If and ONLY IF the file path matches exactly `.env` (but NOT `.env.example`, `.env.local`, etc.), STOP and ask for explicit confirmation, explaining that .env files may contain secrets."
           }
         ]
       }

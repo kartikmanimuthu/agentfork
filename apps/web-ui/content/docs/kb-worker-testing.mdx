@@ -7,10 +7,11 @@ description: How to test the knowledge base sync, web crawler, and document inge
 
 Knowledge base sync is driven by a **pg-boss** job queue. The flow:
 
-1. **Frontend** — user clicks the play icon on a URL-type source
-2. **API** — `POST /api/knowledge-bases/{id}/sources/{sourceId}/sync` enqueues a `web-crawl` job
-3. **Worker** — `handleWebCrawl` crawls the URL, uploads text to S3, creates `Document` records, then enqueues `document-ingestion` jobs
-4. **Worker (ingestion)** — `handleDocumentIngestion` parses, chunks, embeds, and stores searchable vectors
+1. **Frontend** — user uploads a file or clicks the play icon on a URL-type source
+2. **API** — `POST /api/knowledge-bases/{id}/upload` creates a document record and returns a pre-signed S3 URL; `POST /api/knowledge-bases/{id}/ingest` enqueues a `document-ingestion` job after the client uploads to S3
+3. **API** — `POST /api/knowledge-bases/{id}/sources/{sourceId}/sync` enqueues a `web-crawl` job
+4. **Worker** — `handleWebCrawl` crawls the URL, uploads text to S3, creates `Document` records, then enqueues `document-ingestion` jobs
+5. **Worker (ingestion)** — `handleDocumentIngestion` parses, chunks, embeds, and stores searchable vectors
 
 ## Local Testing Script
 
@@ -55,8 +56,10 @@ bun run test:kb-sync -- --create --cleanup
 ### What the Script Validates
 
 - **Sync phase** — data source status transitions from `syncing` to `active`, `lastSyncAt` is set, and `Document` records are created
-- **Ingestion phase** (with `--full-pipeline`) — documents reach `READY` status, chunks are stored, and embeddings are generated
+- **Ingestion phase** (with `--full-pipeline`) — documents reach `READY` status, chunks are stored, and embeddings are generated via Bedrock
 - **Cleanup phase** (with `--cleanup`) — removes test documents, chunks, data source, and knowledge base
+
+> **Note:** The script reports `Chunks with embeddings: 0/N` even when embeddings are written successfully. This is expected — Prisma cannot read back `Unsupported("vector")` columns through the ORM. The `READY` document status confirms embeddings were stored correctly via raw SQL.
 
 ## Running the Worker Server
 
@@ -64,24 +67,49 @@ To process jobs via the actual worker daemon:
 
 ```bash
 # Terminal 1 — start the worker
-cd apps/workers
-bun run dev
+bun run dev:workers
 
 # Terminal 2 — trigger a sync via curl (or use the UI)
 curl -X POST \
-  http://localhost:3001/api/knowledge-bases/{kb-id}/sources/{source-id}/sync
+  http://localhost:3005/api/knowledge-bases/{kb-id}/sources/{source-id}/sync
 ```
 
-The worker polls pg-boss every few seconds and picks up the `web-crawl` job automatically.
+The worker polls pg-boss every few seconds and picks up jobs automatically.
+
+## Environment Setup
+
+The following `.env` variables are required for the full pipeline:
+
+```bash
+AWS_PROFILE=STX-CLOUD-PLATFORM   # AWS profile with Bedrock + S3 access
+AWS_REGION=us-east-1             # Must match the S3 bucket region
+S3_BUCKET=chatbot-970547372609-us-east-1
+```
+
+For local MinIO (optional, file upload only — Bedrock still requires real AWS):
+
+```bash
+S3_ENDPOINT=http://localhost:9000
+S3_FORCE_PATH_STYLE=true
+S3_ACCESS_KEY_ID=minioadmin
+S3_SECRET_ACCESS_KEY=minioadmin
+```
 
 ## Common Issues
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| `jobId: null` when enqueuing | pg-boss v10 requires queues to exist before `send()` | Fixed — `createQueue()` is called before `work()` in all register files |
+| `Failed to upload file to storage` | CORS blocked browser PUT to S3/MinIO, or wrong AWS credentials signing the URL | Set `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` for MinIO, or ensure `AWS_PROFILE` is set for real S3 |
+| `301 Moved Permanently` on S3 upload | `AWS_REGION` doesn't match the bucket's actual region | Set `AWS_REGION=us-east-1` (bucket `chatbot-970547372609-us-east-1` is in us-east-1) |
+| `The security token included in the request is invalid` | `AWS_ACCESS_KEY_ID` in `.env` overrides the AWS profile | Remove `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` from `.env`; use `AWS_PROFILE` instead |
+| `column "embedding" does not exist` | Schema not pushed after adding vector column | Run `bunx prisma db push` from project root |
+| `column "search_text" does not exist` | tsvector column missing from DB | Run `bunx prisma db push` or `ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS search_text tsvector` |
+| `Cannot find package 'pdf-parse'` | Parser packages not installed at workspace root | Run `bun add pdf-parse@1.1.1 mammoth xlsx` at project root |
+| `pdfParse is not a function` | `pdf-parse` v2 changed its API | Use `pdf-parse@1.1.1` (v1 exports a callable function) |
+| `Queue web-crawl not found` | pg-boss v10 doesn't auto-create queues | Fixed — `createQueue()` added to all register files |
 | "Crawl complete, pages: 0" | `excludePatterns` was an empty array `[]`; the crawler treated it as "exclude all" | Fixed in `libs/knowledge-base/src/web-crawler/index.ts` — check `excludePatterns.length > 0` before filtering |
-| "Could not load credentials from any providers" | AWS credentials are not configured | Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env`, or configure an AWS CLI profile |
-| "No active tenant found" | Database has no `Tenant` record | Create a tenant first, or pass `--tenant-id` |
-| Job never picked up | Worker is not running | Start `bun run dev` in `apps/workers`, or run the test script directly |
+| `AWS credential provider failed` | No AWS credentials available | Set `AWS_PROFILE` in `.env` to a profile with Bedrock access |
 
 ## Files to Know
 
@@ -90,5 +118,7 @@ The worker polls pg-boss every few seconds and picks up the `web-crawl` job auto
 | `apps/workers/src/scripts/test-kb-sync.ts` | Local testing script |
 | `apps/workers/src/jobs/web-crawl/handler.ts` | Crawl + S3 upload + document creation |
 | `apps/workers/src/jobs/document-ingestion/handler.ts` | Parse + chunk + embed pipeline |
+| `apps/web-ui/app/api/knowledge-bases/[id]/upload/route.ts` | Returns pre-signed S3 URL + creates document record |
+| `apps/web-ui/app/api/knowledge-bases/[id]/ingest/route.ts` | Enqueues ingestion job after client S3 upload |
 | `libs/knowledge-base/src/web-crawler/index.ts` | `BreadthFirstCrawler` implementation |
 | `apps/web-ui/app/api/knowledge-bases/[id]/sources/[sourceId]/sync/route.ts` | API route that enqueues the sync job |

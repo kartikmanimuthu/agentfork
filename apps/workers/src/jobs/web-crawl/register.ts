@@ -11,6 +11,7 @@ export async function register(boss: PgBoss, executor: JobExecutor): Promise<voi
     executor.registerHandler(JOB_NAME, (data) => handleWebCrawl(data, boss));
   }
 
+  await boss.createQueue(JOB_NAME);
   await boss.work(JOB_NAME, { batchSize: 2 }, async (jobs) => {
     for (const job of jobs) {
       log.info('Processing job', { jobId: job.id });

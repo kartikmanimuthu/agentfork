@@ -10,7 +10,7 @@ export function createBoss(): PgBoss {
 
   return new PgBoss({
     connectionString,
-    retryLimit: 3,
+    retryLimit: 10,
     retryDelay: 30,
     retryBackoff: true,
     expireInHours: 4,
