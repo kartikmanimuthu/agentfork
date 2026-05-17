@@ -10,3 +10,7 @@ export { McpServerNodeExecutor } from './mcp-server-executor';
 export { CodeNodeExecutor } from './code-executor';
 export { ConditionNodeExecutor } from './condition-executor';
 export { HttpNodeExecutor } from './http-executor';
+export { HumanNodeExecutor } from './human-executor';
+export { ParallelNodeExecutor } from './parallel-executor';
+export { SubAgentNodeExecutor } from './sub-agent-executor';
+export { DelayNodeExecutor } from './delay-executor';

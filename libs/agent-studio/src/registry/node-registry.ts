@@ -11,6 +11,10 @@ import { mcpServerNodeSchema } from './schemas/mcp-server';
 import { codeNodeSchema } from './schemas/code';
 import { conditionNodeSchema } from './schemas/condition';
 import { httpNodeSchema } from './schemas/http';
+import { humanNodeSchema } from './schemas/human';
+import { parallelNodeSchema } from './schemas/parallel';
+import { subAgentNodeSchema } from './schemas/sub-agent';
+import { delayNodeSchema } from './schemas/delay';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -27,6 +31,10 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   codeNodeSchema,
   conditionNodeSchema,
   httpNodeSchema,
+  humanNodeSchema,
+  parallelNodeSchema,
+  subAgentNodeSchema,
+  delayNodeSchema,
 ]);
 
 export interface NodeDefinition {
@@ -203,6 +211,83 @@ const definitions: NodeDefinition[] = [
     },
     validate(config) {
       const result = mcpServerNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'human',
+    label: 'Human',
+    description: 'Pauses execution and waits for human input before continuing.',
+    defaultConfig: {
+      type: 'human',
+      prompt: '',
+      outputChannel: 'human_response',
+    },
+    validate(config) {
+      const result = humanNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'parallel',
+    label: 'Parallel',
+    description: 'Dispatches execution to multiple branches simultaneously.',
+    defaultConfig: {
+      type: 'parallel',
+      branches: [],
+      mergeStrategy: 'all',
+      outputChannel: 'parallel_result',
+    },
+    validate(config) {
+      const result = parallelNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'sub_agent',
+    label: 'Sub-Agent',
+    description: 'Invokes another agent as a sub-routine within this graph.',
+    defaultConfig: {
+      type: 'sub_agent',
+      agentId: '',
+      inputChannel: 'messages',
+      outputChannel: 'sub_agent_response',
+    },
+    validate(config) {
+      const result = subAgentNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'delay',
+    label: 'Delay',
+    description: 'Pauses execution for a specified duration before continuing.',
+    defaultConfig: {
+      type: 'delay',
+      delayMs: 1000,
+    },
+    validate(config) {
+      const result = delayNodeSchema.safeParse(config);
       if (result.success) return [];
       return result.error.issues.map((issue) => ({
         field: issue.path.join('.'),

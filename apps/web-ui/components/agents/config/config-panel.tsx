@@ -15,6 +15,10 @@ import { McpServerNodeForm } from './mcp-server-node-form';
 import { CodeNodeForm } from './code-node-form';
 import { ConditionNodeForm } from './condition-node-form';
 import { HttpNodeForm } from './http-node-form';
+import { HumanNodeForm } from './human-node-form';
+import { ParallelNodeForm } from './parallel-node-form';
+import { SubAgentNodeForm } from './sub-agent-node-form';
+import { DelayNodeForm } from './delay-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 
@@ -78,6 +82,18 @@ export function ConfigPanel({ node, onClose, onConfigChange }: ConfigPanelProps)
           )}
           {node.config.type === 'http' && (
             <HttpNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'human' && (
+            <HumanNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'parallel' && (
+            <ParallelNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'sub_agent' && (
+            <SubAgentNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'delay' && (
+            <DelayNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

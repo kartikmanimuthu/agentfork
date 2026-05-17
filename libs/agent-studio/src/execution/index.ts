@@ -31,4 +31,8 @@ export {
   CodeNodeExecutor,
   ConditionNodeExecutor,
   HttpNodeExecutor,
+  HumanNodeExecutor,
+  ParallelNodeExecutor,
+  SubAgentNodeExecutor,
+  DelayNodeExecutor,
 } from './node-executors';

@@ -29,6 +29,10 @@ export type {
   CodeNodeConfig,
   ConditionNodeConfig,
   HttpNodeConfig,
+  HumanNodeConfig,
+  ParallelNodeConfig,
+  SubAgentNodeConfig,
+  DelayNodeConfig,
   ToolConfig,
   SchemaField,
   ValidationError,
@@ -96,6 +100,10 @@ export {
   CodeNodeExecutor,
   ConditionNodeExecutor,
   HttpNodeExecutor,
+  HumanNodeExecutor,
+  ParallelNodeExecutor,
+  SubAgentNodeExecutor,
+  DelayNodeExecutor,
 } from './execution/node-executors';
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 export type {

@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay';
 
 export interface SchemaField {
   name: string;
@@ -117,6 +117,35 @@ export interface HttpNodeConfig {
   timeoutMs?: number;
 }
 
+export interface HumanNodeConfig {
+  type: 'human';
+  prompt: string;
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
+export interface ParallelNodeConfig {
+  type: 'parallel';
+  branches: string[];
+  mergeStrategy: 'all' | 'race' | 'any';
+  outputChannel: string;
+}
+
+export interface SubAgentNodeConfig {
+  type: 'sub_agent';
+  agentId: string;
+  versionId?: string;
+  alias?: string;
+  inputChannel: string;
+  outputChannel: string;
+}
+
+export interface DelayNodeConfig {
+  type: 'delay';
+  delayMs: number;
+  delayChannel?: string;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
@@ -130,7 +159,11 @@ export type NodeConfig =
   | McpServerNodeConfig
   | CodeNodeConfig
   | ConditionNodeConfig
-  | HttpNodeConfig;
+  | HttpNodeConfig
+  | HumanNodeConfig
+  | ParallelNodeConfig
+  | SubAgentNodeConfig
+  | DelayNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 

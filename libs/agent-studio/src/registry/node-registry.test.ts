@@ -4,7 +4,7 @@ import type { NodeType } from '../types/nodes';
 
 describe('NodeRegistry', () => {
   describe('getAll', () => {
-    it('returns all nine node types', () => {
+    it('returns all registered node types', () => {
       const all = NodeRegistry.getAll();
       const types = all.map((d) => d.type);
       expect(types).toContain('llm');
@@ -16,7 +16,11 @@ describe('NodeRegistry', () => {
       expect(types).toContain('memory');
       expect(types).toContain('knowledge_base');
       expect(types).toContain('mcp_server');
-      expect(all).toHaveLength(9);
+      expect(types).toContain('human');
+      expect(types).toContain('parallel');
+      expect(types).toContain('sub_agent');
+      expect(types).toContain('delay');
+      expect(all).toHaveLength(13);
     });
   });
 
@@ -129,7 +133,7 @@ describe('NodeRegistry', () => {
       for (const def of NodeRegistry.getAll()) {
         const errors = def.validate(def.defaultConfig);
         // router/state_schema/tool defaults are intentionally incomplete — user must fill them in
-        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server') continue;
+        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server' || def.type === 'human' || def.type === 'sub_agent') continue;
         expect(errors, `${def.type} default config should be valid`).toHaveLength(0);
       }
     });

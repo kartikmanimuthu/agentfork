@@ -11,6 +11,10 @@ import { McpServerNode } from './nodes/mcp-server-node';
 import { CodeNode } from './nodes/code-node';
 import { ConditionNode } from './nodes/condition-node';
 import { HttpNode } from './nodes/http-node';
+import { HumanNode } from './nodes/human-node';
+import { ParallelNode } from './nodes/parallel-node';
+import { SubAgentNode } from './nodes/sub-agent-node';
+import { DelayNode } from './nodes/delay-node';
 
 /**
  * Pass this object to the `nodeTypes` prop of <ReactFlow />.
@@ -29,4 +33,8 @@ export const nodeTypes: NodeTypes = {
   code: CodeNode,
   condition: ConditionNode,
   http: HttpNode,
+  human: HumanNode,
+  parallel: ParallelNode,
+  sub_agent: SubAgentNode,
+  delay: DelayNode,
 };
