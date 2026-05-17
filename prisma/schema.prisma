@@ -661,6 +661,7 @@ model DocumentChunk {
   content    String
   tokenCount Int
   metadata   Json?
+  embedding  Unsupported("vector(1024)")?
   searchText Unsupported("tsvector")?
   createdAt  DateTime                  @default(now())
 

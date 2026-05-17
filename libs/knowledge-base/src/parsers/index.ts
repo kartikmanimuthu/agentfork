@@ -85,9 +85,12 @@ export function stripMarkdown(md: string): string {
 export class PdfParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
     try {
-      // Dynamic import so the package is optional
+      // Dynamic import so the package is optional.
+      // Import from the internal lib path directly to bypass pdf-parse v1's
+      // test runner, which tries to open ./test/data/05-versions-space.pdf
+      // relative to CWD on import and throws ENOENT in non-test environments.
       // @ts-ignore — pdf-parse is an optional peer dependency
-      const pdfParse = await import('pdf-parse').then((m) => m.default ?? m);
+      const pdfParse = await import('pdf-parse/lib/pdf-parse.js').then((m) => m.default ?? m);
       const data = await pdfParse(buffer);
       return data.text ?? '';
     } catch (err: unknown) {

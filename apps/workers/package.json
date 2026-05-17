@@ -14,12 +14,15 @@
     "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0",
-    "pg-boss": "^10.4.0",
-    "ai": "^6.0.0",
     "@ai-sdk/amazon-bedrock": "^2.0.0",
+    "@prisma/client": "^6.0.0",
+    "ai": "^6.0.0",
     "dayjs": "^1.11.0",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
+    "pg-boss": "^10.4.0",
     "uuid": "^10.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.2"
   },
   "devDependencies": {

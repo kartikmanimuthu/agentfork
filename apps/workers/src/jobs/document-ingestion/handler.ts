@@ -25,6 +25,13 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
   const chunkRepo = createDocumentChunkRepository(db);
   const kbRepo = createKnowledgeBaseRepository(db);
 
+  // Check document exists before doing any work — job may reference a deleted document
+  const existingDoc = await docRepo.findById(documentId);
+  if (!existingDoc) {
+    log.warn('Document not found, skipping job', { documentId });
+    return;
+  }
+
   // Mark as processing
   await docRepo.update(documentId, { status: 'PROCESSING' });
 
@@ -111,7 +118,7 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     // 8. Update tsvector for sparse search
     await db.$executeRaw`
       UPDATE document_chunks
-      SET search_text = to_tsvector('english', content)
+      SET "searchText" = to_tsvector('english', content)
       WHERE "documentId" = ${documentId}
     `;
 
@@ -129,6 +136,19 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('Document ingestion failed', { error: message });
+
+    // Permanent failures — mark FAILED but do NOT re-throw so pg-boss won't retry
+    const isPermanent =
+      message.includes('The specified key does not exist') ||
+      message.includes('NoSuchKey') ||
+      message.includes('KnowledgeBase') && message.includes('not found');
+
+    if (isPermanent) {
+      await docRepo.update(documentId, { status: 'FAILED', errorMessage: message });
+      log.warn('Permanent failure, not retrying', { documentId, error: message });
+      return;
+    }
+
     await docRepo.update(documentId, { status: 'FAILED', errorMessage: message });
     throw err;
   }

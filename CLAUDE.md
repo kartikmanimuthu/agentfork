@@ -111,3 +111,27 @@ Or run `bun run setup` to do steps 2–4 in one command.
 - Prettier for formatting, ESLint with `@nx/eslint-plugin`
 - Prisma models use `@@map()` for snake_case table names, camelCase fields
 - Services in `libs/shared` follow a class-based pattern with Prisma client injection
+
+## Mandatory Standards
+
+### Validation
+- All frontend form inputs must be validated with Zod schemas before submission
+- All API route handlers must validate request bodies/params with Zod at the boundary
+- All TypeScript functions must have typed parameters — no implicit `any`, no untyped args
+
+### Environment Variables
+- All env vars must be declared and validated via T3 Env (`@t3-oss/env-nextjs` for web-ui, `@t3-oss/env-core` for workers/libs)
+- Never access `process.env` directly — always go through the typed env object
+
+### UI Components
+- All frontend UI must use shadcn/ui components exclusively — no raw HTML form elements or ad-hoc component libraries
+
+### Error Handling
+- Every function, route handler, and job executor must wrap logic in try/catch
+- Catch blocks must log the error (never swallow silently) and re-throw or return a typed error response
+
+### Logging (Pino)
+- Use Pino logger in every function, route handler, and worker executor
+- Log at the correct severity: `logger.info` for normal flow, `logger.warn` for recoverable issues, `logger.error` for caught exceptions, `logger.debug` for dev-only detail
+- Include structured context in log calls (e.g. `{ tenantId, userId, jobId }`) — no bare string-only logs
+- Pino is already in `serverExternalPackages` — import from the shared logger instance, don't create ad-hoc loggers

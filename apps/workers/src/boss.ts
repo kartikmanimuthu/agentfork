@@ -4,7 +4,7 @@ import { env } from './env';
 export function createBoss(): PgBoss {
   return new PgBoss({
     connectionString: env.DATABASE_URL,
-    retryLimit: 3,
+    retryLimit: 10,
     retryDelay: 30,
     retryBackoff: true,
     expireInHours: 4,
