@@ -1,0 +1,1 @@
+export { whatsappEnv } from './env';

@@ -1,0 +1,21 @@
+{
+  "name": "whatsapp",
+  "sourceRoot": "libs/whatsapp/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vitest run",
+        "cwd": "libs/whatsapp"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx eslint src/",
+        "cwd": "libs/whatsapp"
+      }
+    }
+  }
+}
