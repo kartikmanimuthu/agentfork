@@ -191,44 +191,98 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
-    // Graph agent execution (basic fallback for v1)
+    // Graph agent execution with real GraphExecutor
     if (agent.type === 'graph') {
-      const graphConfig = resolvedConfig as { nodes?: Array<{ id: string; type: string; label: string }>; edges?: Array<{ id: string; source: string; target: string }> };
-      const nodes = graphConfig.nodes ?? [];
-      const edges = graphConfig.edges ?? [];
+      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor } = await import('@chatbot/agent-studio');
 
-      const traceSteps = nodes.map((node) => ({
-        nodeId: node.id,
-        nodeType: node.type,
-        nodeLabel: node.label,
-        status: 'completed',
-        timestamp: new Date().toISOString(),
+      const graphDef = resolvedConfig as { nodes?: any[]; edges?: any[] };
+      const nodes = graphDef.nodes ?? [];
+      const edges = graphDef.edges ?? [];
+
+      if (nodes.length === 0) {
+        return new Response(JSON.stringify({ error: 'Graph has no nodes' }), { status: 400 });
+      }
+
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '',
       }));
 
-      const text = `[Graph agent execution simulated]\\n\\nNodes executed: ${nodes.length}\\nEdges traversed: ${edges.length}\\n\\nGraph execution is not yet fully implemented in the playground. Use simple agents for live testing, or export the graph to run it in a LangGraph runtime.`;
+      const llmProviderService = new LlmProviderService(tenantId);
 
-      await db.agentExecution.update({
-        where: { id: execution.id },
-        data: {
-          status: 'completed',
-          output: { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } },
-          completedAt: new Date(),
+      const services = {
+        llmProvider: async (_providerId?: string, modelId?: string) => {
+          const llmConfig = await resolveProviderForModel(tenantId, modelId)
+            ?? await llmProviderService.getDefaultConfig()
+            ?? await new TenantConfigService(tenantId).get('llmConfig');
+          const provider = createLLMProvider(llmConfig);
+          await provider.validate();
+          return provider;
+        },
+        prisma: db,
+      };
+
+      const executor = new GraphExecutor(services);
+      executor.register(new LlmNodeExecutor());
+      executor.register(new RouterNodeExecutor());
+      executor.register(new ToolNodeExecutor());
+      executor.register(new StateSchemaNodeExecutor());
+
+      let fullText = '';
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+
+          const sendEvent = (event: string, data: unknown) => {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            await executor.execute(
+              { nodes, edges },
+              { messages: coreMessages },
+              { executionId: execution.id, agentId: id, tenantId, userId },
+              {
+                onEvent: (event) => {
+                  sendEvent(event.type, event);
+                  if (event.type === 'text_delta') {
+                    fullText += event.delta;
+                  }
+                },
+              }
+            );
+
+            await db.agentExecution.update({
+              where: { id: execution.id },
+              data: {
+                status: 'completed',
+                output: { text: fullText },
+                completedAt: new Date(),
+              },
+            });
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            sendEvent('execution_error', { error: errorMessage });
+            await db.agentExecution.update({
+              where: { id: execution.id },
+              data: { status: 'failed', output: { error: errorMessage }, completedAt: new Date() },
+            });
+            logger.error({ executionId: execution.id, error: errorMessage }, 'Graph execution failed');
+          } finally {
+            controller.close();
+          }
         },
       });
 
-      return new Response(
-        JSON.stringify({
-          role: 'assistant',
-          content: text,
-          id: execution.id,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-execution-id': execution.id,
-          },
-        }
-      );
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+          'x-execution-id': execution.id,
+        },
+      });
     }
 
     return new Response(JSON.stringify({ error: 'Unsupported agent type' }), { status: 400 });

@@ -72,3 +72,23 @@ export type { AgentKnowledgeBaseAttachment, AttachedKnowledgeBase } from './type
 // KB Attachment service
 export { KnowledgeBaseAttachmentService } from './services/kb-attachment-service';
 export type { KbAttachmentDb } from './services/kb-attachment-service';
+
+// Execution engine
+export { GraphExecutor } from './execution/graph-executor';
+export {
+  LlmNodeExecutor,
+  RouterNodeExecutor,
+  ToolNodeExecutor,
+  StateSchemaNodeExecutor,
+} from './execution/node-executors';
+export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
+export type {
+  GraphState,
+  ExecutionServices,
+  NodeExecutionContext,
+  NodeExecutor,
+  NodeExecutionResult,
+  NodeTraceEntry,
+  ExecutionEvent,
+  ExecutionOptions,
+} from './execution/types';
