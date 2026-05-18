@@ -156,12 +156,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(id, tenantId, userQuery, db);
 
+      // Discover MCP tools attached to this agent
+      const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
+      const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(id, tenantId, db);
+      const hasMcpTools = Object.keys(mcpTools).length > 0;
+
+      logger.info({ requestId, mcpToolCount: Object.keys(mcpTools).length }, 'MCP tools discovered');
+
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       if (kbContext) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext }, 'Starting stream chat');
+      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
 
       const result = streamChat({
         provider,
@@ -170,7 +177,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         system: effectiveSystem,
         temperature: effectiveTemperature,
         maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
+        ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
+          await mcpCleanup();
           const completedAt = new Date();
           await db.agentExecution.update({
             where: { id: execution.id },
@@ -193,7 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Graph agent execution with real GraphExecutor
     if (agent.type === 'graph') {
-      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor } = await import('@chatbot/agent-studio/server');
+      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor, KnowledgeBaseNodeExecutor, McpServerNodeExecutor } = await import('@chatbot/agent-studio/server');
 
       const graphDef = resolvedConfig as { nodes?: any[]; edges?: any[] };
       const nodes = graphDef.nodes ?? [];
@@ -227,6 +236,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       executor.register(new RouterNodeExecutor());
       executor.register(new ToolNodeExecutor());
       executor.register(new StateSchemaNodeExecutor());
+      executor.register(new KnowledgeBaseNodeExecutor());
+      executor.register(new McpServerNodeExecutor());
 
       let fullText = '';
 
