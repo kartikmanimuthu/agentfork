@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay';
 
 export interface SchemaField {
   name: string;
@@ -51,12 +51,119 @@ export interface StateSchemaNodeConfig {
   fields: SchemaField[];
 }
 
+export interface InputNodeConfig {
+  type: 'input';
+  mode: 'messages' | 'structured';
+  inputSchema?: SchemaField[];
+}
+
+export interface OutputNodeConfig {
+  type: 'output';
+  responseChannel: string;
+  format: 'text' | 'json' | 'stream';
+}
+
+export interface MemoryNodeConfig {
+  type: 'memory';
+  strategy: 'full' | 'sliding_window' | 'summary' | 'token_limit';
+  maxMessages?: number;
+  maxTokens?: number;
+  messagesChannel: string;
+}
+
+export interface KnowledgeBaseNodeConfig {
+  type: 'knowledge_base';
+  knowledgeBaseIds: string[];
+  queryChannel: string;
+  outputChannel: string;
+  topK: number;
+  threshold?: number;
+}
+
+export interface McpServerNodeConfig {
+  type: 'mcp_server';
+  serverId: string;
+  toolName: string;
+  argumentSource: 'from_state' | 'static';
+  staticArguments?: Record<string, unknown>;
+  channelMappings?: Record<string, string>;
+  outputChannel: string;
+}
+
+export interface CodeNodeConfig {
+  type: 'code';
+  code: string;
+  language: 'javascript' | 'typescript';
+  inputChannels: string[];
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
+export interface ConditionNodeConfig {
+  type: 'condition';
+  expression: string;
+  trueBranch: string;
+  falseBranch: string;
+}
+
+export interface HttpNodeConfig {
+  type: 'http';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  url: string;
+  headers?: Record<string, string>;
+  bodyTemplate?: string;
+  bodyChannel?: string;
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
+export interface HumanNodeConfig {
+  type: 'human';
+  prompt: string;
+  outputChannel: string;
+  timeoutMs?: number;
+}
+
+export interface ParallelNodeConfig {
+  type: 'parallel';
+  branches: string[];
+  mergeStrategy: 'all' | 'race' | 'any';
+  outputChannel: string;
+}
+
+export interface SubAgentNodeConfig {
+  type: 'sub_agent';
+  agentId: string;
+  versionId?: string;
+  alias?: string;
+  inputChannel: string;
+  outputChannel: string;
+}
+
+export interface DelayNodeConfig {
+  type: 'delay';
+  delayMs: number;
+  delayChannel?: string;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
   | ToolNodeConfig
   | RouterNodeConfig
-  | StateSchemaNodeConfig;
+  | StateSchemaNodeConfig
+  | InputNodeConfig
+  | OutputNodeConfig
+  | MemoryNodeConfig
+  | KnowledgeBaseNodeConfig
+  | McpServerNodeConfig
+  | CodeNodeConfig
+  | ConditionNodeConfig
+  | HttpNodeConfig
+  | HumanNodeConfig
+  | ParallelNodeConfig
+  | SubAgentNodeConfig
+  | DelayNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 

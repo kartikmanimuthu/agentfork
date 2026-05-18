@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger, createMcpServerVersionSchema } from '@chatbot/shared';
 import { McpServerService, McpServerVersionService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:mcp-servers[id]:versions');
 
 export async function GET(
   _req: NextRequest,
@@ -29,6 +31,7 @@ export async function GET(
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, mcpServerId: (await params).id }, 'Failed to list MCP server versions');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -43,7 +46,15 @@ export async function POST(
     if (authError) return authError;
 
     const { id } = await params;
-    const { changeNotes } = await req.json();
+    const body = await req.json();
+    const parsed = createMcpServerVersionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const { changeNotes } = parsed.data;
     const db = getPrismaClient();
 
     const service = new McpServerService(tenantId, db as any);
@@ -59,11 +70,13 @@ export async function POST(
       changeNotes
     );
 
+    logger.info({ tenantId, mcpServerId: id, versionId: (version as { id: string }).id }, 'MCP server version created');
     return NextResponse.json(version, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, mcpServerId: (await params).id }, 'Failed to create MCP server version');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

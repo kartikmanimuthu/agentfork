@@ -53,9 +53,9 @@ export default function AgentSettingsPage() {
 
   const form = useForm({
     defaultValues: {
-      name: '',
-      description: '',
-      status: 'draft' as const,
+      name: agent?.name ?? '',
+      description: agent?.description ?? '',
+      status: (agent?.status ?? 'draft') as 'draft' | 'active' | 'inactive',
     } as AgentSettingsFormValues,
     validators: { onChange: schema },
     onSubmit: async ({ value }) => {
@@ -70,10 +70,13 @@ export default function AgentSettingsPage() {
 
   useEffect(() => {
     if (agent) {
-      form.setFieldValue('name', agent.name);
-      form.setFieldValue('description', agent.description ?? '');
-      form.setFieldValue('status', agent.status);
+      form.reset({
+        name: agent.name,
+        description: agent.description ?? '',
+        status: agent.status as 'draft' | 'active' | 'inactive',
+      });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   const handleDelete = async () => {
@@ -110,6 +113,7 @@ export default function AgentSettingsPage() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          nativeButton={false}
           render={<Link href={`/agents/${agentId}`} aria-label="Back to agent" />}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -201,7 +205,7 @@ export default function AgentSettingsPage() {
           <AlertDialog>
             <AlertDialogTrigger
               render={
-                <Button variant="destructive" size="sm">
+                <Button variant="destructive" size="sm" nativeButton={false}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Agent
                 </Button>

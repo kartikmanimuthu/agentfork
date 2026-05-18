@@ -31,32 +31,5 @@
     ],
     "deny": []
   },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Evaluate the target file path. CRITICAL: If the file path is NOT exactly `.env` (e.g., `CLAUDE.md`), you MUST remain completely silent, output absolutely nothing, and let the tool execute. If and ONLY IF the file path matches exactly `.env` (but NOT `.env.example`, `.env.local`, etc.), STOP and ask for explicit confirmation, explaining that .env files may contain secrets."
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "If the file ends with .ts, .tsx, .js, .jsx, .css, or .json, run `bunx prettier --write <file>`. If prettier fails, just continue."
-          },
-          {
-            "type": "prompt",
-            "prompt": "If the file ends with .ts or .tsx and is inside apps/ or libs/, run `bunx tsc --noEmit` to type-check. Only report errors."
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

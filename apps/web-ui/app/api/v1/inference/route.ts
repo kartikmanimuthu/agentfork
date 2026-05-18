@@ -209,6 +209,11 @@ export async function POST(req: NextRequest) {
       const userQuery = coreMessages.filter((m: { role: string; content: string }) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
 
+      // Discover MCP tools attached to this agent
+      const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
+      const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(agentId, tenantId, db);
+      const hasMcpTools = Object.keys(mcpTools).length > 0;
+
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       if (kbContext) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
@@ -223,9 +228,10 @@ export async function POST(req: NextRequest) {
         temperature: effectiveTemperature,
       });
 
-      if (!noCache) {
+      if (!noCache && !hasMcpTools) {
         const cached = await cacheService.get(cacheKey);
         if (cached) {
+          await mcpCleanup();
           await quotaService.incrementUsage(cached.usage.totalTokens);
           await db.apiKeyExecution.update({
             where: { id: executionId },
@@ -276,7 +282,9 @@ export async function POST(req: NextRequest) {
           system: effectiveSystem,
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
+          ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
           onFinish: async ({ text, usage }) => {
+            await mcpCleanup();
             const completedAt = new Date();
             const latencyMs = completedAt.getTime() - startedAt.getTime();
             const tokenUsage = {
@@ -287,7 +295,7 @@ export async function POST(req: NextRequest) {
 
             await quotaService.incrementUsage(tokenUsage.totalTokens);
 
-            if (!noCache) {
+            if (!noCache && !hasMcpTools) {
               await cacheService.set(cacheKey, { text, usage: tokenUsage });
             }
 
@@ -329,6 +337,7 @@ export async function POST(req: NextRequest) {
           system: effectiveSystem,
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
+          ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         });
 
         const reader = result.toUIMessageStreamResponse().body?.getReader();
@@ -342,6 +351,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        await mcpCleanup();
         const completedAt = new Date();
         const latencyMs = completedAt.getTime() - startedAt.getTime();
 

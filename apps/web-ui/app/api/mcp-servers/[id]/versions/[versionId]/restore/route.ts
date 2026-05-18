@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger } from '@chatbot/shared';
 import { McpServerService, McpServerVersionService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:mcp-servers[id]:versions[versionId]:restore');
 
 export async function POST(
   _req: NextRequest,
@@ -37,11 +39,13 @@ export async function POST(
       `Restored from version ${version.version}`
     );
 
+    logger.info({ tenantId, mcpServerId: id, versionId }, 'MCP server version restored');
     return NextResponse.json(restored);
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, mcpServerId: (await params).id, versionId: (await params).versionId }, 'Failed to restore MCP server version');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

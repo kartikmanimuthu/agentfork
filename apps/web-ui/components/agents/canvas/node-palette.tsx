@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeRegistry } from '@chatbot/agent-studio';
-import { Bot, Wrench, GitBranch, Database } from 'lucide-react';
+import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain, BookOpen, Plug, Code, GitFork, Globe, UserCheck, GitMerge, Users, Timer } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 const NODE_ICONS: Record<string, LucideIcon> = {
@@ -9,6 +9,18 @@ const NODE_ICONS: Record<string, LucideIcon> = {
   tool: Wrench,
   router: GitBranch,
   state_schema: Database,
+  input: ArrowDownToLine,
+  output: ArrowUpFromLine,
+  memory: Brain,
+  knowledge_base: BookOpen,
+  mcp_server: Plug,
+  code: Code,
+  condition: GitFork,
+  http: Globe,
+  human: UserCheck,
+  parallel: GitMerge,
+  sub_agent: Users,
+  delay: Timer,
 };
 
 const NODE_COLORS: Record<string, string> = {
@@ -16,6 +28,18 @@ const NODE_COLORS: Record<string, string> = {
   tool: 'text-orange-500',
   router: 'text-purple-500',
   state_schema: 'text-teal-500',
+  input: 'text-green-500',
+  output: 'text-red-500',
+  memory: 'text-indigo-500',
+  knowledge_base: 'text-amber-500',
+  mcp_server: 'text-cyan-500',
+  code: 'text-emerald-500',
+  condition: 'text-yellow-500',
+  http: 'text-blue-500',
+  human: 'text-pink-500',
+  parallel: 'text-violet-500',
+  sub_agent: 'text-rose-500',
+  delay: 'text-slate-500',
 };
 
 export function NodePalette() {

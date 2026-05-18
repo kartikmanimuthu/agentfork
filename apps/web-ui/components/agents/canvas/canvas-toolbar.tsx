@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Save, CheckCircle, Upload, Loader2 } from 'lucide-react';
+import { Save, CheckCircle, Upload, Loader2, History, Plug } from 'lucide-react';
 
 interface CanvasToolbarProps {
   agentName: string;
@@ -13,6 +13,8 @@ interface CanvasToolbarProps {
   onSave: () => void;
   onValidate: () => void;
   onPublish: () => void;
+  onOpenVersions?: () => void;
+  onOpenResources?: () => void;
 }
 
 export function CanvasToolbar({
@@ -24,6 +26,8 @@ export function CanvasToolbar({
   onSave,
   onValidate,
   onPublish,
+  onOpenVersions,
+  onOpenResources,
 }: CanvasToolbarProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0">
@@ -37,6 +41,30 @@ export function CanvasToolbar({
       </div>
 
       <div className="flex items-center gap-2">
+        {onOpenResources && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenResources}
+            aria-label="Manage resources"
+          >
+            <Plug className="h-3.5 w-3.5 mr-1.5" />
+            Resources
+          </Button>
+        )}
+
+        {onOpenVersions && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenVersions}
+            aria-label="Version history"
+          >
+            <History className="h-3.5 w-3.5 mr-1.5" />
+            Versions
+          </Button>
+        )}
+
         <Button
           variant="outline"
           size="sm"
