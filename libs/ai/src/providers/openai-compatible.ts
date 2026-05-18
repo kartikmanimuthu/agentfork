@@ -36,6 +36,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
       system,
       temperature = 0.7,
       maxOutputTokens = 4096,
+      tools,
+      maxSteps,
       onFinish,
     } = options;
     return streamText({
@@ -44,6 +46,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       system,
       temperature,
       maxOutputTokens,
+      ...(tools && Object.keys(tools).length > 0 ? { tools, maxSteps: maxSteps ?? 5 } : {}),
       onFinish,
     });
   }

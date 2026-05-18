@@ -7,8 +7,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "tsx --env-file=.env --watch src/index.ts",
-    "start": "node --env-file=.env dist/index.js",
+    "dev": "tsx --env-file=../../.env --watch src/index.ts",
+    "start": "node --env-file=../../.env dist/index.js",
     "build": "tsc",
     "test": "vitest run",
     "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts"
