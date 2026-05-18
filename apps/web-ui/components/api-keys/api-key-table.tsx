@@ -68,6 +68,7 @@ export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
                 <div className="flex items-center justify-end gap-2">
                   <ApiGuideDialog
                     keyName={key.name}
+                    rawKey={key.rawKey}
                     trigger={
                       <Button variant="ghost" size="sm" aria-label="View integration guide">
                         <Code2 className="h-4 w-4" />

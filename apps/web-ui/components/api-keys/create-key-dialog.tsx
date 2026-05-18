@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,9 +80,7 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        <Button>Create API Key</Button>
-      </DialogTrigger>
+      <Button onClick={() => setOpen(true)}>Create API Key</Button>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create API Key</DialogTitle>

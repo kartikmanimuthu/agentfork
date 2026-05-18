@@ -92,6 +92,19 @@ export default function PlaygroundPage() {
       config = (agent.config as Record<string, unknown>) ?? {};
     }
 
+    // For graph agents, extract config from the first LLM node in the graph
+    if (agent?.type === 'graph' && config.nodes) {
+      const nodes = config.nodes as Array<{ config?: { type?: string; model?: string; modelId?: string; systemPrompt?: string; temperature?: number; maxTokens?: number } }>;
+      const llmNode = nodes.find((n) => n.config?.type === 'llm');
+      if (llmNode?.config) {
+        setSystemPrompt(String(llmNode.config.systemPrompt ?? ''));
+        setTemperature(Number(llmNode.config.temperature ?? 0.7));
+        setModel(String(llmNode.config.modelId ?? llmNode.config.model ?? ''));
+        setMaxTokens(llmNode.config.maxTokens ? Number(llmNode.config.maxTokens) : undefined);
+        return;
+      }
+    }
+
     setSystemPrompt(String(config.systemPrompt ?? ''));
     setTemperature(Number(config.temperature ?? 0.7));
     setModel(String(config.model ?? ''));

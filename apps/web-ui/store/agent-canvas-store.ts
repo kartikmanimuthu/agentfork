@@ -13,6 +13,7 @@ export interface CanvasState {
   // UI state
   selectedNodeId: string | null;
   isDirty: boolean;
+  clipboard: GraphNode[];
 
   // Actions
   setAgent: (agentId: string, versionId: string | null) => void;
@@ -23,6 +24,7 @@ export interface CanvasState {
   addEdge: (edge: GraphEdge) => void;
   removeEdge: (id: string) => void;
   selectNode: (id: string | null) => void;
+  setClipboard: (nodes: GraphNode[]) => void;
   markClean: () => void;
   reset: () => void;
 }
@@ -34,6 +36,7 @@ const initialState = {
   edges: [],
   selectedNodeId: null,
   isDirty: false,
+  clipboard: [],
 };
 
 export const useAgentCanvasStore = create<CanvasState>((set) => ({
@@ -79,6 +82,8 @@ export const useAgentCanvasStore = create<CanvasState>((set) => ({
     })),
 
   selectNode: (id) => set({ selectedNodeId: id }),
+
+  setClipboard: (nodes) => set({ clipboard: nodes }),
 
   markClean: () => set({ isDirty: false }),
 

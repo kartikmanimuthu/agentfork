@@ -202,7 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Graph agent execution with real GraphExecutor
     if (agent.type === 'graph') {
-      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor, KnowledgeBaseNodeExecutor, McpServerNodeExecutor } = await import('@chatbot/agent-studio/server');
+      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor, KnowledgeBaseNodeExecutor, McpServerNodeExecutor, InputNodeExecutor, OutputNodeExecutor, MemoryNodeExecutor, CodeNodeExecutor, ConditionNodeExecutor, HttpNodeExecutor, HumanNodeExecutor, ParallelNodeExecutor, SubAgentNodeExecutor, DelayNodeExecutor } = await import('@chatbot/agent-studio/server');
 
       const graphDef = resolvedConfig as { nodes?: any[]; edges?: any[] };
       const nodes = graphDef.nodes ?? [];
@@ -238,6 +238,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       executor.register(new StateSchemaNodeExecutor());
       executor.register(new KnowledgeBaseNodeExecutor());
       executor.register(new McpServerNodeExecutor());
+      executor.register(new InputNodeExecutor());
+      executor.register(new OutputNodeExecutor());
+      executor.register(new MemoryNodeExecutor());
+      executor.register(new CodeNodeExecutor());
+      executor.register(new ConditionNodeExecutor());
+      executor.register(new HttpNodeExecutor());
+      executor.register(new HumanNodeExecutor());
+      executor.register(new ParallelNodeExecutor());
+      executor.register(new SubAgentNodeExecutor());
+      executor.register(new DelayNodeExecutor());
 
       let fullText = '';
 

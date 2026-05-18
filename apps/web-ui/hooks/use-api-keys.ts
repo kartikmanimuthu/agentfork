@@ -12,6 +12,37 @@ export interface ApiKeyItem {
   dailyTokenLimit: number;
   expiresAt: string | null;
   createdAt: string;
+  rawKey?: string;
+}
+
+const SESSION_KEY = 'chatbot:api-key-cache';
+
+function readCache(): Record<string, string> {
+  try {
+    return JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeCache(id: string, rawKey: string) {
+  try {
+    const cache = readCache();
+    cache[id] = rawKey;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(cache));
+  } catch {
+    // sessionStorage unavailable (SSR, private mode)
+  }
+}
+
+function deleteFromCache(id: string) {
+  try {
+    const cache = readCache();
+    delete cache[id];
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
 }
 
 export function useApiKeys(agentId: string) {
@@ -25,8 +56,9 @@ export function useApiKeys(agentId: string) {
     try {
       const res = await fetch(`/api/agents/${agentId}/api-keys`);
       if (!res.ok) throw new Error('Failed to fetch API keys');
-      const data = await res.json();
-      setKeys(data);
+      const data: ApiKeyItem[] = await res.json();
+      const cache = readCache();
+      setKeys(data.map((k) => ({ ...k, rawKey: cache[k.id] })));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -41,10 +73,15 @@ export function useApiKeys(agentId: string) {
       body: JSON.stringify(input),
     });
     if (!res.ok) throw new Error('Failed to create API key');
-    return res.json();
+    const result = await res.json() as { rawKey?: string; apiKey?: { id: string } };
+    if (result.rawKey && result.apiKey?.id) {
+      writeCache(result.apiKey.id, result.rawKey);
+    }
+    return result;
   }, [agentId]);
 
   const revokeKey = useCallback(async (keyId: string) => {
+    deleteFromCache(keyId);
     await fetch(`/api/agents/${agentId}/api-keys/${keyId}/revoke`, { method: 'POST' });
     await fetchKeys();
   }, [agentId, fetchKeys]);

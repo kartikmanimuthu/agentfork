@@ -1,6 +1,7 @@
 'use client';
 
 import { useMcpServers, useAgentMcpServers, useAttachMcpServer, useDetachMcpServer } from '@/hooks/use-mcp-servers';
+import { useCreateAgentVersion } from '@/hooks/use-agent-versions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,13 +22,15 @@ import { useState } from 'react';
 
 interface McpServersTabProps {
   agentId: string;
+  agentConfig: Record<string, unknown>;
 }
 
-export function McpServersTab({ agentId }: McpServersTabProps) {
+export function McpServersTab({ agentId, agentConfig }: McpServersTabProps) {
   const { data: allServers, isLoading: allLoading } = useMcpServers({ pageSize: 100 });
   const { data: attachedServers, isLoading: attachedLoading } = useAgentMcpServers(agentId);
   const attachMutation = useAttachMcpServer(agentId);
   const detachMutation = useDetachMcpServer(agentId);
+  const createVersion = useCreateAgentVersion(agentId);
 
   const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
@@ -37,6 +40,7 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
   const handleAttach = async (serverId: string) => {
     try {
       await attachMutation.mutateAsync(serverId);
+      await createVersion.mutateAsync(agentConfig);
       toast.success('MCP server attached');
     } catch {
       toast.error('Failed to attach MCP server');
@@ -46,6 +50,7 @@ export function McpServersTab({ agentId }: McpServersTabProps) {
   const handleDetach = async (serverId: string) => {
     try {
       await detachMutation.mutateAsync(serverId);
+      await createVersion.mutateAsync(agentConfig);
       toast.success('MCP server detached');
       setDetachTarget(null);
     } catch {

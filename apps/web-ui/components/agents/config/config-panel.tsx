@@ -2,7 +2,7 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import { LlmNodeForm } from './llm-node-form';
 import { ToolNodeForm } from './tool-node-form';
 import { RouterNodeForm } from './router-node-form';
@@ -26,9 +26,10 @@ interface ConfigPanelProps {
   node: GraphNode | null;
   onClose: () => void;
   onConfigChange: (nodeId: string, config: NodeConfig) => void;
+  onDelete?: (nodeId: string) => void;
 }
 
-export function ConfigPanel({ node, onClose, onConfigChange }: ConfigPanelProps) {
+export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
   if (!node) return null;
 
   const handleChange = (config: NodeConfig) => onConfigChange(node.id, config);
@@ -40,9 +41,16 @@ export function ConfigPanel({ node, onClose, onConfigChange }: ConfigPanelProps)
           <p className="text-sm font-semibold truncate">{node.label}</p>
           <p className="text-xs text-muted-foreground capitalize">{node.config.type} node</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} aria-label="Close config panel">
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {onDelete && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(node.id)} aria-label="Delete node">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} aria-label="Close config panel">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
