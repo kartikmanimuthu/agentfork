@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { SubAgentNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'sub-agent-executor' });
+const logger = createLogger('agent-studio:sub-agent-executor');
 
 export class SubAgentNodeExecutor implements NodeExecutor {
   type = 'sub_agent';

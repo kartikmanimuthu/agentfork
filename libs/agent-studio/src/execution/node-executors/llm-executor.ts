@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { LlmNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'llm-executor' });
+const logger = createLogger('agent-studio:llm-executor');
 
 export class LlmNodeExecutor implements NodeExecutor {
   type = 'llm';

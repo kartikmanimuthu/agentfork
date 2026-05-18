@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { DelayNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'delay-executor' });
+const logger = createLogger('agent-studio:delay-executor');
 
 export class DelayNodeExecutor implements NodeExecutor {
   type = 'delay';

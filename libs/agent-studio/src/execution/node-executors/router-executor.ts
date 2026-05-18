@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { RouterNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'router-executor' });
+const logger = createLogger('agent-studio:router-executor');
 
 export class RouterNodeExecutor implements NodeExecutor {
   type = 'router';

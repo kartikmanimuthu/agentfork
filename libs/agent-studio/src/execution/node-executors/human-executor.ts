@@ -1,9 +1,9 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import crypto from 'node:crypto';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { HumanNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'human-executor' });
+const logger = createLogger('agent-studio:human-executor');
 
 export class HumanNodeExecutor implements NodeExecutor {
   type = 'human';

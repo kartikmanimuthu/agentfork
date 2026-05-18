@@ -1,5 +1,8 @@
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { MemoryNodeConfig } from '../../types/nodes';
+
+const logger = createLogger('agent-studio:memory-executor');
 
 interface Message {
   role: 'user' | 'assistant' | 'system';

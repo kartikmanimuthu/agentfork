@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { KnowledgeBaseNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'kb-executor' });
+const logger = createLogger('agent-studio:kb-executor');
 
 export class KnowledgeBaseNodeExecutor implements NodeExecutor {
   type = 'knowledge_base';

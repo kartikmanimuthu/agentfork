@@ -31,3 +31,7 @@ export type {
   ExecutionEvent,
   ExecutionOptions,
 } from './execution/types';
+
+// MCP Client — runtime tool discovery and execution
+export { McpClientService, buildMcpToolsForAgent } from './services/mcp-client.service';
+export type { McpDiscoveredTool } from './services/mcp-client.service';

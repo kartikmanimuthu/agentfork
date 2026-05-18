@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { ParallelNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'parallel-executor' });
+const logger = createLogger('agent-studio:parallel-executor');
 
 export class ParallelNodeExecutor implements NodeExecutor {
   type = 'parallel';

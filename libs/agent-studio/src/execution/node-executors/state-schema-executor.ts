@@ -1,5 +1,8 @@
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { StateSchemaNodeConfig, SchemaField } from '../../types/nodes';
+
+const logger = createLogger('agent-studio:state-schema-executor');
 
 export class StateSchemaNodeExecutor implements NodeExecutor {
   type = 'state_schema';

@@ -1,8 +1,8 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { ConditionNodeConfig } from '../../types/nodes';
 
-const logger = pino({ name: 'condition-executor' });
+const logger = createLogger('agent-studio:condition-executor');
 
 export class ConditionNodeExecutor implements NodeExecutor {
   type = 'condition';

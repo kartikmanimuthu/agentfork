@@ -1,5 +1,8 @@
+import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { OutputNodeConfig } from '../../types/nodes';
+
+const logger = createLogger('agent-studio:output-executor');
 
 export class OutputNodeExecutor implements NodeExecutor {
   type = 'output';

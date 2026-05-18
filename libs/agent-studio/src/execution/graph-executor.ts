@@ -1,4 +1,4 @@
-import pino from 'pino';
+import { createLogger } from '@chatbot/shared';
 import type {
   GraphState,
   ExecutionServices,
@@ -11,7 +11,7 @@ import type {
 import type { GraphDefinition, GraphNode } from '../types/agent';
 import { createInitialState, applyStateUpdates } from './state';
 
-const logger = pino({ name: 'graph-executor' });
+const logger = createLogger('agent-studio:graph-executor');
 
 const DEFAULT_MAX_STEPS = 50;
 
