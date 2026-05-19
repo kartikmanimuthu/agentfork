@@ -1,4 +1,7 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { RetrievalResult, Reranker } from '../types';
+
+const rerankLogger = createLogger('kb:reranker');
 
 // ─── Cohere reranker ──────────────────────────────────────────────────────────
 
@@ -7,35 +10,46 @@ export class CohereReranker implements Reranker {
 
   async rerank(query: string, chunks: RetrievalResult[], topK: number): Promise<RetrievalResult[]> {
     const apiKey = process.env['COHERE_API_KEY'];
-    if (!apiKey) throw new Error('COHERE_API_KEY environment variable is required');
-
-    const response = await fetch('https://api.cohere.ai/v1/rerank', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        query,
-        documents: chunks.map((c) => c.content),
-        top_n: topK,
-        return_documents: false,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Cohere rerank failed: ${response.status} ${response.statusText}`);
+    if (!apiKey) {
+      rerankLogger.error({ provider: 'COHERE' }, 'COHERE_API_KEY environment variable is required');
+      throw new Error('COHERE_API_KEY environment variable is required');
     }
 
-    const data = (await response.json()) as {
-      results: Array<{ index: number; relevance_score: number }>;
-    };
+    try {
+      const response = await fetch('https://api.cohere.ai/v1/rerank', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          query,
+          documents: chunks.map((c) => c.content),
+          top_n: topK,
+          return_documents: false,
+        }),
+      });
 
-    return data.results.map(({ index, relevance_score }) => ({
-      ...chunks[index],
-      score: relevance_score,
-    }));
+      if (!response.ok) {
+        throw new Error(`Cohere rerank failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as {
+        results: Array<{ index: number; relevance_score: number }>;
+      };
+
+      const results = data.results.map(({ index, relevance_score }) => ({
+        ...chunks[index],
+        score: relevance_score,
+      }));
+      rerankLogger.info({ provider: 'COHERE', inputCount: chunks.length, outputCount: results.length }, 'Reranked results');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      rerankLogger.error({ provider: 'COHERE', chunkCount: chunks.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to rerank');
+      throw error;
+    }
   }
 }
 
@@ -48,33 +62,40 @@ export class CrossEncoderReranker implements Reranker {
   ) {}
 
   async rerank(query: string, chunks: RetrievalResult[], topK: number): Promise<RetrievalResult[]> {
-    // Score each chunk by asking the model to score query-document relevance
-    const scored = await Promise.all(
-      chunks.map(async (chunk, i) => {
-        try {
-          const res = await fetch(`${this.baseUrl}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: this.model,
-              prompt: `Query: ${query}\nDocument: ${chunk.content}\nRelevance score (0-1):`,
-              stream: false,
-            }),
-          });
-          if (!res.ok) return { chunk, score: chunk.score };
-          const data = (await res.json()) as { response: string };
-          const score = parseFloat(data.response.trim());
-          return { chunk, score: isNaN(score) ? chunk.score : score };
-        } catch {
-          return { chunk, score: chunk.score };
-        }
-      })
-    );
+    try {
+      const scored = await Promise.all(
+        chunks.map(async (chunk, i) => {
+          try {
+            const res = await fetch(`${this.baseUrl}/api/generate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: this.model,
+                prompt: `Query: ${query}\nDocument: ${chunk.content}\nRelevance score (0-1):`,
+                stream: false,
+              }),
+            });
+            if (!res.ok) return { chunk, score: chunk.score };
+            const data = (await res.json()) as { response: string };
+            const score = parseFloat(data.response.trim());
+            return { chunk, score: isNaN(score) ? chunk.score : score };
+          } catch {
+            return { chunk, score: chunk.score };
+          }
+        })
+      );
 
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
-      .map(({ chunk, score }) => ({ ...chunk, score }));
+      const results = scored
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map(({ chunk, score }) => ({ ...chunk, score }));
+      rerankLogger.info({ provider: 'CROSS_ENCODER', inputCount: chunks.length, outputCount: results.length }, 'Reranked results');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      rerankLogger.error({ provider: 'CROSS_ENCODER', chunkCount: chunks.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to rerank');
+      throw error;
+    }
   }
 }
 

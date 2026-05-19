@@ -18,6 +18,7 @@ const mockKbRepo = {
 };
 
 const mockGetUploadUrl = vi.fn();
+const mockUploadBuffer = vi.fn().mockResolvedValue(undefined);
 const mockEnqueueIngestion = vi.fn();
 
 const mockCrawler = {
@@ -31,6 +32,12 @@ vi.mock('@chatbot/shared/workers', () => ({
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+  })),
+}));
+
+vi.mock('@chatbot/shared', () => ({
+  S3Service: vi.fn().mockImplementation(() => ({
+    uploadBuffer: mockUploadBuffer,
   })),
 }));
 
@@ -57,9 +64,9 @@ describe('handleWebCrawl', () => {
     mockDsRepo.update.mockReset();
     mockDocRepo.create.mockReset();
     mockGetUploadUrl.mockReset();
+    mockUploadBuffer.mockReset();
     mockEnqueueIngestion.mockReset();
     mockCrawler.crawl.mockReset();
-    vi.stubGlobal('fetch', vi.fn());
   });
 
   const validPayload = {
@@ -124,19 +131,13 @@ describe('handleWebCrawl', () => {
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'tenant/ds/1-file.txt' });
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true, statusText: 'OK' });
-    vi.stubGlobal('fetch', mockFetch);
 
     mockDocRepo.create.mockResolvedValue({ id: 'doc-1' });
 
     await handleWebCrawl(validPayload, mockBoss);
 
     expect(mockGetUploadUrl).toHaveBeenCalledWith(validPayload.dataSourceId, 'https___example_com.txt', 'text/plain');
-    expect(mockFetch).toHaveBeenCalledWith('https://s3.example.com/upload', {
-      method: 'PUT',
-      body: Buffer.from('Hello world', 'utf-8'),
-      headers: { 'Content-Type': 'text/plain' },
-    });
+    expect(mockUploadBuffer).toHaveBeenCalledWith('tenant/ds/1-file.txt', Buffer.from('Hello world', 'utf-8'), 'text/plain');
     expect(mockDocRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         dataSourceId: validPayload.dataSourceId,
@@ -162,8 +163,6 @@ describe('handleWebCrawl', () => {
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true, statusText: 'OK' });
-    vi.stubGlobal('fetch', mockFetch);
 
     mockDocRepo.create.mockResolvedValue({ id: 'doc-1' });
 
@@ -191,8 +190,6 @@ describe('handleWebCrawl', () => {
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true, statusText: 'OK' });
-    vi.stubGlobal('fetch', mockFetch);
 
     mockDocRepo.create.mockResolvedValue({ id: 'doc-1' });
 
@@ -245,12 +242,9 @@ describe('handleWebCrawl', () => {
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
-    const mockFetch = vi.fn().mockResolvedValue({ ok: false, statusText: 'Forbidden' });
-    vi.stubGlobal('fetch', mockFetch);
+    mockUploadBuffer.mockRejectedValue(new Error('S3 upload failed'));
 
-    await expect(handleWebCrawl(validPayload, mockBoss)).rejects.toThrow(
-      'Failed to upload crawled page to S3: Forbidden'
-    );
+    await expect(handleWebCrawl(validPayload, mockBoss)).rejects.toThrow('S3 upload failed');
   });
 
   it('passes crawl options to the crawler', async () => {

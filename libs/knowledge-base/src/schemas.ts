@@ -158,6 +158,85 @@ export const retrievalOptionsSchema = z.object({
   useCompression: z.boolean().optional(),
 });
 
+// ─── Test retrieval ───────────────────────────────────────────────────────────
+
+export const testRetrievalSchema = z.object({
+  query: z.string().min(1),
+  topK: z.number().int().min(1).max(100).optional(),
+  searchMode: searchModeSchema.optional(),
+  similarityThreshold: z.number().min(0).max(1).optional(),
+  hybridAlpha: z.number().min(0).max(1).optional(),
+  rerankProvider: rerankProviderSchema.optional(),
+});
+
+// ─── Multi-KB search ──────────────────────────────────────────────────────────
+
+export const multiKbSearchSchema = z.object({
+  query: z.string().min(1),
+  knowledgeBaseIds: z.array(z.string().cuid()).min(1),
+  topK: z.number().int().min(1).max(100).optional(),
+  similarityThreshold: z.number().min(0).max(1).optional(),
+  searchMode: searchModeSchema.optional(),
+  hybridAlpha: z.number().min(0).max(1).optional(),
+  rerankProvider: rerankProviderSchema.optional(),
+});
+
+// ─── Crawl trigger ────────────────────────────────────────────────────────────
+
+export const crawlTriggerSchema = z.object({
+  sourceId: z.string().cuid(),
+});
+
+// ─── Agent KB attach ──────────────────────────────────────────────────────────
+
+export const agentAttachKbSchema = z.object({
+  knowledgeBaseId: z.string().cuid(),
+});
+
+// ─── Source sync ──────────────────────────────────────────────────────────────
+
+export const syncSourceSchema = z.object({
+  force: z.boolean().optional(),
+});
+
+// ─── Query param schemas ──────────────────────────────────────────────────────
+
+export const kbListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  status: z.string().optional(),
+});
+
+export const sourceListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const documentListQuerySchema = z.object({
+  sourceId: z.string().cuid(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  status: z.string().optional(),
+});
+
+export const chunkListQuerySchema = z.object({
+  documentId: z.string().cuid(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const umapQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(2000).default(500),
+});
+
+export const documentQuerySchema = z.object({
+  sourceId: z.string().cuid(),
+});
+
+export const chunkQuerySchema = z.object({
+  documentId: z.string().cuid(),
+});
+
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type CreateKnowledgeBaseInput = z.infer<typeof createKnowledgeBaseSchema>;
@@ -170,3 +249,15 @@ export type RetrievalOptionsInput = z.infer<typeof retrievalOptionsSchema>;
 export type MetadataFilterInput = z.infer<typeof metadataFilterSchema>;
 export type PreProcessingConfigInput = z.infer<typeof preProcessingConfigSchema>;
 export type RetrievalConfigInput = z.infer<typeof retrievalConfigSchema>;
+export type TestRetrievalInput = z.infer<typeof testRetrievalSchema>;
+export type MultiKbSearchInput = z.infer<typeof multiKbSearchSchema>;
+export type CrawlTriggerInput = z.infer<typeof crawlTriggerSchema>;
+export type AgentAttachKbInput = z.infer<typeof agentAttachKbSchema>;
+export type SyncSourceInput = z.infer<typeof syncSourceSchema>;
+export type KbListQueryInput = z.infer<typeof kbListQuerySchema>;
+export type SourceListQueryInput = z.infer<typeof sourceListQuerySchema>;
+export type DocumentListQueryInput = z.infer<typeof documentListQuerySchema>;
+export type ChunkListQueryInput = z.infer<typeof chunkListQuerySchema>;
+export type UmapQueryInput = z.infer<typeof umapQuerySchema>;
+export type DocumentQueryInput = z.infer<typeof documentQuerySchema>;
+export type ChunkQueryInput = z.infer<typeof chunkQuerySchema>;

@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DocumentService } from '@chatbot/knowledge-base';
+import { getSessionTenantId, authorize, createLogger, S3Service, ValidationError } from '@chatbot/shared';
+import { DocumentService, IngestionService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
-import { createLogger } from '@chatbot/shared';
-import { z } from 'zod';
+import { createBoss } from '@/lib/boss';
 
 const logger = createLogger('api:kb:upload');
 
-const uploadRequestSchema = z.object({
-  dataSourceId: z.string().min(1),
-  fileName: z.string().min(1).max(512),
-  mimeType: z.string().min(1),
-  sizeBytes: z.number().int().nonnegative(),
-});
-
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let boss: ReturnType<typeof createBoss> | null = null;
   try {
     const { id: knowledgeBaseId } = await params;
     logger.info({ knowledgeBaseId }, 'Upload request received');
@@ -23,35 +16,67 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const authError = await authorize('create', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const body = await req.json();
-    const parsed = uploadRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      );
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+    const dataSourceId = formData.get('dataSourceId') as string | null;
+
+    if (!file || !dataSourceId) {
+      return NextResponse.json({ error: 'file and dataSourceId are required' }, { status: 400 });
     }
 
-    const { dataSourceId: sourceId, fileName, mimeType, sizeBytes } = parsed.data;
+    const fileName = file.name;
+    const mimeType = file.type || 'application/octet-stream';
+    const sizeBytes = file.size;
+
+    logger.info({ knowledgeBaseId, dataSourceId, fileName, mimeType, sizeBytes }, 'File received, uploading to S3');
 
     const docService = new DocumentService(tenantId);
-    const { uploadUrl, s3Key } = await docService.getUploadUrl(sourceId, fileName, mimeType);
+    const s3Key = `${tenantId}/${dataSourceId}/${Date.now()}-${fileName}`;
+
+    const s3 = new S3Service();
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await s3.uploadBuffer(s3Key, buffer, mimeType);
+    logger.info({ s3Key, sizeBytes: buffer.length }, 'File uploaded to S3');
 
     const document = await docService.create({
-      dataSourceId: sourceId,
+      dataSourceId,
       sourceKey: s3Key,
       fileName,
       mimeType,
       sizeBytes,
     });
+    logger.info({ documentId: document.id, s3Key }, 'Document record created');
 
-    logger.info({ documentId: document.id, s3Key }, 'Document record created, returning upload URL');
+    boss = createBoss();
+    await boss.start();
+    await boss.createQueue('document-ingestion');
 
-    return NextResponse.json({ uploadUrl, document }, { status: 201 });
+    const ingestionService = new IngestionService(tenantId);
+    const jobId = await ingestionService.enqueueIngestion(boss, {
+      documentId: document.id,
+      tenantId,
+      s3Key,
+      mimeType,
+      knowledgeBaseId,
+    });
+
+    await boss.stop({ graceful: false });
+    boss = null;
+
+    logger.info({ documentId: document.id, jobId }, 'Ingestion job enqueued');
+
+    return NextResponse.json({ document, jobId }, { status: 201 });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ errorMessage: err.message }, 'Upload flow failed');
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Upload flow failed');
 
+    if (boss) {
+      try { await boss.stop({ graceful: false }); } catch { /* ignore */ }
+    }
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
     if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }

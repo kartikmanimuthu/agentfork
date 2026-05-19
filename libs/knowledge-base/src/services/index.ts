@@ -22,6 +22,8 @@ import type { PaginationParams, PaginatedResult } from '@chatbot/shared';
 
 // ─── KnowledgeBaseService ─────────────────────────────────────────────────────
 
+const kbLogger = createLogger('kb:knowledge-base-service');
+
 export class KnowledgeBaseService {
   private readonly kbRepo: ReturnType<typeof createKnowledgeBaseRepository>;
 
@@ -33,34 +35,103 @@ export class KnowledgeBaseService {
   async list(
     params: PaginationParams & { status?: string } = {}
   ): Promise<PaginatedResult<KnowledgeBaseRecord>> {
-    return this.kbRepo.findByTenantId(this.tenantId, params);
+    kbLogger.info({ tenantId: this.tenantId, params }, 'Listing knowledge bases');
+    try {
+      const result = await this.kbRepo.findByTenantId(this.tenantId, params);
+      kbLogger.info({ tenantId: this.tenantId, count: result.total }, 'Listed knowledge bases');
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      kbLogger.error(
+        { tenantId: this.tenantId, params, errorMessage: error.message, errorStack: error.stack },
+        'Failed to list knowledge bases'
+      );
+      throw error;
+    }
   }
 
   async get(id: string): Promise<KnowledgeBaseRecord | null> {
-    const kb = await this.kbRepo.findById(id);
-    if (!kb || kb.tenantId !== this.tenantId) return null;
-    return kb;
+    kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Fetching knowledge base');
+    try {
+      const kb = await this.kbRepo.findById(id);
+      if (!kb || kb.tenantId !== this.tenantId) {
+        kbLogger.warn({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Knowledge base not found');
+        return null;
+      }
+      kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Fetched knowledge base');
+      return kb;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      kbLogger.error(
+        { tenantId: this.tenantId, knowledgeBaseId: id, errorMessage: error.message, errorStack: error.stack },
+        'Failed to fetch knowledge base'
+      );
+      throw error;
+    }
   }
 
   async create(input: Omit<CreateKnowledgeBaseRecord, 'tenantId'>): Promise<KnowledgeBaseRecord> {
-    return this.kbRepo.create({ ...input, tenantId: this.tenantId });
+    kbLogger.info({ tenantId: this.tenantId, input }, 'Creating knowledge base');
+    try {
+      const kb = await this.kbRepo.create({ ...input, tenantId: this.tenantId });
+      kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: kb.id }, 'Created knowledge base');
+      return kb;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      kbLogger.error(
+        { tenantId: this.tenantId, input, errorMessage: error.message, errorStack: error.stack },
+        'Failed to create knowledge base'
+      );
+      throw error;
+    }
   }
 
   async update(id: string, input: UpdateKnowledgeBaseRecord): Promise<KnowledgeBaseRecord | null> {
-    const existing = await this.get(id);
-    if (!existing) return null;
-    return this.kbRepo.update(id, input);
+    kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id, input }, 'Updating knowledge base');
+    try {
+      const existing = await this.get(id);
+      if (!existing) {
+        kbLogger.warn({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Knowledge base not found for update');
+        return null;
+      }
+      const kb = await this.kbRepo.update(id, input);
+      kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Updated knowledge base');
+      return kb;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      kbLogger.error(
+        { tenantId: this.tenantId, knowledgeBaseId: id, input, errorMessage: error.message, errorStack: error.stack },
+        'Failed to update knowledge base'
+      );
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<boolean> {
-    const existing = await this.get(id);
-    if (!existing) return false;
-    await this.kbRepo.delete(id);
-    return true;
+    kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Deleting knowledge base');
+    try {
+      const existing = await this.get(id);
+      if (!existing) {
+        kbLogger.warn({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Knowledge base not found for delete');
+        return false;
+      }
+      await this.kbRepo.delete(id);
+      kbLogger.info({ tenantId: this.tenantId, knowledgeBaseId: id }, 'Deleted knowledge base');
+      return true;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      kbLogger.error(
+        { tenantId: this.tenantId, knowledgeBaseId: id, errorMessage: error.message, errorStack: error.stack },
+        'Failed to delete knowledge base'
+      );
+      throw error;
+    }
   }
 }
 
 // ─── DataSourceService ────────────────────────────────────────────────────────
+
+const dsLogger = createLogger('kb:data-source-service');
 
 export class DataSourceService {
   private readonly dsRepo: ReturnType<typeof createDataSourceRepository>;
@@ -83,33 +154,100 @@ export class DataSourceService {
     knowledgeBaseId: string,
     params?: PaginationParams
   ): Promise<PaginatedResult<DataSourceRecord>> {
-    await this.assertKbOwnership(knowledgeBaseId);
-    return this.dsRepo.findByKnowledgeBaseId(knowledgeBaseId, params);
+    dsLogger.info({ tenantId: this.tenantId, knowledgeBaseId, params }, 'Listing data sources');
+    try {
+      await this.assertKbOwnership(knowledgeBaseId);
+      const result = await this.dsRepo.findByKnowledgeBaseId(knowledgeBaseId, params);
+      dsLogger.info({ tenantId: this.tenantId, knowledgeBaseId, count: result.total }, 'Listed data sources');
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      dsLogger.error(
+        { tenantId: this.tenantId, knowledgeBaseId, params, errorMessage: error.message, errorStack: error.stack },
+        'Failed to list data sources'
+      );
+      throw error;
+    }
   }
 
   async get(id: string): Promise<DataSourceRecord | null> {
-    const ds = await this.dsRepo.findById(id);
-    if (!ds) return null;
-    await this.assertKbOwnership(ds.knowledgeBaseId);
-    return ds;
+    dsLogger.info({ tenantId: this.tenantId, dataSourceId: id }, 'Fetching data source');
+    try {
+      const ds = await this.dsRepo.findById(id);
+      if (!ds) {
+        dsLogger.warn({ tenantId: this.tenantId, dataSourceId: id }, 'Data source not found');
+        return null;
+      }
+      await this.assertKbOwnership(ds.knowledgeBaseId);
+      dsLogger.info({ tenantId: this.tenantId, dataSourceId: id }, 'Fetched data source');
+      return ds;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      dsLogger.error(
+        { tenantId: this.tenantId, dataSourceId: id, errorMessage: error.message, errorStack: error.stack },
+        'Failed to fetch data source'
+      );
+      throw error;
+    }
   }
 
   async create(input: CreateDataSourceRecord): Promise<DataSourceRecord> {
-    await this.assertKbOwnership(input.knowledgeBaseId);
-    return this.dsRepo.create(input);
+    dsLogger.info({ tenantId: this.tenantId, knowledgeBaseId: input.knowledgeBaseId, type: input.type }, 'Creating data source');
+    try {
+      await this.assertKbOwnership(input.knowledgeBaseId);
+      const ds = await this.dsRepo.create(input);
+      dsLogger.info({ tenantId: this.tenantId, dataSourceId: ds.id }, 'Created data source');
+      return ds;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      dsLogger.error(
+        { tenantId: this.tenantId, input, errorMessage: error.message, errorStack: error.stack },
+        'Failed to create data source'
+      );
+      throw error;
+    }
   }
 
   async update(id: string, input: UpdateDataSourceRecord): Promise<DataSourceRecord | null> {
-    const existing = await this.get(id);
-    if (!existing) return null;
-    return this.dsRepo.update(id, input);
+    dsLogger.info({ tenantId: this.tenantId, dataSourceId: id, input }, 'Updating data source');
+    try {
+      const existing = await this.get(id);
+      if (!existing) {
+        dsLogger.warn({ tenantId: this.tenantId, dataSourceId: id }, 'Data source not found for update');
+        return null;
+      }
+      const ds = await this.dsRepo.update(id, input);
+      dsLogger.info({ tenantId: this.tenantId, dataSourceId: id }, 'Updated data source');
+      return ds;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      dsLogger.error(
+        { tenantId: this.tenantId, dataSourceId: id, input, errorMessage: error.message, errorStack: error.stack },
+        'Failed to update data source'
+      );
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<boolean> {
-    const existing = await this.get(id);
-    if (!existing) return false;
-    await this.dsRepo.delete(id);
-    return true;
+    dsLogger.info({ tenantId: this.tenantId, dataSourceId: id }, 'Deleting data source');
+    try {
+      const existing = await this.get(id);
+      if (!existing) {
+        dsLogger.warn({ tenantId: this.tenantId, dataSourceId: id }, 'Data source not found for delete');
+        return false;
+      }
+      await this.dsRepo.delete(id);
+      dsLogger.info({ tenantId: this.tenantId, dataSourceId: id }, 'Deleted data source');
+      return true;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      dsLogger.error(
+        { tenantId: this.tenantId, dataSourceId: id, errorMessage: error.message, errorStack: error.stack },
+        'Failed to delete data source'
+      );
+      throw error;
+    }
   }
 }
 

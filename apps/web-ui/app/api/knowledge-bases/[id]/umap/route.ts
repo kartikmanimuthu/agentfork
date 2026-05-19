@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger, parseSearchParams, ValidationError } from '@chatbot/shared';
 import {
   createDocumentChunkRepository,
   createKnowledgeBaseRepository,
   projectEmbeddingsCached,
+  umapQuerySchema,
 } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:knowledge-bases:umap');
 
 /**
  * Returns a 2D UMAP projection of chunk embeddings for visualization.
@@ -19,7 +22,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id: knowledgeBaseId } = await params;
     const { searchParams } = new URL(req.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '500', 10), 2000);
+    const query = parseSearchParams(searchParams, umapQuerySchema);
+
+    logger.info({ tenantId, knowledgeBaseId, limit: query.limit }, 'UMAP projection request');
 
     const db = getPrismaClient();
     const kbRepo = createKnowledgeBaseRepository(db);
@@ -28,7 +33,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    // Fetch chunks with embeddings via raw SQL
     const rows = await db.$queryRaw<
       Array<{
         id: string;
@@ -49,14 +53,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       JOIN data_sources ds ON ds.id = d."dataSourceId"
       WHERE ds."knowledgeBaseId" = ${knowledgeBaseId}
         AND dc.embedding IS NOT NULL
-      LIMIT ${limit}
+      LIMIT ${query.limit}
     `;
 
     if (rows.length === 0) {
       return NextResponse.json({ points: [], message: 'No embeddings found' });
     }
 
-    // Parse vector strings like "[0.1,0.2,...]"
     const items = rows.map((row) => ({
       id: row.id,
       embedding: row.embedding
@@ -68,17 +71,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const projection = await projectEmbeddingsCached(knowledgeBaseId, items);
 
+    logger.info({ tenantId, knowledgeBaseId, pointCount: projection.points.length }, 'UMAP projection completed');
     return NextResponse.json(projection);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'UMAP projection failed');
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    if (error instanceof Error && error.message.includes('umap-js')) {
+    if (err.message.includes('umap-js')) {
       return NextResponse.json(
         { error: 'UMAP projection requires the "umap-js" package on the server.' },
         { status: 501 }
       );
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

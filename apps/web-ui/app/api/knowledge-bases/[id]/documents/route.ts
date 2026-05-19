@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { DocumentService } from '@chatbot/knowledge-base';
+import { getSessionTenantId, authorize, createLogger, parseSearchParams, ValidationError } from '@chatbot/shared';
+import { DocumentService, documentListQuerySchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:knowledge-bases:documents');
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,28 +11,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const authError = await authorize('read', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const { id } = await params;
+    const { id: knowledgeBaseId } = await params;
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') ?? '20', 10);
-    const offset = parseInt(searchParams.get('offset') ?? '0', 10);
-    const sourceId = searchParams.get('sourceId');
-    const status = searchParams.get('status') ?? undefined;
+    const query = parseSearchParams(searchParams, documentListQuerySchema);
 
-    if (!sourceId) {
-      return NextResponse.json({ error: 'sourceId query param is required' }, { status: 400 });
-    }
+    logger.info({ tenantId, knowledgeBaseId, sourceId: query.sourceId }, 'List documents request');
 
     const service = new DocumentService(tenantId);
-    const result = await service.list(sourceId, { limit, offset, status });
+    const result = await service.list(query.sourceId, { limit: query.limit, offset: query.offset, status: query.status });
 
+    logger.info({ tenantId, knowledgeBaseId, sourceId: query.sourceId, count: result.items.length }, 'List documents completed');
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'List documents failed');
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    if (error instanceof Error && error.message.includes('not found')) {
+    if (err.message.includes('not found')) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

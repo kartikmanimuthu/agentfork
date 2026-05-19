@@ -1,5 +1,8 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { DocumentChunkRepository, DocumentChunkWithScore } from '../repositories/index';
 import type { RetrievalResult, DetailedRetrievalResult, SearchMode } from '../types';
+
+const searchLogger = createLogger('kb:search');
 
 // ─── Dense search ─────────────────────────────────────────────────────────────
 
@@ -92,17 +95,30 @@ export async function search(
   threshold: number,
   hybridAlpha: number
 ): Promise<DetailedRetrievalResult[]> {
-  switch (mode) {
-    case 'DENSE':
-      return denseSearch(chunkRepo, knowledgeBaseId, queryEmbedding, topK, threshold);
-    case 'SPARSE':
-      return sparseSearch(chunkRepo, knowledgeBaseId, query, topK);
-    case 'HYBRID':
-      return hybridSearch(chunkRepo, knowledgeBaseId, query, queryEmbedding, topK, threshold, hybridAlpha);
-    default: {
-      const _exhaustive: never = mode;
-      throw new Error(`Unknown search mode: ${_exhaustive}`);
+  searchLogger.info({ knowledgeBaseId, mode, topK, threshold }, 'Running search');
+  try {
+    let results: DetailedRetrievalResult[];
+    switch (mode) {
+      case 'DENSE':
+        results = await denseSearch(chunkRepo, knowledgeBaseId, queryEmbedding, topK, threshold);
+        break;
+      case 'SPARSE':
+        results = await sparseSearch(chunkRepo, knowledgeBaseId, query, topK);
+        break;
+      case 'HYBRID':
+        results = await hybridSearch(chunkRepo, knowledgeBaseId, query, queryEmbedding, topK, threshold, hybridAlpha);
+        break;
+      default: {
+        const _exhaustive: never = mode;
+        throw new Error(`Unknown search mode: ${_exhaustive}`);
+      }
     }
+    searchLogger.info({ knowledgeBaseId, mode, resultCount: results.length }, 'Search completed');
+    return results;
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    searchLogger.error({ knowledgeBaseId, mode, topK, errorMessage: error.message, errorStack: error.stack }, 'Search failed');
+    throw error;
   }
 }
 

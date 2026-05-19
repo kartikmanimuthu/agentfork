@@ -1,5 +1,8 @@
+import { createLogger } from '@chatbot/shared/workers';
 import { stripHtml } from '../parsers/index';
 import type { PreProcessingConfig } from '../types';
+
+const preprocLogger = createLogger('kb:preprocessing');
 
 // ─── PII patterns ─────────────────────────────────────────────────────────────
 
@@ -33,8 +36,9 @@ export function processPiiRedaction(text: string, customPatterns?: string[]): st
       try {
         const re = new RegExp(raw, 'g');
         result = result.replace(re, '[REDACTED]');
-      } catch {
-        // Skip invalid patterns
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        preprocLogger.warn({ pattern: raw, errorMessage: error.message }, 'Skipped invalid PII pattern');
       }
     }
   }
@@ -88,27 +92,33 @@ export function runPreProcessingPipeline(
   rawText: string,
   config: PreProcessingConfig
 ): PreProcessingResult {
-  let text = rawText;
-  const appliedSteps: string[] = [];
+  try {
+    let text = rawText;
+    const appliedSteps: string[] = [];
 
-  if (config.htmlStripping) {
-    text = processHtmlStripping(text);
-    appliedSteps.push('html-stripping');
+    if (config.htmlStripping) {
+      text = processHtmlStripping(text);
+      appliedSteps.push('html-stripping');
+    }
+
+    if (config.tableExtraction) {
+      text = processTableExtraction(text);
+      appliedSteps.push('table-extraction');
+    }
+
+    if (config.piiRedaction) {
+      text = processPiiRedaction(text, config.piiPatterns);
+      appliedSteps.push('pii-redaction');
+    }
+
+    text = normalizeWhitespace(text);
+    appliedSteps.push('whitespace-normalization');
+
+    preprocLogger.debug({ appliedSteps, inputLength: rawText.length, outputLength: text.length }, 'Ran preprocessing pipeline');
+    return { text, appliedSteps };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    preprocLogger.error({ inputLength: rawText.length, errorMessage: error.message, errorStack: error.stack }, 'Preprocessing pipeline failed');
+    throw error;
   }
-
-  if (config.tableExtraction) {
-    text = processTableExtraction(text);
-    appliedSteps.push('table-extraction');
-  }
-
-  if (config.piiRedaction) {
-    text = processPiiRedaction(text, config.piiPatterns);
-    appliedSteps.push('pii-redaction');
-  }
-
-  // Always normalize whitespace last
-  text = normalizeWhitespace(text);
-  appliedSteps.push('whitespace-normalization');
-
-  return { text, appliedSteps };
 }

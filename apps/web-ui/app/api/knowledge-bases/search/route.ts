@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
-import { RetrievalService } from '@chatbot/knowledge-base';
+import { getSessionTenantId, authorize, createLogger, parseJson, ValidationError } from '@chatbot/shared';
+import { RetrievalService, multiKbSearchSchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:knowledge-bases:search');
 
 /**
  * Search across multiple knowledge bases simultaneously.
@@ -13,15 +15,10 @@ export async function POST(req: NextRequest) {
     const authError = await authorize('read', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const body = await req.json();
-    const { query, knowledgeBaseIds, topK = 5, searchMode, similarityThreshold, hybridAlpha } = body;
+    logger.info({ tenantId }, 'Multi-KB search request');
 
-    if (!query || typeof query !== 'string') {
-      return NextResponse.json({ error: 'query is required' }, { status: 400 });
-    }
-    if (!Array.isArray(knowledgeBaseIds) || knowledgeBaseIds.length === 0) {
-      return NextResponse.json({ error: 'knowledgeBaseIds must be a non-empty array' }, { status: 400 });
-    }
+    const body = await parseJson(req, multiKbSearchSchema);
+    const { query, knowledgeBaseIds, topK = 5, searchMode, similarityThreshold, hybridAlpha } = body;
 
     const service = new RetrievalService(tenantId);
 
@@ -57,11 +54,19 @@ export async function POST(req: NextRequest) {
       .sort((a, b) => b.score - a.score)
       .slice(0, topK * knowledgeBaseIds.length);
 
+    logger.info({ tenantId, kbCount: knowledgeBaseIds.length, resultCount: merged.length, failedCount: failed.length }, 'Multi-KB search completed');
+
     return NextResponse.json({ results: merged, failed, count: merged.length });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Multi-KB search failed');
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

@@ -1,4 +1,7 @@
+import { createLogger } from '@chatbot/shared/workers';
 import { stripHtml } from '../parsers/index';
+
+const extractorLogger = createLogger('kb:web-crawler:extractor');
 
 export interface ExtractResult {
   title: string;
@@ -10,29 +13,29 @@ const REMOVE_TAGS = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'nos
 
 export class WebPageExtractor {
   extract(html: string): ExtractResult {
-    // 1. Remove unwanted tags entirely
-    let cleaned = html;
-    for (const tag of REMOVE_TAGS) {
-      cleaned = cleaned.replace(
-        new RegExp(`<${tag}\\b[^<]*(?:(?!<\/${tag}>)<[^<]*)*<\/${tag}>`, 'gi'),
-        ' '
-      );
+    try {
+      let cleaned = html;
+      for (const tag of REMOVE_TAGS) {
+        cleaned = cleaned.replace(
+          new RegExp(`<${tag}\\b[^<]*(?:(?!<\/${tag}>)<[^<]*)*<\/${tag}>`, 'gi'),
+          ' '
+        );
+      }
+
+      const titleMatch = cleaned.match(/<title>([\s\S]*?)<\/title>/i);
+      const title = titleMatch ? stripHtml(titleMatch[1]).trim() : '';
+
+      let contentHtml = this.extractContentRegion(cleaned);
+      const links = this.extractLinks(cleaned);
+      const text = stripHtml(contentHtml).trim();
+
+      extractorLogger.debug({ title, textLength: text.length, linkCount: links.length }, 'Extracted page content');
+      return { title, text, links };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      extractorLogger.error({ htmlLength: html.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to extract page content');
+      throw error;
     }
-
-    // 2. Extract title
-    const titleMatch = cleaned.match(/<title>([\s\S]*?)<\/title>/i);
-    const title = titleMatch ? stripHtml(titleMatch[1]).trim() : '';
-
-    // 3. Extract text from preferred content area
-    let contentHtml = this.extractContentRegion(cleaned);
-
-    // 4. Extract absolute links before stripping tags
-    const links = this.extractLinks(cleaned);
-
-    // 5. Strip remaining HTML
-    const text = stripHtml(contentHtml).trim();
-
-    return { title, text, links };
   }
 
   private extractContentRegion(html: string): string {
