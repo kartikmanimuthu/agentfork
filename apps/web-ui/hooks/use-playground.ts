@@ -89,9 +89,16 @@ export function usePlayground({
         return;
       }
 
-      // Graph agent: manual fetch
+      // Graph agent: SSE streaming
       setIsGraphLoading(true);
       try {
+        const userMessage: PlaygroundMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          parts: [{ type: 'text' as const, text: content }],
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
         const res = await fetch(`/api/agents/${agentId}/playground`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -119,21 +126,76 @@ export function usePlayground({
           throw new Error('Failed to run agent');
         }
 
-        const data = await res.json();
-        const assistantMessage: PlaygroundMessage = {
-          id: data.id ?? crypto.randomUUID(),
-          role: 'assistant',
-          parts: [{ type: 'text' as const, text: data.content ?? data.text ?? '' }],
-          executionId: res.headers.get('x-execution-id') ?? undefined,
-        };
+        const executionId = res.headers.get('x-execution-id') ?? undefined;
 
-        const userMessage: PlaygroundMessage = {
-          id: crypto.randomUUID(),
-          role: 'user',
-          parts: [{ type: 'text' as const, text: content }],
-        };
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error('No response body');
 
-        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let buffer = '';
+
+        const assistantMessageId = crypto.randomUUID();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          let eventType = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7);
+            } else if (line.startsWith('data: ') && eventType) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (eventType === 'text_delta' && data.delta) {
+                  fullText += data.delta;
+                  setMessages((prev) => {
+                    const existing = prev.find((m) => m.id === assistantMessageId);
+                    if (existing) {
+                      return prev.map((m) =>
+                        m.id === assistantMessageId
+                          ? { ...m, parts: [{ type: 'text' as const, text: fullText }] }
+                          : m
+                      );
+                    }
+                    return [
+                      ...prev,
+                      {
+                        id: assistantMessageId,
+                        role: 'assistant' as const,
+                        parts: [{ type: 'text' as const, text: fullText }],
+                        executionId,
+                      },
+                    ];
+                  });
+                }
+              } catch {
+                // skip malformed events
+              }
+              eventType = '';
+            }
+          }
+        }
+
+        if (fullText && !messages.find((m) => m.id === assistantMessageId)) {
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === assistantMessageId)) return prev;
+            return [
+              ...prev,
+              {
+                id: assistantMessageId,
+                role: 'assistant' as const,
+                parts: [{ type: 'text' as const, text: fullText }],
+                executionId,
+              },
+            ];
+          });
+        }
       } catch (err) {
         onError?.(err instanceof Error ? err : new Error(String(err)));
       } finally {

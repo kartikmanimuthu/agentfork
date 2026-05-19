@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createMcpServerSchema, createLogger } from '@chatbot/shared';
 import { McpServerService, McpServerVersionService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:mcp-servers');
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,6 +33,7 @@ export async function GET(req: NextRequest) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error }, 'Failed to list MCP servers');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -42,10 +45,17 @@ export async function POST(req: NextRequest) {
     if (authError) return authError;
 
     const body = await req.json();
+    const parsed = createMcpServerSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
     const db = getPrismaClient();
 
     const service = new McpServerService(tenantId, db as any);
-    const server = await service.create(body);
+    const server = await service.create(parsed.data);
 
     const versionService = new McpServerVersionService(db as any);
     await versionService.create(
@@ -54,6 +64,7 @@ export async function POST(req: NextRequest) {
       'Initial version'
     );
 
+    logger.info({ tenantId, mcpServerId: server.id }, 'MCP server created via API');
     return NextResponse.json(server, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -65,6 +76,7 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+    logger.error({ error }, 'Failed to create MCP server');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

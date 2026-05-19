@@ -21,6 +21,18 @@ export type {
   ToolNodeConfig,
   RouterNodeConfig,
   StateSchemaNodeConfig,
+  InputNodeConfig,
+  OutputNodeConfig,
+  MemoryNodeConfig,
+  KnowledgeBaseNodeConfig,
+  McpServerNodeConfig,
+  CodeNodeConfig,
+  ConditionNodeConfig,
+  HttpNodeConfig,
+  HumanNodeConfig,
+  ParallelNodeConfig,
+  SubAgentNodeConfig,
+  DelayNodeConfig,
   ToolConfig,
   SchemaField,
   ValidationError,
@@ -72,3 +84,15 @@ export type { AgentKnowledgeBaseAttachment, AttachedKnowledgeBase } from './type
 // KB Attachment service
 export { KnowledgeBaseAttachmentService } from './services/kb-attachment-service';
 export type { KbAttachmentDb } from './services/kb-attachment-service';
+
+// Execution types (safe for client — no runtime imports)
+export type {
+  GraphState,
+  ExecutionServices,
+  NodeExecutionContext,
+  NodeExecutor,
+  NodeExecutionResult,
+  NodeTraceEntry,
+  ExecutionEvent,
+  ExecutionOptions,
+} from './execution/types';

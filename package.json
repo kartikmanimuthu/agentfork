@@ -67,6 +67,7 @@
     "@aws-sdk/credential-provider-ini": "^3.972.38",
     "@aws-sdk/credential-provider-node": "^3.972.39",
     "@aws-sdk/s3-request-presigner": "^3.1042.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "^6.0.0",
     "@t3-oss/env-core": "^0.13.11",
     "@t3-oss/env-nextjs": "^0.13.11",

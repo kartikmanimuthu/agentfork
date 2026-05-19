@@ -139,6 +139,7 @@ export default function AgentDetailPage() {
         <AgentCanvas
           agentId={agentId}
           agentName={agent.name}
+          agentConfig={agent.config as Record<string, unknown>}
           initialNodes={initialNodes}
           initialEdges={initialEdges}
           onSave={handleSave}
@@ -239,10 +240,10 @@ export default function AgentDetailPage() {
           </Card>
         </TabsContent>
         <TabsContent value="knowledge-bases">
-          <KnowledgeBasesTab agentId={agentId} />
+          <KnowledgeBasesTab agentId={agentId} agentConfig={agent.config as Record<string, unknown>} />
         </TabsContent>
         <TabsContent value="mcp-servers">
-          <McpServersTab agentId={agentId} />
+          <McpServersTab agentId={agentId} agentConfig={agent.config as Record<string, unknown>} />
         </TabsContent>
         <TabsContent value="versions">
           <VersionsTab agentId={agentId} />

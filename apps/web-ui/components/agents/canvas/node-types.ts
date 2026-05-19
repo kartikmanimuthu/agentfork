@@ -3,6 +3,18 @@ import { LlmNode } from './nodes/llm-node';
 import { ToolNode } from './nodes/tool-node';
 import { RouterNode } from './nodes/router-node';
 import { StateSchemaNode } from './nodes/state-schema-node';
+import { InputNode } from './nodes/input-node';
+import { OutputNode } from './nodes/output-node';
+import { MemoryNode } from './nodes/memory-node';
+import { KnowledgeBaseNode } from './nodes/knowledge-base-node';
+import { McpServerNode } from './nodes/mcp-server-node';
+import { CodeNode } from './nodes/code-node';
+import { ConditionNode } from './nodes/condition-node';
+import { HttpNode } from './nodes/http-node';
+import { HumanNode } from './nodes/human-node';
+import { ParallelNode } from './nodes/parallel-node';
+import { SubAgentNode } from './nodes/sub-agent-node';
+import { DelayNode } from './nodes/delay-node';
 
 /**
  * Pass this object to the `nodeTypes` prop of <ReactFlow />.
@@ -13,4 +25,16 @@ export const nodeTypes: NodeTypes = {
   tool: ToolNode,
   router: RouterNode,
   state_schema: StateSchemaNode,
+  input: InputNode,
+  output: OutputNode,
+  memory: MemoryNode,
+  knowledge_base: KnowledgeBaseNode,
+  mcp_server: McpServerNode,
+  code: CodeNode,
+  condition: ConditionNode,
+  http: HttpNode,
+  human: HumanNode,
+  parallel: ParallelNode,
+  sub_agent: SubAgentNode,
+  delay: DelayNode,
 };

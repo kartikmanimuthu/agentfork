@@ -1,4 +1,4 @@
-import type { ModelMessage, LanguageModelUsage } from 'ai';
+import type { ModelMessage, LanguageModelUsage, ToolSet } from 'ai';
 import type { ProviderName } from './types';
 
 export interface BaseStreamChatOptions {
@@ -7,6 +7,8 @@ export interface BaseStreamChatOptions {
   system?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  tools?: ToolSet;
+  maxSteps?: number;
   onFinish?: (result: { text: string; usage: LanguageModelUsage }) => void | Promise<void>;
 }
 

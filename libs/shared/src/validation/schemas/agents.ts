@@ -13,7 +13,7 @@ export const updateAgentSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100).optional(),
   description: z.string().max(500).optional(),
   status: z.enum(['draft', 'active', 'inactive']).optional(),
-  config: z.any(),
+  config: z.any().optional(),
 });
 
 export const createAliasSchema = z.object({
@@ -51,8 +51,136 @@ export const playgroundRequestSchema = z.object({
   alias: z.string().optional(),
 });
 
+// ─── MCP Server schemas ───────────────────────────────────────────────────────
+
+export const sseTransportSchema = z.object({
+  transport: z.literal('sse'),
+  endpoint: z.string().url(),
+  headers: z.record(z.string(), z.string()).optional(),
+});
+
+export const stdioTransportSchema = z.object({
+  transport: z.literal('stdio'),
+  command: z.string().min(1),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+});
+
+export const httpBridgeTransportSchema = z.object({
+  transport: z.literal('http_bridge'),
+  bridgeUrl: z.string().url(),
+  targetCommand: z.string().min(1),
+});
+
+export const mcpServerTransportConfigSchema = z.discriminatedUnion('transport', [
+  sseTransportSchema,
+  stdioTransportSchema,
+  httpBridgeTransportSchema,
+]);
+
+export const createMcpServerSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional(),
+  transport: z.enum(['sse', 'stdio', 'http_bridge']),
+  config: z.object({
+    transport: z.enum(['sse', 'stdio', 'http_bridge']),
+    transportConfig: mcpServerTransportConfigSchema,
+    timeoutMs: z.number().int().min(1000).max(300000).optional(),
+    retryCount: z.number().int().min(0).max(10).optional(),
+  }),
+});
+
+export const updateMcpServerSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  transport: z.enum(['sse', 'stdio', 'http_bridge']).optional(),
+  config: z.object({
+    transport: z.enum(['sse', 'stdio', 'http_bridge']).optional(),
+    transportConfig: mcpServerTransportConfigSchema.optional(),
+    timeoutMs: z.number().int().min(1000).max(300000).optional(),
+    retryCount: z.number().int().min(0).max(10).optional(),
+  }).optional(),
+});
+
+// ─── Agent Version schemas ────────────────────────────────────────────────────
+
+export const createAgentVersionSchema = z.object({
+  config: z.record(z.string(), z.unknown()),
+});
+
+// ─── Alias schemas ────────────────────────────────────────────────────────────
+
+export const updateAliasSchema = z.object({
+  versionId: z.string().min(1, 'Version ID is required').optional(),
+  isDefault: z.boolean().optional(),
+});
+
+// ─── Attachment schemas ───────────────────────────────────────────────────────
+
+export const attachKnowledgeBaseSchema = z.object({
+  knowledgeBaseId: z.string().min(1, 'Knowledge base ID is required'),
+});
+
+export const attachMcpServerSchema = z.object({
+  mcpServerId: z.string().min(1, 'MCP server ID is required'),
+});
+
+// ─── Playground Session schemas ───────────────────────────────────────────────
+
+export const playgroundSessionMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().optional(),
+  parts: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
+});
+
+export const createPlaygroundSessionSchema = z.object({
+  name: z.string().max(200).optional(),
+  messages: z.array(playgroundSessionMessageSchema).optional(),
+  configOverrides: z.record(z.string(), z.unknown()).optional(),
+  agentVersionId: z.string().optional(),
+});
+
+export const updatePlaygroundSessionSchema = z.object({
+  name: z.string().max(200).optional(),
+  messages: z.array(playgroundSessionMessageSchema).optional(),
+  configOverrides: z.record(z.string(), z.unknown()).optional(),
+  agentVersionId: z.string().optional().nullable(),
+});
+
+// ─── Graph Validation schema ──────────────────────────────────────────────────
+
+export const graphValidationSchema = z.object({
+  graph: z.object({
+    nodes: z.array(z.record(z.string(), z.unknown())),
+    edges: z.array(z.record(z.string(), z.unknown())),
+  }),
+});
+
+// ─── MCP Server Version schema ────────────────────────────────────────────────
+
+export const createMcpServerVersionSchema = z.object({
+  changeNotes: z.string().max(500).optional(),
+});
+
+// ─── API Key Rotation schema ──────────────────────────────────────────────────
+
+export const rotateApiKeySchema = z.object({
+  gracePeriodHours: z.number().int().min(0).optional(),
+});
+
 export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 export type CreateAliasInput = z.infer<typeof createAliasSchema>;
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 export type PlaygroundRequestInput = z.infer<typeof playgroundRequestSchema>;
+export type CreateMcpServerInput = z.infer<typeof createMcpServerSchema>;
+export type UpdateMcpServerInput = z.infer<typeof updateMcpServerSchema>;
+export type CreateAgentVersionInput = z.infer<typeof createAgentVersionSchema>;
+export type UpdateAliasInput = z.infer<typeof updateAliasSchema>;
+export type AttachKnowledgeBaseInput = z.infer<typeof attachKnowledgeBaseSchema>;
+export type AttachMcpServerInput = z.infer<typeof attachMcpServerSchema>;
+export type CreatePlaygroundSessionInput = z.infer<typeof createPlaygroundSessionSchema>;
+export type UpdatePlaygroundSessionInput = z.infer<typeof updatePlaygroundSessionSchema>;
+export type GraphValidationInput = z.infer<typeof graphValidationSchema>;
+export type CreateMcpServerVersionInput = z.infer<typeof createMcpServerVersionSchema>;
+export type RotateApiKeyInput = z.infer<typeof rotateApiKeySchema>;

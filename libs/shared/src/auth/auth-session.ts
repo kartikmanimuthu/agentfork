@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
-import { authOptions } from './auth-options';
+import { getAuthOptions } from './auth-options';
 import { getPrismaClient } from '../db/prisma-client';
 
 export async function getAuthSession() {
-  return getServerSession(authOptions);
+  return getServerSession(getAuthOptions());
 }
 
 export async function getSessionTenantId(authOptions: any): Promise<string> {

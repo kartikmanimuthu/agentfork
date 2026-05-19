@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, attachMcpServerSchema, createLogger } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:agents[id]:mcp-servers');
 
 export async function GET(
   _req: NextRequest,
@@ -33,6 +35,7 @@ export async function GET(
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error }, 'Failed to list agent MCP servers');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -47,7 +50,15 @@ export async function POST(
     if (authError) return authError;
 
     const { id } = await params;
-    const { mcpServerId } = await req.json();
+    const body = await req.json();
+    const parsed = attachMcpServerSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const { mcpServerId } = parsed.data;
     const db = getPrismaClient();
 
     const agent = await (db as any).agent.findFirst({
@@ -84,6 +95,7 @@ export async function POST(
       });
     }
 
+    logger.info({ tenantId, agentId: id, mcpServerId }, 'MCP server attached to agent');
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -95,6 +107,7 @@ export async function POST(
         { status: 409 }
       );
     }
+    logger.error({ error, agentId: (await params).id }, 'Failed to attach MCP server to agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

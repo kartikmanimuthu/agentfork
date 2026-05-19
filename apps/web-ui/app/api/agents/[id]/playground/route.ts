@@ -156,12 +156,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(id, tenantId, userQuery, db);
 
+      // Discover MCP tools attached to this agent
+      const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
+      const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(id, tenantId, db);
+      const hasMcpTools = Object.keys(mcpTools).length > 0;
+
+      logger.info({ requestId, mcpToolCount: Object.keys(mcpTools).length }, 'MCP tools discovered');
+
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       if (kbContext) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext }, 'Starting stream chat');
+      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
 
       const result = streamChat({
         provider,
@@ -170,7 +177,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         system: effectiveSystem,
         temperature: effectiveTemperature,
         maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
+        ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
+          await mcpCleanup();
           const completedAt = new Date();
           await db.agentExecution.update({
             where: { id: execution.id },
@@ -191,44 +200,110 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
-    // Graph agent execution (basic fallback for v1)
+    // Graph agent execution with real GraphExecutor
     if (agent.type === 'graph') {
-      const graphConfig = resolvedConfig as { nodes?: Array<{ id: string; type: string; label: string }>; edges?: Array<{ id: string; source: string; target: string }> };
-      const nodes = graphConfig.nodes ?? [];
-      const edges = graphConfig.edges ?? [];
+      const { GraphExecutor, LlmNodeExecutor, RouterNodeExecutor, ToolNodeExecutor, StateSchemaNodeExecutor, KnowledgeBaseNodeExecutor, McpServerNodeExecutor, InputNodeExecutor, OutputNodeExecutor, MemoryNodeExecutor, CodeNodeExecutor, ConditionNodeExecutor, HttpNodeExecutor, HumanNodeExecutor, ParallelNodeExecutor, SubAgentNodeExecutor, DelayNodeExecutor } = await import('@chatbot/agent-studio/server');
 
-      const traceSteps = nodes.map((node) => ({
-        nodeId: node.id,
-        nodeType: node.type,
-        nodeLabel: node.label,
-        status: 'completed',
-        timestamp: new Date().toISOString(),
+      const graphDef = resolvedConfig as { nodes?: any[]; edges?: any[] };
+      const nodes = graphDef.nodes ?? [];
+      const edges = graphDef.edges ?? [];
+
+      if (nodes.length === 0) {
+        return new Response(JSON.stringify({ error: 'Graph has no nodes' }), { status: 400 });
+      }
+
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '',
       }));
 
-      const text = `[Graph agent execution simulated]\\n\\nNodes executed: ${nodes.length}\\nEdges traversed: ${edges.length}\\n\\nGraph execution is not yet fully implemented in the playground. Use simple agents for live testing, or export the graph to run it in a LangGraph runtime.`;
+      const llmProviderService = new LlmProviderService(tenantId);
 
-      await db.agentExecution.update({
-        where: { id: execution.id },
-        data: {
-          status: 'completed',
-          output: { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } },
-          completedAt: new Date(),
+      const services = {
+        llmProvider: async (_providerId?: string, modelId?: string) => {
+          const llmConfig = await resolveProviderForModel(tenantId, modelId)
+            ?? await llmProviderService.getDefaultConfig()
+            ?? await new TenantConfigService(tenantId).get('llmConfig');
+          const provider = createLLMProvider(llmConfig);
+          await provider.validate();
+          return provider;
+        },
+        prisma: db,
+      };
+
+      const executor = new GraphExecutor(services);
+      executor.register(new LlmNodeExecutor());
+      executor.register(new RouterNodeExecutor());
+      executor.register(new ToolNodeExecutor());
+      executor.register(new StateSchemaNodeExecutor());
+      executor.register(new KnowledgeBaseNodeExecutor());
+      executor.register(new McpServerNodeExecutor());
+      executor.register(new InputNodeExecutor());
+      executor.register(new OutputNodeExecutor());
+      executor.register(new MemoryNodeExecutor());
+      executor.register(new CodeNodeExecutor());
+      executor.register(new ConditionNodeExecutor());
+      executor.register(new HttpNodeExecutor());
+      executor.register(new HumanNodeExecutor());
+      executor.register(new ParallelNodeExecutor());
+      executor.register(new SubAgentNodeExecutor());
+      executor.register(new DelayNodeExecutor());
+
+      let fullText = '';
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+
+          const sendEvent = (event: string, data: unknown) => {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            await executor.execute(
+              { nodes, edges },
+              { messages: coreMessages },
+              { executionId: execution.id, agentId: id, tenantId, userId },
+              {
+                onEvent: (event) => {
+                  sendEvent(event.type, event);
+                  if (event.type === 'text_delta') {
+                    fullText += event.delta;
+                  }
+                },
+              }
+            );
+
+            await db.agentExecution.update({
+              where: { id: execution.id },
+              data: {
+                status: 'completed',
+                output: { text: fullText },
+                completedAt: new Date(),
+              },
+            });
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            sendEvent('execution_error', { error: errorMessage });
+            await db.agentExecution.update({
+              where: { id: execution.id },
+              data: { status: 'failed', output: { error: errorMessage }, completedAt: new Date() },
+            });
+            logger.error({ executionId: execution.id, error: errorMessage }, 'Graph execution failed');
+          } finally {
+            controller.close();
+          }
         },
       });
 
-      return new Response(
-        JSON.stringify({
-          role: 'assistant',
-          content: text,
-          id: execution.id,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-execution-id': execution.id,
-          },
-        }
-      );
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+          'x-execution-id': execution.id,
+        },
+      });
     }
 
     return new Response(JSON.stringify({ error: 'Unsupported agent type' }), { status: 400 });

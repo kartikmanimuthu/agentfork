@@ -15,6 +15,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
+import { Code2 } from 'lucide-react';
+import { ApiGuideDialog } from '@/components/api-keys/api-guide-dialog';
 
 interface ApiKeyTableProps {
   keys: ApiKeyItem[];
@@ -63,13 +65,24 @@ export function ApiKeyTable({ keys, loading, onRevoke }: ApiKeyTableProps) {
             </TableCell>
             <TableCell className="text-right">
               {key.status === 'active' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRevokeTarget(key.id)}
-                >
-                  Revoke
-                </Button>
+                <div className="flex items-center justify-end gap-2">
+                  <ApiGuideDialog
+                    keyName={key.name}
+                    rawKey={key.rawKey}
+                    trigger={
+                      <Button variant="ghost" size="sm" aria-label="View integration guide">
+                        <Code2 className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRevokeTarget(key.id)}
+                  >
+                    Revoke
+                  </Button>
+                </div>
               )}
             </TableCell>
           </TableRow>

@@ -247,4 +247,10 @@ export function createAuthOptions(overrides?: Partial<NextAuthOptions>): NextAut
   };
 }
 
-export const authOptions = createAuthOptions();
+let _authOptions: NextAuthOptions | undefined;
+export function getAuthOptions(): NextAuthOptions {
+  if (!_authOptions) {
+    _authOptions = createAuthOptions();
+  }
+  return _authOptions;
+}
