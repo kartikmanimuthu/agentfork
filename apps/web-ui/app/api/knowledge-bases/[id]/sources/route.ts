@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id: knowledgeBaseId } = await params;
     logger.info({ tenantId, knowledgeBaseId }, 'Create source request');
 
-    const body = await parseJson(req, createDataSourceSchema);
+    const body = await parseJson(req, createDataSourceSchema.omit({ knowledgeBaseId: true }));
     const input = { ...body, knowledgeBaseId };
 
     const service = new DataSourceService(tenantId);

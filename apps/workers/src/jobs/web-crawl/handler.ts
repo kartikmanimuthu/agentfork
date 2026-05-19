@@ -18,7 +18,7 @@ const log = createLogger('web-crawl');
 export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void> {
   const { dataSourceId, tenantId, knowledgeBaseId } = webCrawlJobSchema.parse(data);
 
-  log.info('Starting web crawl', { dataSourceId, knowledgeBaseId });
+  log.info({ dataSourceId, tenantId, knowledgeBaseId }, 'Starting web crawl job');
 
   const db = getPrismaClient();
   const dsRepo = createDataSourceRepository(db);
@@ -27,6 +27,7 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
 
   // Update data source status to syncing
   await dsRepo.update(dataSourceId, { status: 'syncing', errorMessage: null });
+  log.info({ dataSourceId }, 'Data source status set to syncing');
 
   try {
     // Fetch data source
@@ -41,6 +42,8 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       excludePatterns?: string[];
     };
 
+    log.info({ dataSourceId, urls: config.urls, crawlDepth: config.crawlDepth, includePatterns: config.includePatterns, excludePatterns: config.excludePatterns }, 'Data source config loaded');
+
     // Run crawler
     const crawler = createWebCrawler({ delayMs: 500 });
     const pages = await crawler.crawl({
@@ -51,51 +54,72 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       maxPages: 50,
     });
 
-    log.info('Crawl complete', { pages: pages.length });
+    log.info({ dataSourceId, pagesFound: pages.length }, 'Crawl complete, processing pages');
 
     // Create document records and enqueue ingestion for each page
     const docService = new DocumentService(tenantId);
     const ingestionService = new IngestionService(tenantId);
+    const s3 = new S3Service();
 
-    for (const page of pages) {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let idx = 0; idx < pages.length; idx++) {
+      const page = pages[idx];
       const fileName = `${page.url.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
       const mimeType = 'text/plain';
       const textBuffer = Buffer.from(page.text, 'utf-8');
 
-      // Generate S3 key and upload text directly via SDK (pre-signed URLs break on region redirects)
-      const { s3Key } = await docService.getUploadUrl(dataSourceId, fileName, mimeType);
-      const s3 = new S3Service();
-      await s3.uploadBuffer(s3Key, textBuffer, mimeType);
+      log.info({ dataSourceId, pageIndex: idx, url: page.url, textLength: textBuffer.length }, 'Processing crawled page');
 
-      // Create document record
-      const document = await docRepo.create({
-        dataSourceId,
-        sourceKey: s3Key,
-        fileName,
-        mimeType,
-        sizeBytes: textBuffer.length,
-        metadata: { url: page.url, title: page.title, fetchedAt: page.fetchedAt.toISOString() },
-      });
+      try {
+        // Generate S3 key and upload text directly via SDK
+        const { s3Key } = await docService.getUploadUrl(dataSourceId, fileName, mimeType);
+        log.debug({ dataSourceId, url: page.url, s3Key }, 'S3 key generated for page');
 
-      // Enqueue document ingestion
-      if (boss) {
-        await ingestionService.enqueueIngestion(boss, {
-          documentId: document.id,
-          tenantId,
-          s3Key,
+        await s3.uploadBuffer(s3Key, textBuffer, mimeType);
+        log.debug({ dataSourceId, url: page.url, s3Key, sizeBytes: textBuffer.length }, 'Page text uploaded to S3');
+
+        // Create document record
+        const document = await docRepo.create({
+          dataSourceId,
+          sourceKey: s3Key,
+          fileName,
           mimeType,
-          knowledgeBaseId,
+          sizeBytes: textBuffer.length,
+          metadata: { url: page.url, title: page.title, fetchedAt: page.fetchedAt.toISOString() },
         });
+        log.info({ dataSourceId, url: page.url, documentId: document.id, s3Key }, 'Document record created');
+
+        // Enqueue document ingestion
+        if (boss) {
+          const jobId = await ingestionService.enqueueIngestion(boss, {
+            documentId: document.id,
+            tenantId,
+            s3Key,
+            mimeType,
+            knowledgeBaseId,
+          });
+          log.info({ dataSourceId, documentId: document.id, jobId }, 'Ingestion job enqueued');
+        }
+
+        successCount++;
+      } catch (pageErr) {
+        failCount++;
+        const pageError = pageErr instanceof Error ? pageErr : new Error(String(pageErr));
+        log.error({ dataSourceId, url: page.url, pageIndex: idx, errorMessage: pageError.message, errorStack: pageError.stack }, 'Failed to process crawled page');
+        throw pageError;
       }
     }
 
     // Update data source status
     await dsRepo.update(dataSourceId, { status: 'active', lastSyncAt: new Date() });
 
-    log.info('Web crawl job complete', { dataSourceId, pages: pages.length });
+    log.info({ dataSourceId, knowledgeBaseId, totalPages: pages.length, successCount, failCount }, 'Web crawl job complete');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log.error('Web crawl failed', { error: message });
+    const stack = err instanceof Error ? err.stack : undefined;
+    log.error({ dataSourceId, knowledgeBaseId, errorMessage: message, errorStack: stack }, 'Web crawl job failed');
     await dsRepo.update(dataSourceId, { status: 'error', errorMessage: message });
     throw err;
   }

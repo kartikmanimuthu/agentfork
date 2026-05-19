@@ -71,14 +71,14 @@ export class PostgresDocumentChunkRepository implements DocumentChunkRepository 
   async updateEmbedding(id: string, embedding: number[]): Promise<void> {
     const vector = `[${embedding.join(',')}]`;
     try {
-      await this.db.$executeRaw`
-        UPDATE document_chunks
-        SET embedding = ${vector}::vector
-        WHERE id = ${id}
-      `;
+      await this.db.$executeRawUnsafe(
+        `UPDATE document_chunks SET embedding = $1::vector WHERE id = $2`,
+        vector,
+        id
+      );
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      repoLogger.error({ id, errorMessage: error.message, errorStack: error.stack }, 'Failed to update embedding');
+      repoLogger.error({ id, embeddingDimensions: embedding.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to update embedding');
       throw error;
     }
   }
@@ -155,6 +155,7 @@ export class PostgresDocumentChunkRepository implements DocumentChunkRepository 
     query: string,
     topK: number
   ): Promise<DocumentChunkWithScore[]> {
+    repoLogger.debug({ knowledgeBaseId, query, topK }, 'Executing text search');
     try {
       const rows: Array<{
         id: string;
@@ -166,8 +167,8 @@ export class PostgresDocumentChunkRepository implements DocumentChunkRepository 
         created_at: Date;
         score: number;
         file_name: string;
-      }> = await this.db.$queryRaw`
-        SELECT
+      }> = await this.db.$queryRawUnsafe(
+        `SELECT
           dc.id,
           dc."documentId" AS document_id,
           dc."chunkIndex" AS chunk_index,
@@ -175,16 +176,21 @@ export class PostgresDocumentChunkRepository implements DocumentChunkRepository 
           dc."tokenCount" AS token_count,
           dc.metadata,
           dc."createdAt" AS created_at,
-          ts_rank(dc."searchText", plainto_tsquery('english', ${query})) AS score,
+          ts_rank(dc."searchText", plainto_tsquery('english', $1)) AS score,
           d."fileName" AS file_name
         FROM document_chunks dc
         JOIN documents d ON d.id = dc."documentId"
         JOIN data_sources ds ON ds.id = d."dataSourceId"
-        WHERE ds."knowledgeBaseId" = ${knowledgeBaseId}
-          AND dc."searchText" @@ plainto_tsquery('english', ${query})
+        WHERE ds."knowledgeBaseId" = $2
+          AND dc."searchText" @@ plainto_tsquery('english', $1)
         ORDER BY score DESC
-        LIMIT ${topK}
-      `;
+        LIMIT $3`,
+        query,
+        knowledgeBaseId,
+        topK
+      );
+
+      repoLogger.debug({ knowledgeBaseId, resultCount: rows.length }, 'Text search completed');
 
       return rows.map((row) => ({
         id: row.id,

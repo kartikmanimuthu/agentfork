@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, createLogger, parseJson, ValidationError } from '@chatbot/shared';
+import { getSessionTenantId, authorize, createLogger, ValidationError } from '@chatbot/shared';
 import { DataSourceService, syncSourceSchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';
@@ -18,8 +18,11 @@ export async function POST(
     const { id: knowledgeBaseId, sourceId } = await params;
     logger.info({ tenantId, knowledgeBaseId, sourceId }, 'Sync request');
 
-    const body = await parseJson(req, syncSourceSchema);
-    const { force } = body;
+    let rawBody: unknown = {};
+    try { rawBody = await req.json(); } catch { /* empty body is fine */ }
+    const parsed = syncSourceSchema.safeParse(rawBody);
+    if (!parsed.success) throw new ValidationError(parsed.error.issues);
+    const { force } = parsed.data;
 
     const service = new DataSourceService(tenantId);
     const dataSource = await service.get(sourceId);
@@ -41,6 +44,7 @@ export async function POST(
 
     const boss = createBoss();
     await boss.start();
+    await boss.createQueue('web-crawl');
     const jobId = await boss.send('web-crawl', { dataSourceId: sourceId, tenantId, knowledgeBaseId, force });
     await boss.stop({ graceful: false });
 
