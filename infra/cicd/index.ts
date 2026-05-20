@@ -179,6 +179,7 @@ new aws.iam.RolePolicy("pulumi-deploy-policy", {
             Statement: [
                 { Sid: "EC2", Effect: "Allow", Action: "ec2:*", Resource: "*" },
                 { Sid: "ECS", Effect: "Allow", Action: "ecs:*", Resource: "*" },
+                { Sid: "Lambda", Effect: "Allow", Action: "lambda:*", Resource: "*" },
                 { Sid: "RDS", Effect: "Allow", Action: "rds:*", Resource: "*" },
                 { Sid: "Cognito", Effect: "Allow", Action: ["cognito-idp:*", "cognito-identity:*"], Resource: "*" },
                 { Sid: "CloudFront", Effect: "Allow", Action: "cloudfront:*", Resource: "*" },

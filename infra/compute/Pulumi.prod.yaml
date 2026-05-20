@@ -1,5 +1,5 @@
 config:
   aws:region: us-east-1
-  chatbot-compute:appUrl: https://placeholder.cloudfront.net
+  chatbot-compute:appUrl: https://dhdaqqvh7yj46.cloudfront.net
   chatbot-compute:subscriptionEmails: ""
 encryptionsalt: v1:IQSNL+tMPNQ=:v1:HLFmUv8L7LJTR35c:YHNSuTl8QuGvu1dV0PZaZKc4jVBLww==
