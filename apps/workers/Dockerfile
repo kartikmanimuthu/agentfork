@@ -2,8 +2,9 @@
 # Build context: project root
 
 # ── Stage 1: Dependencies ──
-FROM oven/bun:1-slim AS deps
+FROM public.ecr.aws/docker/library/node:20-slim AS deps
 WORKDIR /app
+RUN npm install -g bun
 COPY package.json bun.lock ./
 COPY apps/web-ui/package.json apps/web-ui/
 COPY apps/workers/package.json apps/workers/
@@ -12,13 +13,14 @@ COPY infra/package.json infra/
 COPY prisma/ prisma/
 COPY tsconfig.base.json ./
 COPY nx.json ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: Build ──
-FROM oven/bun:1-slim AS builder
+FROM public.ecr.aws/docker/library/node:20-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN npm install -g bun
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/workers/node_modules ./apps/workers/node_modules
@@ -33,24 +35,58 @@ COPY apps/workers/ apps/workers/
 
 RUN rm -f prisma/.env
 RUN ./node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
+
+# Build workspace packages and link into node_modules for runtime resolution
+COPY libs/shared/ libs/shared/
+RUN cd libs/shared && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/shared && \
+    cp -rL /app/dist/libs/shared/libs/shared/src /app/node_modules/@chatbot/shared/src && \
+    printf '{"name":"@chatbot/shared","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./workers":"./src/workers.js"}}\n' > /app/node_modules/@chatbot/shared/package.json
+
+COPY libs/ai/ libs/ai/
+RUN cd libs/ai && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/ai && \
+    cp -rL /app/dist/libs/ai/libs/ai/src /app/node_modules/@chatbot/ai/src && \
+    printf '{"name":"@chatbot/ai","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/ai/package.json
+
+# Compile workers
 RUN cd apps/workers && bunx tsc --noEmit false
 
+# Flatten workspace-specific symlinked deps into root node_modules so runtime resolution works.
+# Only copies packages not already in root node_modules to avoid duplication.
+RUN set -x; for pkg in apps/workers/node_modules/*/; do \
+      pkg_name="$(basename "$pkg")"; \
+      if [ ! -e "node_modules/$pkg_name" ]; then \
+        echo "Flatten: $pkg_name"; cp -rL "$pkg" "node_modules/$pkg_name"; \
+      fi; \
+    done
+
+# Resolve bun-hoisted transitive deps into root node_modules for runtime resolution.
+# Packages like serialize-error (required by pg-boss) are cached in .bun/ not node_modules/.
+RUN set -x; for d in node_modules/.bun/*/node_modules/*; do \
+      pkg="$(basename "$d")"; \
+      if [ -d "$d" ] && [ ! -e "node_modules/$pkg" ]; then \
+        echo "Bun cache: $pkg"; cp -rL "$d" "node_modules/$pkg"; \
+      fi; \
+    done
+
 # ── Stage 3: Production runner ──
-FROM oven/bun:1-slim AS runner
+FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+RUN npm install -g bun
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
     -o /etc/ssl/certs/rds-combined-ca-bundle.pem
 
 COPY --from=builder /app/apps/workers/dist ./dist
 COPY --from=builder /app/apps/workers/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/workers/node_modules ./apps/workers/node_modules
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules ./node_modules
 
 ENV NODE_ENV=production
+RUN groupadd -r bun && useradd -r -g bun bun
 USER bun
 
 CMD ["bun", "run", "dist/index.js"]
