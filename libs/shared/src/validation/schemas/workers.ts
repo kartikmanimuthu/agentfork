@@ -1,10 +1,3 @@
-import { z } from 'zod';
-
-export const messageEmbeddingJobSchema = z.object({
-  messageId: z.string().min(1, 'messageId is required'),
-});
-
-export const conversationSummaryJobSchema = z.object({
-  conversationId: z.string().min(1, 'conversationId is required'),
-  fromMessageIndex: z.number().int().min(0),
-});
+// Workers-related shared schemas live here. Currently empty after the chat-module
+// (Conversation/Message) cleanup; new worker schemas should be added as needed.
+export {};

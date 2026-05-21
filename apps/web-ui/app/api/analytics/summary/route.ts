@@ -4,10 +4,16 @@ import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/analytics/summary
+ *
+ * Tenant-scoped roll-up over InferenceSession + SessionAnalytics.
+ * Replaces the legacy chat-conversation aggregator. Drives the /analytics dashboard.
+ */
 export async function GET(req: NextRequest) {
   try {
     const tenantId = await getSessionTenantId(authOptions);
-    const authError = await authorize('read', 'Conversations', authOptions);
+    const authError = await authorize('read', 'InferenceSession', authOptions);
     if (authError) return authError;
 
     const { searchParams } = new URL(req.url);
@@ -18,42 +24,32 @@ export async function GET(req: NextRequest) {
 
     const prisma = getPrismaClient();
 
-    const dateFilter: any = {};
+    const dateFilter: Record<string, Date> = {};
     if (fromDate) dateFilter.gte = new Date(fromDate);
     if (toDate) dateFilter.lte = new Date(`${toDate}T23:59:59.999Z`);
 
-    const analyticsWhere: any = { tenantId };
-    if (Object.keys(dateFilter).length > 0) analyticsWhere.createdAt = dateFilter;
+    const sessionWhere: Record<string, unknown> = { tenantId };
+    if (Object.keys(dateFilter).length > 0) sessionWhere.createdAt = dateFilter;
+
+    const analyticsWhere: Record<string, unknown> = { tenantId };
+    if (Object.keys(dateFilter).length > 0) analyticsWhere.analyzedAt = dateFilter;
     if (sentiment && sentiment !== 'all') analyticsWhere.sentiment = sentiment;
     if (resolvedStatus === 'resolved') analyticsWhere.isResolved = true;
     else if (resolvedStatus === 'unresolved') analyticsWhere.isResolved = false;
 
-    const conversationWhere: any = { tenantId };
-    if (Object.keys(dateFilter).length > 0) conversationWhere.createdAt = dateFilter;
-
-    const [
-      totalConversations,
-      activeConversations,
-      completedConversations,
-      analyticsRecords,
-      feedbackRecords,
-    ] = await Promise.all([
-      prisma.conversation.count({ where: conversationWhere }),
-      prisma.conversation.count({ where: { ...conversationWhere, status: 'active' } }),
-      prisma.conversation.count({ where: { ...conversationWhere, status: 'completed' } }),
-      prisma.conversationAnalytics.findMany({
+    const [totalSessions, activeSessions, endedSessions, analyticsRecords] = await Promise.all([
+      prisma.inferenceSession.count({ where: sessionWhere }),
+      prisma.inferenceSession.count({ where: { ...sessionWhere, status: 'active' } }),
+      prisma.inferenceSession.count({ where: { ...sessionWhere, status: 'ended' } }),
+      prisma.sessionAnalytics.findMany({
         where: analyticsWhere,
         select: {
           sentiment: true,
           isResolved: true,
           confidenceScore: true,
           firstUserQuery: true,
-          createdAt: true,
+          analyzedAt: true,
         },
-      }),
-      prisma.conversation.findMany({
-        where: { ...conversationWhere, feedbackRating: { not: null } },
-        select: { feedbackRating: true },
       }),
     ]);
 
@@ -85,7 +81,7 @@ export async function GET(req: NextRequest) {
         confidenceCount++;
       }
 
-      const dateKey = record.createdAt.toISOString().split('T')[0];
+      const dateKey = record.analyzedAt.toISOString().split('T')[0]!;
       if (!sentimentByDate[dateKey]) sentimentByDate[dateKey] = { positive: 0, negative: 0, neutral: 0, mixed: 0 };
       if (s && s in sentimentByDate[dateKey]) {
         sentimentByDate[dateKey][s as keyof typeof sentimentDistribution]++;
@@ -111,30 +107,25 @@ export async function GET(req: NextRequest) {
         .slice(0, n)
         .map(([query, count]) => ({ query, count }));
 
-    let promoters = 0, passives = 0, detractors = 0;
-    const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-
-    for (const { feedbackRating } of feedbackRecords) {
-      if (feedbackRating == null) continue;
-      ratingDistribution[feedbackRating] = (ratingDistribution[feedbackRating] || 0) + 1;
-      if (feedbackRating >= 4) promoters++;
-      else if (feedbackRating === 3) passives++;
-      else detractors++;
-    }
-
-    const totalWithRatings = promoters + passives + detractors;
-    const npsScore = totalWithRatings > 0
-      ? Math.round(((promoters - detractors) / totalWithRatings) * 100)
-      : 0;
-
     const totalAnalyzed = resolvedCount + unresolvedCount;
     const resolutionRate = totalAnalyzed > 0 ? Math.round((resolvedCount / totalAnalyzed) * 100) : 0;
 
+    // NPS / feedback-rating telemetry came from chat conversations and is no longer available
+    // on InferenceSession. Surface zeros so the dashboard component still renders consistently.
+    const nps = {
+      score: 0,
+      promoters: 0,
+      passives: 0,
+      detractors: 0,
+      totalWithRatings: 0,
+      ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+
     return NextResponse.json({
       counts: {
-        total: totalConversations,
-        active: activeConversations,
-        completed: completedConversations,
+        total: totalSessions,
+        active: activeSessions,
+        completed: endedSessions,
         resolved: resolvedCount,
         unresolved: unresolvedCount,
         analyzed: analyticsRecords.length,
@@ -143,23 +134,22 @@ export async function GET(req: NextRequest) {
       resolutionRate,
       avgConfidence: confidenceCount > 0 ? Math.round((totalConfidence / confidenceCount) * 100) / 100 : 0,
       trends: {
-        sentiment: Object.entries(sentimentByDate).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v })),
-        resolution: Object.entries(resolutionByDate).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v })),
-        volume: Object.entries(volumeByDate).sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({ date, count })),
+        sentiment: Object.entries(sentimentByDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, v]) => ({ date, ...v })),
+        resolution: Object.entries(resolutionByDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, v]) => ({ date, ...v })),
+        volume: Object.entries(volumeByDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({ date, count })),
       },
       topQueries: {
         mostAsked: topN(queryCountAll),
         positive: topN(queryCountPositive),
         negative: topN(queryCountNegative),
       },
-      nps: {
-        score: npsScore,
-        promoters,
-        passives,
-        detractors,
-        totalWithRatings,
-        ratingDistribution,
-      },
+      nps,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {

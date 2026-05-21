@@ -21,18 +21,16 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 
-interface Conversation {
+interface ActivityItem {
   id: string;
-  title: string;
-  messageCount: number;
   updatedAt: string;
 }
 
 interface ActivityChartProps {
-  conversations: Conversation[];
+  items: ActivityItem[];
 }
 
-export function ActivityChart({ conversations }: ActivityChartProps) {
+export function ActivityChart({ items }: ActivityChartProps) {
   const data = useMemo(() => {
     const counts = new Map<string, number>();
     const now = new Date();
@@ -45,9 +43,8 @@ export function ActivityChart({ conversations }: ActivityChartProps) {
       counts.set(key, 0);
     }
 
-    // Count conversations per day
-    conversations.forEach((conv) => {
-      const date = new Date(conv.updatedAt);
+    items.forEach((item) => {
+      const date = new Date(item.updatedAt);
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays <= 6) {
         const key = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -55,15 +52,15 @@ export function ActivityChart({ conversations }: ActivityChartProps) {
       }
     });
 
-    return Array.from(counts.entries()).map(([date, conversations]) => ({
+    return Array.from(counts.entries()).map(([date, sessions]) => ({
       date,
-      conversations,
+      sessions,
     }));
-  }, [conversations]);
+  }, [items]);
 
   const chartConfig = {
-    conversations: {
-      label: 'Conversations',
+    sessions: {
+      label: 'Sessions',
       color: 'hsl(var(--primary))',
     },
   };
@@ -72,7 +69,7 @@ export function ActivityChart({ conversations }: ActivityChartProps) {
     <Card>
       <CardHeader>
         <CardTitle>Activity</CardTitle>
-        <CardDescription>Conversations over the last 7 days</CardDescription>
+        <CardDescription>Sessions over the last 7 days</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="aspect-[3/1] w-full min-h-[200px]">
@@ -97,7 +94,7 @@ export function ActivityChart({ conversations }: ActivityChartProps) {
               content={<ChartTooltipContent indicator="line" />}
             />
             <Area
-              dataKey="conversations"
+              dataKey="sessions"
               type="monotone"
               fill="url(#fillActivity)"
               stroke="hsl(var(--primary))"
