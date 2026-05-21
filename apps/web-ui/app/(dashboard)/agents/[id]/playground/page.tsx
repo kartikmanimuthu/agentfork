@@ -381,11 +381,7 @@ export default function PlaygroundPage() {
         </div>
 
         {/* Chat + Right Panel */}
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="flex-1"
-          autoSaveId="playground-horizontal"
-        >
+        <ResizablePanelGroup className="flex-1">
           {/* Chat Area */}
           <ResizablePanel defaultSize={rightPanelCollapsed ? 100 : 55} minSize={35}>
             <div className="flex flex-col h-full min-w-0">
@@ -437,7 +433,7 @@ export default function PlaygroundPage() {
           {/* Right Panel: Console (top) + Config (bottom) */}
           {!rightPanelCollapsed && (
             <ResizablePanel defaultSize={45} minSize={25} maxSize={60}>
-              <ResizablePanelGroup direction="vertical" autoSaveId="playground-vertical">
+              <ResizablePanelGroup className="flex-col">
                 {/* Console */}
                 <ResizablePanel defaultSize={65} minSize={30}>
                   <PlaygroundConsole
