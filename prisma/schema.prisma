@@ -243,6 +243,7 @@ model Agent {
   inferenceSessions  InferenceSession[]
   knowledgeBases     AgentKnowledgeBase[]
   aliases            AgentAlias[]
+  apiKeyExecutions   ApiKeyExecution[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -265,6 +266,7 @@ model AgentVersion {
   playgroundSessions PlaygroundSession[]
   aliases            AgentAlias[]
   inferenceSessions  InferenceSession[]
+  apiKeyExecutions   ApiKeyExecution[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -479,6 +481,8 @@ model ApiKeyExecution {
 
   apiKey  ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
   session InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent   Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion? @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
