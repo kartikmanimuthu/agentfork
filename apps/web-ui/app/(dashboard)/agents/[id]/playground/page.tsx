@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAgent } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
 import { usePlayground } from '@/hooks/use-playground';
+import { useConsole } from '@/hooks/use-console';
 import {
   usePlaygroundSessions,
   useCreatePlaygroundSession,
@@ -13,8 +14,9 @@ import {
 } from '@/hooks/use-playground-sessions';
 import { ChatMessages } from '@/components/chat/chat-messages';
 import { ChatInput } from '@/components/chat/chat-input';
+import { PlaygroundConsole } from '@/components/agents/playground/console';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -28,11 +30,10 @@ import {
   Trash2,
   Loader2,
   Bot,
-  Activity,
-  ChevronRight,
-  Clock,
   Plus,
   Settings,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -94,7 +95,16 @@ export default function PlaygroundPage() {
 
     // For graph agents, extract config from the first LLM node in the graph
     if (agent?.type === 'graph' && config.nodes) {
-      const nodes = config.nodes as Array<{ config?: { type?: string; model?: string; modelId?: string; systemPrompt?: string; temperature?: number; maxTokens?: number } }>;
+      const nodes = config.nodes as Array<{
+        config?: {
+          type?: string;
+          model?: string;
+          modelId?: string;
+          systemPrompt?: string;
+          temperature?: number;
+          maxTokens?: number;
+        };
+      }>;
       const llmNode = nodes.find((n) => n.config?.type === 'llm');
       if (llmNode?.config) {
         setSystemPrompt(String(llmNode.config.systemPrompt ?? ''));
@@ -117,8 +127,8 @@ export default function PlaygroundPage() {
   const [maxTokens, setMaxTokens] = useState<number | undefined>(undefined);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
   const [sessionName, setSessionName] = useState('New Session');
-  const [showTrace, setShowTrace] = useState(true);
   const [deleteSessionTarget, setDeleteSessionTarget] = useState<string | null>(null);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   const createSession = useCreatePlaygroundSession(agentId);
   const updateSession = useUpdatePlaygroundSession(agentId);
@@ -134,6 +144,10 @@ export default function PlaygroundPage() {
     handleSend,
     handleRegenerate,
     setMessages,
+    consoleEvents,
+    messageMetrics,
+    rawDataMap,
+    thinkingMap,
   } = usePlayground({
     agentId,
     agentType: agent?.type ?? 'simple',
@@ -141,6 +155,25 @@ export default function PlaygroundPage() {
     alias: selectedAlias,
     onError: (err) => toast.error(err.message),
   });
+
+  const {
+    activeTab,
+    setActiveTab,
+    selectedMessageId,
+    selectMessage,
+    clearSelection,
+    severityFilter,
+    setSeverityFilter,
+    eventTypeFilter,
+    setEventTypeFilter,
+    isAutoScrolling,
+    setIsAutoScrolling,
+    filteredEvents,
+    selectedMetrics,
+    sessionMetrics,
+    selectedRawData,
+    eventTypes,
+  } = useConsole({ consoleEvents, messageMetrics, rawDataMap });
 
   const handleVersionChange = (val: string) => {
     if (val !== versionValue) {
@@ -218,7 +251,6 @@ export default function PlaygroundPage() {
     setModel('');
     setMaxTokens(undefined);
     setVersionValue('current');
-    // Clear query params so version doesn't re-apply from URL
     if (searchParams.toString()) {
       router.replace(`/agents/${agentId}/playground`, { scroll: false });
     }
@@ -283,7 +315,12 @@ export default function PlaygroundPage() {
             <Plus className="h-4 w-4 mr-1" />
             New
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleSaveSession} disabled={createSession.isPending || updateSession.isPending}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSaveSession}
+            disabled={createSession.isPending || updateSession.isPending}
+          >
             <Save className="h-4 w-4 mr-1" />
             Save
           </Button>
@@ -300,10 +337,14 @@ export default function PlaygroundPage() {
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               {sessionsLoading && (
-                <div className="text-xs text-muted-foreground px-2 py-4 text-center">Loading...</div>
+                <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  Loading...
+                </div>
               )}
               {sessions?.length === 0 && !sessionsLoading && (
-                <div className="text-xs text-muted-foreground px-2 py-4 text-center">No saved sessions</div>
+                <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  No saved sessions
+                </div>
               )}
               {sessions?.map((session) => (
                 <button
@@ -328,7 +369,7 @@ export default function PlaygroundPage() {
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteSession(session.id);
+                      setDeleteSessionTarget(session.id);
                     }}
                   >
                     <Trash2 className="h-3 w-3 text-destructive" />
@@ -339,176 +380,195 @@ export default function PlaygroundPage() {
           </ScrollArea>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
-            <Input
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
-              placeholder="Session name..."
-            />
-            {activeSessionId && (
-              <Badge variant="outline" className="text-[10px]">Saved</Badge>
-            )}
-          </div>
-          <ChatMessages
-            messages={messages}
-            isLoading={isLoading}
-            onRegenerate={handleRegenerate}
-          />
-          <ChatInput onSend={handleSend} isLoading={isLoading} />
-        </div>
-
-        {/* Config / Trace Sidebar */}
-        <div className="w-80 border-l bg-muted/30 flex flex-col shrink-0">
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-6">
-              {/* Version Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Version</label>
-                <PlaygroundVersionSelector
-                  agentId={agentId}
-                  value={versionValue}
-                  onChange={handleVersionChange}
+        {/* Chat + Right Panel */}
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="flex-1"
+          autoSaveId="playground-horizontal"
+        >
+          {/* Chat Area */}
+          <ResizablePanel defaultSize={rightPanelCollapsed ? 100 : 55} minSize={35}>
+            <div className="flex flex-col h-full min-w-0">
+              <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
+                <Input
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
+                  placeholder="Session name..."
                 />
-              </div>
-
-              <Separator />
-
-              {/* Overrides */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Overrides</label>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Model</label>
-                  <Input
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="Override model..."
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">System Prompt</label>
-                  <Textarea
-                    value={systemPrompt}
-                    onChange={(e) => setSystemPrompt(e.target.value)}
-                    placeholder="Override system prompt..."
-                    rows={4}
-                    className="text-xs resize-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Temperature: {temperature}</label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={temperature}
-                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Max Tokens: {maxTokens ?? 'default'}</label>
-                  <Input
-                    type="number"
-                    value={maxTokens ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setMaxTokens(val ? parseInt(val, 10) : undefined);
-                    }}
-                    placeholder="Leave blank for default"
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <Button size="sm" className="w-full" onClick={handleApplyOverrides}>
-                  <Play className="h-3.5 w-3.5 mr-1" />
-                  Apply Overrides
-                </Button>
-              </div>
-
-              <Separator />
-
-              {/* Trace Panel */}
-              <div className="space-y-2">
-                <button
-                  className="flex items-center gap-2 w-full"
-                  onClick={() => setShowTrace(!showTrace)}
-                >
-                  <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">Execution Trace</span>
-                  <ChevronRight className={cn('h-3 w-3 ml-auto transition-transform', showTrace && 'rotate-90')} />
-                </button>
-                {showTrace && (
-                  <div className="space-y-2 pt-1">
-                    {executions.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Run the agent to see execution traces.</p>
-                    )}
-                    {executions.map((exec) => (
-                      <Card key={exec.id} className="border-dashed">
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Badge
-                              variant={
-                                exec.status === 'completed'
-                                  ? 'default'
-                                  : exec.status === 'failed'
-                                    ? 'destructive'
-                                    : 'secondary'
-                              }
-                              className="text-[10px]"
-                            >
-                              {exec.status}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(exec.createdAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          {exec.trace && (
-                            <pre className="text-[10px] bg-muted rounded p-2 overflow-auto max-h-32">
-                              {JSON.stringify(exec.trace, null, 2)}
-                            </pre>
-                          )}
-                          {exec.output && (
-                            <pre className="text-[10px] bg-muted rounded p-2 overflow-auto max-h-32">
-                              {JSON.stringify(exec.output, null, 2)}
-                            </pre>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                {activeSessionId && (
+                  <Badge variant="outline" className="text-[10px]">
+                    Saved
+                  </Badge>
                 )}
+                <div className="ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                    title={rightPanelCollapsed ? 'Show console' : 'Hide console'}
+                  >
+                    {rightPanelCollapsed ? (
+                      <PanelRightOpen className="h-4 w-4" />
+                    ) : (
+                      <PanelRightClose className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
+              <ChatMessages
+                messages={messages}
+                isLoading={isLoading}
+                onRegenerate={handleRegenerate}
+                selectedMessageId={selectedMessageId}
+                onSelectMessage={selectMessage}
+                messageMetrics={messageMetrics}
+                thinkingMap={thinkingMap}
+                showMetadata
+              />
+              <ChatInput onSend={handleSend} isLoading={isLoading} />
             </div>
-          </ScrollArea>
-        </div>
+          </ResizablePanel>
+
+          {/* Drag handle */}
+          {!rightPanelCollapsed && <ResizableHandle withHandle />}
+
+          {/* Right Panel: Console (top) + Config (bottom) */}
+          {!rightPanelCollapsed && (
+            <ResizablePanel defaultSize={45} minSize={25} maxSize={60}>
+              <ResizablePanelGroup direction="vertical" autoSaveId="playground-vertical">
+                {/* Console */}
+                <ResizablePanel defaultSize={65} minSize={30}>
+                  <PlaygroundConsole
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    events={filteredEvents}
+                    isAutoScrolling={isAutoScrolling}
+                    onAutoScrollChange={setIsAutoScrolling}
+                    severityFilter={severityFilter}
+                    onSeverityFilterChange={setSeverityFilter}
+                    eventTypes={eventTypes}
+                    eventTypeFilter={eventTypeFilter}
+                    onEventTypeFilterChange={setEventTypeFilter}
+                    rawData={selectedRawData}
+                    selectedMetrics={selectedMetrics}
+                    sessionMetrics={sessionMetrics}
+                    selectedMessageId={selectedMessageId}
+                    onClearSelection={clearSelection}
+                  />
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* Config */}
+                <ResizablePanel defaultSize={35} minSize={15} collapsible>
+                  <ScrollArea className="h-full">
+                    <div className="p-4 space-y-4">
+                      {/* Version Selector */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase text-muted-foreground">
+                          Version
+                        </label>
+                        <PlaygroundVersionSelector
+                          agentId={agentId}
+                          value={versionValue}
+                          onChange={handleVersionChange}
+                        />
+                      </div>
+
+                      <Separator />
+
+                      {/* Overrides */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                          <label className="text-xs font-semibold uppercase text-muted-foreground">
+                            Overrides
+                          </label>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">Model</label>
+                          <Input
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            placeholder="Override model..."
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">System Prompt</label>
+                          <Textarea
+                            value={systemPrompt}
+                            onChange={(e) => setSystemPrompt(e.target.value)}
+                            placeholder="Override system prompt..."
+                            rows={3}
+                            className="text-xs resize-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">
+                            Temperature: {temperature}
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={2}
+                            step={0.1}
+                            value={temperature}
+                            onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                            className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">
+                            Max Tokens: {maxTokens ?? 'default'}
+                          </label>
+                          <Input
+                            type="number"
+                            value={maxTokens ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setMaxTokens(val ? parseInt(val, 10) : undefined);
+                            }}
+                            placeholder="Leave blank for default"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <Button size="sm" className="w-full" onClick={handleApplyOverrides}>
+                          <Play className="h-3.5 w-3.5 mr-1" />
+                          Apply Overrides
+                        </Button>
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
+          )}
+        </ResizablePanelGroup>
       </div>
-    <AlertDialog open={!!deleteSessionTarget} onOpenChange={(open) => !open && setDeleteSessionTarget(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete session?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setDeleteSessionTarget(null)}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={() => deleteSessionTarget && handleDeleteSession(deleteSessionTarget)}
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteSessionTarget}
+        onOpenChange={(open) => !open && setDeleteSessionTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete session?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteSessionTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteSessionTarget && handleDeleteSession(deleteSessionTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
