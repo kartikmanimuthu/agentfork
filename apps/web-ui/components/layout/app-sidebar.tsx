@@ -55,6 +55,7 @@ import {
   Server,
   Sparkles,
   BarChart3,
+  Zap,
 } from 'lucide-react';
 
 const mainNav = [
@@ -65,6 +66,7 @@ const mainNav = [
 const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
   { name: 'Sessions', href: '/sessions', icon: History },
+  { name: 'Inferences', href: '/inferences', icon: Zap },
 ];
 
 const agentStudioNav = [
@@ -101,7 +103,9 @@ export function AppSidebar() {
     pathname === '/analytics' ||
     pathname.startsWith('/analytics/') ||
     pathname === '/sessions' ||
-    pathname.startsWith('/sessions/');
+    pathname.startsWith('/sessions/') ||
+    pathname === '/inferences' ||
+    pathname.startsWith('/inferences/');
   const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
 
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
