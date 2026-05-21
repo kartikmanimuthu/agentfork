@@ -11,6 +11,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check, RotateCcw, Bot, User } from 'lucide-react';
+import { sanitizeMarkdown } from '@/lib/playground/sanitize';
 
 interface ChatBubbleProps {
   role: 'user' | 'assistant';
@@ -169,7 +170,7 @@ export function ChatBubble({ role, content, onRegenerate }: ChatBubbleProps) {
                     },
                   }}
                 >
-                  {content}
+                  {sanitizeMarkdown(content)}
                 </ReactMarkdown>
               </div>
             </div>
