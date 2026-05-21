@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const sessionService = new InferenceSessionService(db);
     const webhookService = new WebhookService();
 
-    // Check quota (daily + sliding window)
+    // Quota check (daily + sliding minute window)
     const quotaCheck = await quotaService.checkQuota({
       dailyReqLimit: keyLimits.dailyReqLimit,
       dailyTokenLimit: keyLimits.dailyTokenLimit,
@@ -70,7 +70,27 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { messages, sessionId, systemPrompt, temperature, maxTokens, stream = true, noCache = false, alias, versionId: requestedVersionId } = body;
+    const {
+      messages,
+      sessionId,
+      systemPrompt,
+      temperature,
+      maxTokens,
+      stream = true,
+      noCache = false,
+      alias,
+      versionId: requestedVersionId,
+    } = body as {
+      messages: Array<{ role: string; content?: string }>;
+      sessionId?: string;
+      systemPrompt?: string;
+      temperature?: number;
+      maxTokens?: number;
+      stream?: boolean;
+      noCache?: boolean;
+      alias?: string;
+      versionId?: string;
+    };
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id: agentId, tenantId } });
@@ -81,13 +101,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve version: explicit versionId > alias > default alias > published version
+    // Resolve version: explicit versionId > alias > default alias > latest published
     let version: { id: string; config: unknown; status: string } | null = null;
 
     if (requestedVersionId) {
-      version = await db.agentVersion.findFirst({
+      version = (await db.agentVersion.findFirst({
         where: { id: requestedVersionId, agentId },
-      }) as { id: string; config: unknown; status: string };
+      })) as { id: string; config: unknown; status: string };
     }
 
     if (!version && alias) {
@@ -101,7 +121,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (!version) {
-      // Try default alias
       const defaultAlias = await db.agentAlias.findFirst({
         where: { agentId, isDefault: true },
         include: { version: true },
@@ -112,11 +131,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!version) {
-      // Fallback: latest published
-      version = await db.agentVersion.findFirst({
+      version = (await db.agentVersion.findFirst({
         where: { agentId, status: 'published' },
         orderBy: { version: 'desc' },
-      }) as { id: string; config: unknown; status: string };
+      })) as { id: string; config: unknown; status: string };
     }
 
     if (!version) {
@@ -129,13 +147,55 @@ export async function POST(req: NextRequest) {
     const config = (version.config as Record<string, unknown>) ?? {};
     const startedAt = new Date();
 
-    // Create execution record
+    // ─── Session loading (stateful flow) ─────────────────────────────────
+    // For stateful calls (sessionId present): load prior messages, persist agentVersionId
+    // on the session if not yet set, and append the incoming user turn(s).
+    let priorMessages: Array<{ role: string; content: string }> = [];
+
+    if (sessionId) {
+      const session = await sessionService.findActiveById(sessionId);
+      if (!session) {
+        return new Response(
+          JSON.stringify({ error: { type: 'session_expired', message: 'Session not found, ended, or idle-expired' } }),
+          { status: 410 }
+        );
+      }
+
+      priorMessages = (session.messages ?? []).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      // Lock the session to this agent version (idempotent)
+      if (!session.agentVersionId) {
+        await db.inferenceSession.update({
+          where: { id: sessionId },
+          data: { agentVersionId: version.id },
+        });
+      }
+
+      // Append the inbound user turn(s) to the session before invoking the model
+      for (const msg of messages) {
+        if (msg.role === 'user') {
+          await sessionService.appendMessage(sessionId, {
+            role: 'user',
+            content: msg.content ?? '',
+          });
+        }
+      }
+    }
+
+    // Compose the prompt: prior session turns (if stateful) + the inbound turn(s).
+    const sessionMessages = sessionId ? [...priorMessages, ...messages] : messages;
+
+    // Create execution row, linked to session for stateful runs
     const execution = await db.apiKeyExecution.create({
       data: {
         apiKeyId,
         tenantId,
         agentId,
         agentVersionId: version.id,
+        sessionId: sessionId ?? null,
         status: 'running',
         input: { messages, sessionId, systemPrompt, temperature, maxTokens },
         startedAt,
@@ -145,14 +205,20 @@ export async function POST(req: NextRequest) {
 
     const executionId = execution.id;
 
-    // Helper to deliver webhook
-    const deliverWebhook = async (status: string, output?: Record<string, unknown>, error?: string, tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }, latencyMs?: number) => {
+    const deliverWebhook = async (
+      status: string,
+      output?: Record<string, unknown>,
+      error?: string,
+      tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number },
+      latencyMs?: number
+    ) => {
       if (!keyLimits.webhookUrl) return;
 
       const payload = {
         executionId,
         agentId,
-        agentVersionId: version.id,
+        agentVersionId: version!.id,
+        sessionId: sessionId ?? null,
         status,
         input: { messages, sessionId },
         output,
@@ -185,31 +251,21 @@ export async function POST(req: NextRequest) {
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
       const effectiveMaxTokens = maxTokens ?? simpleConfig.maxTokens ?? 4096;
 
-      // Resolve LLM provider: match model first, then fall back to default
       const llmProviderService = new LlmProviderService(tenantId);
-      const llmConfig = await resolveProviderForModel(tenantId, effectiveModel)
-        ?? await llmProviderService.getDefaultConfig()
-        ?? await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig');
+      const llmConfig =
+        (await resolveProviderForModel(tenantId, effectiveModel)) ??
+        (await llmProviderService.getDefaultConfig()) ??
+        (await new TenantConfigService(tenantId).get<TenantLLMConfig>('llmConfig'));
       const provider = createLLMProvider(llmConfig);
 
-      // Session handling
-      let sessionMessages = messages ?? [];
-      if (sessionId) {
-        const session = await sessionService.findById(sessionId) as { messages: Array<{ role: string; content: string }> } | null;
-        if (session) {
-          sessionMessages = [...session.messages, ...messages];
-        }
-      }
-
-      const coreMessages = sessionMessages.map((m: { role: string; content?: string }) => ({
+      const coreMessages = sessionMessages.map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content ?? '',
       }));
 
-      const userQuery = coreMessages.filter((m: { role: string; content: string }) => m.role === 'user').pop()?.content ?? '';
+      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
 
-      // Discover MCP tools attached to this agent
       const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
       const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(agentId, tenantId, db);
       const hasMcpTools = Object.keys(mcpTools).length > 0;
@@ -219,7 +275,7 @@ export async function POST(req: NextRequest) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      // Cache check
+      // Cache key (only relevant for stateless calls — stateful calls bypass cache below)
       const cacheKey = cacheService.generateCacheKey({
         agentVersionId: version.id,
         systemPrompt: effectiveSystem,
@@ -228,7 +284,11 @@ export async function POST(req: NextRequest) {
         temperature: effectiveTemperature,
       });
 
-      if (!noCache && !hasMcpTools) {
+      // Cache is only consulted for stateless, non-MCP, non-noCache calls.
+      // Stateful calls (sessionId present) always bypass — each turn is unique by definition.
+      const cacheEligible = !noCache && !hasMcpTools && !sessionId;
+
+      if (cacheEligible) {
         const cached = await cacheService.get(cacheKey);
         if (cached) {
           await mcpCleanup();
@@ -246,35 +306,29 @@ export async function POST(req: NextRequest) {
 
           await deliverWebhook('completed', { text: cached.text }, undefined, cached.usage, 0);
 
-          const responseBody = {
-            id: executionId,
-            content: cached.text,
-            usage: cached.usage,
-            cacheHit: true,
-          };
-
-          if (sessionId) {
-            await sessionService.appendMessage(sessionId, {
-              role: 'assistant',
+          return new Response(
+            JSON.stringify({
+              id: executionId,
               content: cached.text,
-              timestamp: new Date().toISOString(),
-            });
-          }
-
-          return new Response(JSON.stringify(responseBody), {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-RateLimit-Limit': String(keyLimits.dailyReqLimit),
-              'X-RateLimit-Remaining': String((quotaCheck.remainingRequests ?? 1) - 1),
-              'X-TokenLimit-Limit': String(keyLimits.dailyTokenLimit),
-              'X-TokenLimit-Remaining': String((quotaCheck.remainingTokens ?? cached.usage.totalTokens) - cached.usage.totalTokens),
-            },
-          });
+              usage: cached.usage,
+              cacheHit: true,
+            }),
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'X-RateLimit-Limit': String(keyLimits.dailyReqLimit),
+                'X-RateLimit-Remaining': String((quotaCheck.remainingRequests ?? 1) - 1),
+                'X-TokenLimit-Limit': String(keyLimits.dailyTokenLimit),
+                'X-TokenLimit-Remaining': String(
+                  (quotaCheck.remainingTokens ?? cached.usage.totalTokens) - cached.usage.totalTokens
+                ),
+              },
+            }
+          );
         }
       }
 
       if (stream) {
-        // Streaming mode
         const result = streamChat({
           provider,
           messages: coreMessages,
@@ -295,7 +349,7 @@ export async function POST(req: NextRequest) {
 
             await quotaService.incrementUsage(tokenUsage.totalTokens);
 
-            if (!noCache && !hasMcpTools) {
+            if (cacheEligible) {
               await cacheService.set(cacheKey, { text, usage: tokenUsage });
             }
 
@@ -303,7 +357,7 @@ export async function POST(req: NextRequest) {
               await sessionService.appendMessage(sessionId, {
                 role: 'assistant',
                 content: text,
-                timestamp: completedAt.toISOString(),
+                tokenCount: tokenUsage.outputTokens,
               });
             }
 
@@ -326,10 +380,10 @@ export async function POST(req: NextRequest) {
         return result.toUIMessageStreamResponse({
           headers: {
             'x-execution-id': executionId,
+            ...(sessionId ? { 'x-session-id': sessionId } : {}),
           },
         });
       } else {
-        // Non-streaming mode
         const result = streamChat({
           provider,
           messages: coreMessages,
@@ -370,23 +424,28 @@ export async function POST(req: NextRequest) {
           await sessionService.appendMessage(sessionId, {
             role: 'assistant',
             content: text,
-            timestamp: completedAt.toISOString(),
           });
         }
 
         await deliverWebhook('completed', { text }, undefined, undefined, latencyMs);
 
-        return new Response(JSON.stringify({
-          id: executionId,
-          content: text,
-          cacheHit: false,
-        }), {
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            id: executionId,
+            content: text,
+            cacheHit: false,
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(sessionId ? { 'x-session-id': sessionId } : {}),
+            },
+          }
+        );
       }
     }
 
-    // ─── Graph Agent Execution ──────────────────────────────────────────
+    // ─── Graph Agent Execution ────────────────────────────────────────────
     if (agent.type === 'graph') {
       const graphConfig = config as {
         nodes?: Array<{ id: string; type: string; label: string }>;
@@ -403,10 +462,23 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
       }));
 
-      const text = `[Graph agent execution]\\n\\nNodes executed: ${nodes.length}\\nEdges traversed: ${edges.length}\\n\\nGraph execution is simulated. Full graph runtime is planned for a future release.`;
+      const text = `[Graph agent execution]\n\nNodes executed: ${nodes.length}\nEdges traversed: ${edges.length}\n\nGraph execution is simulated. Full graph runtime is planned for a future release.`;
 
       const completedAt = new Date();
       const latencyMs = completedAt.getTime() - startedAt.getTime();
+
+      // Persist the assistant turn into the session for stateful graph calls so
+      // session history stays consistent across simple + graph agents.
+      if (sessionId) {
+        try {
+          await sessionService.appendMessage(sessionId, {
+            role: 'assistant',
+            content: text,
+          });
+        } catch (err) {
+          logger.warn({ err, sessionId }, 'Failed to append graph assistant turn');
+        }
+      }
 
       await db.apiKeyExecution.update({
         where: { id: executionId },
@@ -420,7 +492,13 @@ export async function POST(req: NextRequest) {
       });
 
       await quotaService.incrementUsage(0);
-      await deliverWebhook('completed', { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } }, undefined, undefined, latencyMs);
+      await deliverWebhook(
+        'completed',
+        { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } },
+        undefined,
+        undefined,
+        latencyMs
+      );
 
       return new Response(
         JSON.stringify({
@@ -433,6 +511,7 @@ export async function POST(req: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
             'x-execution-id': executionId,
+            ...(sessionId ? { 'x-session-id': sessionId } : {}),
           },
         }
       );
@@ -441,7 +520,10 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'Unsupported agent type' }), { status: 400 });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ err, errorMessage: err.message, errorStack: err.stack, agentId, tenantId }, 'Inference execution error');
+    logger.error(
+      { err, errorMessage: err.message, errorStack: err.stack, agentId, tenantId },
+      'Inference execution error'
+    );
     return new Response(
       JSON.stringify({ error: { type: 'llm_error', message: 'Internal server error', detail: err.message } }),
       { status: 500 }
@@ -477,12 +559,12 @@ async function buildKbContext(
       });
 
       if (results.length > 0) {
-        contexts.push(`--- From ${kb.name} ---\\n${results.map((r: any) => r.content).join('\\n\\n')}`);
+        contexts.push(`--- From ${kb.name} ---\n${results.map((r: any) => r.content).join('\n\n')}`);
       }
     } catch {
       // Skip KBs that fail retrieval
     }
   }
 
-  return contexts.join('\\n\\n');
+  return contexts.join('\n\n');
 }

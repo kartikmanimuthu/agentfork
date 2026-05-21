@@ -2,8 +2,6 @@ import type { Module, Action, PredefinedRole, RoleLevel, PermissionSet } from '.
 
 export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
   Owner: {
-    Conversations: ['create', 'read', 'update', 'delete'],
-    Messages: ['create', 'read', 'update', 'delete'],
     Settings: ['create', 'read', 'update', 'delete'],
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
@@ -13,8 +11,6 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update', 'delete'],
   },
   Admin: {
-    Conversations: ['create', 'read', 'update', 'delete'],
-    Messages: ['create', 'read', 'update', 'delete'],
     Settings: ['create', 'read', 'update'],
     Users: ['create', 'read', 'update', 'delete'],
     Tenants: ['create', 'read', 'update', 'delete'],
@@ -24,8 +20,6 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update', 'delete'],
   },
   Member: {
-    Conversations: ['create', 'read', 'update'],
-    Messages: ['create', 'read', 'update'],
     Settings: ['read'],
     Users: ['read'],
     Tenants: ['read'],
@@ -35,8 +29,6 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update'],
   },
   Viewer: {
-    Conversations: ['read'],
-    Messages: ['read'],
     Settings: ['read'],
     Users: ['read'],
     Tenants: ['read'],
@@ -75,9 +67,9 @@ export function canAssignRole(assignerRole: PredefinedRole, targetRole: Predefin
 
 export function getAutoLevel(permissions: PermissionSet): RoleLevel {
   const totalActions = Object.values(permissions).flat().length;
-  const maxPossible = 36; // 8 modules * 4 actions
+  const maxPossible = 28; // 7 modules * 4 actions
   if (totalActions >= maxPossible) return 4;
-  if (totalActions >= 24) return 3;
-  if (totalActions >= 14) return 2;
+  if (totalActions >= 19) return 3;
+  if (totalActions >= 11) return 2;
   return 1;
 }

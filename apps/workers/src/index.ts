@@ -1,11 +1,10 @@
 import { createBoss } from './boss.js';
 import { createExecutor } from './executor/factory.js';
 import { createLogger } from './lib/logger.js';
-import { register as registerMessageEmbedding } from './jobs/message-embedding/register.js';
-import { register as registerConversationSummary } from './jobs/conversation-summary/register.js';
 import { register as registerDocumentIngestion } from './jobs/document-ingestion/register.js';
 import { register as registerWebCrawl } from './jobs/web-crawl/register.js';
-import { register as registerConversationAnalytics } from './jobs/conversation-analytics/register.js';
+import { register as registerInferenceSessionAnalytics } from './jobs/inference-session-analytics/register.js';
+import { register as registerInferenceSessionIdleWatcher } from './jobs/inference-session-idle-watcher/register.js';
 import { registerSchedules } from './jobs/web-crawl/scheduler.js';
 import { env } from './env';
 
@@ -23,11 +22,10 @@ async function main() {
   await boss.start();
   log.info('pg-boss started');
 
-  await registerMessageEmbedding(boss, executor);
-  await registerConversationSummary(boss, executor);
   await registerDocumentIngestion(boss, executor);
   await registerWebCrawl(boss, executor);
-  await registerConversationAnalytics(boss, executor);
+  await registerInferenceSessionAnalytics(boss, executor);
+  await registerInferenceSessionIdleWatcher(boss);
 
   await registerSchedules(boss);
   log.info('Schedules registered. Waiting for work...');

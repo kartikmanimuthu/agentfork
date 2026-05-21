@@ -1,88 +1,229 @@
-export interface SessionDb {
-  inferenceSession: {
-    create(args: { data: Record<string, unknown> }): Promise<unknown>;
-    findFirst(args: { where: Record<string, unknown> }): Promise<unknown | null>;
-    findMany(args: { where: Record<string, unknown>; orderBy?: Record<string, unknown> }): Promise<unknown[]>;
-    update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<unknown>;
-    delete(args: { where: Record<string, unknown> }): Promise<unknown>;
-    deleteMany(args: { where: Record<string, unknown> }): Promise<unknown>;
-  };
+/**
+ * InferenceSessionService — canonical session lifecycle for the unified Inference API.
+ *
+ * Backed by the InferenceSession + InferenceSessionMessage Prisma models.
+ * Session state machine: active → ended (closed | idle_timeout | error)
+ * Default idle timeout: 30 minutes, refreshed on every appendMessage.
+ */
+
+export const DEFAULT_IDLE_MINUTES = 30;
+
+export type SessionEndReason = 'closed' | 'idle_timeout' | 'error';
+
+export interface SessionMessageInput {
+  role: string;
+  content: string;
+  tokenCount?: number;
+}
+
+export interface SessionMessageRecord {
+  id: string;
+  sessionId: string;
+  role: string;
+  content: string;
+  tokenCount: number | null;
+  createdAt: Date;
+}
+
+export interface InferenceSessionRecord {
+  id: string;
+  apiKeyId: string;
+  tenantId: string;
+  agentId: string;
+  agentVersionId: string | null;
+  name: string | null;
+  channel: string;
+  channelMetadata: unknown;
+  status: string;
+  idleExpiresAt: Date;
+  endedAt: Date | null;
+  endReason: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  messages?: SessionMessageRecord[];
 }
 
 export interface CreateSessionInput {
   apiKeyId: string;
   tenantId: string;
   agentId: string;
+  agentVersionId?: string;
   name?: string;
-  metadata?: Record<string, unknown>;
-  ttlHours?: number;
+  channel?: string;
+  channelMetadata?: Record<string, unknown> | null;
+  /** Override default idle timeout in minutes. */
+  idleMinutes?: number;
 }
 
-export interface SessionMessage {
-  role: string;
-  content: string;
-  timestamp: string;
+export interface FindStaleSessionsArgs {
+  /** Sessions whose idleExpiresAt is before this date are considered stale. Defaults to now. */
+  idleBefore?: Date;
+  /** Maximum rows to return per call. Defaults to 100. */
+  limit?: number;
 }
 
-const DEFAULT_SESSION_TTL_HOURS = 24;
+/**
+ * Minimal Prisma surface this service depends on.
+ * Concrete usage: pass `getPrismaClient()` — the real Prisma client matches this shape.
+ */
+export interface SessionDb {
+  inferenceSession: {
+    create(args: { data: Record<string, unknown> }): Promise<InferenceSessionRecord>;
+    findFirst(args: {
+      where: Record<string, unknown>;
+      include?: Record<string, unknown>;
+    }): Promise<InferenceSessionRecord | null>;
+    findMany(args: {
+      where: Record<string, unknown>;
+      orderBy?: Record<string, unknown> | Array<Record<string, unknown>>;
+      take?: number;
+      include?: Record<string, unknown>;
+    }): Promise<InferenceSessionRecord[]>;
+    update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<InferenceSessionRecord>;
+    updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>;
+    delete(args: { where: Record<string, unknown> }): Promise<InferenceSessionRecord>;
+  };
+  inferenceSessionMessage: {
+    create(args: { data: Record<string, unknown> }): Promise<SessionMessageRecord>;
+  };
+}
 
 export class InferenceSessionService {
   constructor(private readonly db: SessionDb) {}
 
-  async create(input: CreateSessionInput): Promise<unknown> {
-    const ttlHours = input.ttlHours ?? DEFAULT_SESSION_TTL_HOURS;
-    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+  /** Create a new session in `active` status. idleExpiresAt = now + DEFAULT_IDLE_MINUTES. */
+  async create(input: CreateSessionInput): Promise<InferenceSessionRecord> {
+    const minutes = input.idleMinutes ?? DEFAULT_IDLE_MINUTES;
+    const idleExpiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
     return this.db.inferenceSession.create({
       data: {
         apiKeyId: input.apiKeyId,
         tenantId: input.tenantId,
         agentId: input.agentId,
+        agentVersionId: input.agentVersionId ?? null,
         name: input.name ?? null,
-        messages: [] as SessionMessage[],
-        metadata: input.metadata ?? null,
-        expiresAt,
+        channel: input.channel ?? 'API',
+        channelMetadata: (input.channelMetadata ?? null) as Record<string, unknown> | null,
+        status: 'active',
+        idleExpiresAt,
       },
     });
   }
 
-  async findById(id: string) {
+  /** Find an active, non-idle-expired session by id, with its messages eagerly loaded. */
+  async findActiveById(id: string): Promise<InferenceSessionRecord | null> {
     return this.db.inferenceSession.findFirst({
-      where: { id, expiresAt: { gt: new Date() } },
+      where: {
+        id,
+        status: 'active',
+        idleExpiresAt: { gt: new Date() },
+      },
+      include: {
+        messages: { orderBy: { createdAt: 'asc' } },
+      },
     });
   }
 
-  async findByApiKeyId(apiKeyId: string) {
+  /**
+   * Back-compat alias for callers that still use `findById` to mean "load the active session
+   * if it's still alive". Returns null if ended OR idle-expired.
+   */
+  async findById(id: string): Promise<InferenceSessionRecord | null> {
+    return this.findActiveById(id);
+  }
+
+  /** List active, non-idle-expired sessions for an API key (used by the API consumer SDK). */
+  async findByApiKeyId(apiKeyId: string): Promise<InferenceSessionRecord[]> {
     return this.db.inferenceSession.findMany({
-      where: { apiKeyId, expiresAt: { gt: new Date() } },
+      where: {
+        apiKeyId,
+        status: 'active',
+        idleExpiresAt: { gt: new Date() },
+      },
       orderBy: { updatedAt: 'desc' },
     });
   }
 
-  async appendMessage(id: string, message: SessionMessage): Promise<unknown> {
-    const session = await this.findById(id) as { messages: SessionMessage[] } | null;
+  /**
+   * Append a message row to the session and bump idleExpiresAt by DEFAULT_IDLE_MINUTES.
+   * Throws if the session is not active or has idle-expired.
+   */
+  async appendMessage(
+    id: string,
+    message: SessionMessageInput,
+    idleMinutes: number = DEFAULT_IDLE_MINUTES,
+  ): Promise<SessionMessageRecord> {
+    const session = await this.findActiveById(id);
     if (!session) {
-      throw new Error('Session not found or expired');
+      throw new Error('Session not found, ended, or idle-expired');
     }
 
-    const messages = [...session.messages, message];
-    return this.db.inferenceSession.update({
+    const newIdleExpiresAt = new Date(Date.now() + idleMinutes * 60 * 1000);
+
+    const created = await this.db.inferenceSessionMessage.create({
+      data: {
+        sessionId: id,
+        role: message.role,
+        content: message.content,
+        tokenCount: message.tokenCount ?? null,
+      },
+    });
+
+    // Refresh idle expiry on every turn — the session is alive.
+    await this.db.inferenceSession.update({
       where: { id },
-      data: { messages: messages as unknown as Record<string, unknown>, updatedAt: new Date() },
+      data: { idleExpiresAt: newIdleExpiresAt },
+    });
+
+    return created;
+  }
+
+  /**
+   * Close an active session. Idempotent: closing an already-ended session is a no-op success.
+   * Returns the session row in its final state.
+   */
+  async endSession(id: string, reason: SessionEndReason): Promise<InferenceSessionRecord | null> {
+    // Use updateMany so we can scope by status='active' and treat zero-row updates as no-ops.
+    const result = await this.db.inferenceSession.updateMany({
+      where: { id, status: 'active' },
+      data: {
+        status: 'ended',
+        endedAt: new Date(),
+        endReason: reason,
+      },
+    });
+
+    // Whether or not we just transitioned, return the current row so the caller can inspect.
+    return this.db.inferenceSession.findFirst({
+      where: { id },
+      include: { messages: { orderBy: { createdAt: 'asc' } } },
+    }).then((row) => {
+      void result;
+      return row;
     });
   }
 
-  async delete(id: string): Promise<unknown> {
-    return this.db.inferenceSession.delete({
-      where: { id },
+  /**
+   * Find sessions that are still `active` but past their idleExpiresAt — candidates for
+   * idle-timeout cleanup. The caller (idle-watcher worker) is responsible for ending them
+   * and enqueuing analytics.
+   */
+  async findStaleSessions(args: FindStaleSessionsArgs = {}): Promise<InferenceSessionRecord[]> {
+    const idleBefore = args.idleBefore ?? new Date();
+    const limit = args.limit ?? 100;
+    return this.db.inferenceSession.findMany({
+      where: {
+        status: 'active',
+        idleExpiresAt: { lt: idleBefore },
+      },
+      orderBy: { idleExpiresAt: 'asc' },
+      take: limit,
     });
   }
 
-  async cleanupExpired(): Promise<number> {
-    const result = await this.db.inferenceSession.deleteMany({
-      where: { expiresAt: { lt: new Date() } },
-    }) as { count: number };
-
-    return result.count;
+  /** Hard delete a session row. Cascades to messages. */
+  async delete(id: string): Promise<InferenceSessionRecord> {
+    return this.db.inferenceSession.delete({ where: { id } });
   }
 }

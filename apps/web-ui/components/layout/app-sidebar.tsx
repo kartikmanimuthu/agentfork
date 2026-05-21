@@ -59,14 +59,12 @@ import {
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Chat', href: '/chat', icon: MessageSquare },
-  { name: 'History', href: '/conversations', icon: History },
+  { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
 const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
-  { name: 'Sessions', href: '/analytics/sessions', icon: History },
 ];
 
 const agentStudioNav = [

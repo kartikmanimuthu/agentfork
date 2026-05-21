@@ -1,7 +1,6 @@
 export * from './common';
 export * from './auth';
 export * from './tenant';
-export * from './chat';
 export * from './role';
 export * from './invitation';
 export * from './audit';

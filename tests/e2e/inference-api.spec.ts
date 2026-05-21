@@ -25,3 +25,40 @@ test.describe('Inference API', () => {
     expect(response.status()).toBe(401);
   });
 });
+
+test.describe('Inference Sessions API', () => {
+  test('POST /sessions rejects without API key', async ({ request }) => {
+    const response = await request.post('/api/v1/inference/sessions', {
+      data: { name: 'test', channel: 'API' },
+    });
+    expect(response.status()).toBe(401);
+  });
+
+  test('GET /sessions rejects without API key', async ({ request }) => {
+    const response = await request.get('/api/v1/inference/sessions');
+    expect(response.status()).toBe(401);
+  });
+
+  test('POST /sessions/{id}/close rejects without API key', async ({ request }) => {
+    const response = await request.post('/api/v1/inference/sessions/some-id/close');
+    expect(response.status()).toBe(401);
+  });
+
+  test('GET /sessions/{id} rejects without API key', async ({ request }) => {
+    const response = await request.get('/api/v1/inference/sessions/some-id');
+    expect(response.status()).toBe(401);
+  });
+
+  test('DELETE /sessions/{id} rejects without API key', async ({ request }) => {
+    const response = await request.delete('/api/v1/inference/sessions/some-id');
+    expect(response.status()).toBe(401);
+  });
+});
+
+test.describe('Sessions Dashboard API', () => {
+  test('GET /api/sessions rejects unauthenticated', async ({ request }) => {
+    const response = await request.get('/api/sessions');
+    // Either 401 (unauthenticated) or 403 (signed in but no role) — both acceptable.
+    expect([401, 403]).toContain(response.status());
+  });
+});

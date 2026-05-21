@@ -7,15 +7,9 @@ export { createLogger } from './logging/logger';
 // Database
 export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { getTenantClient, TENANT_SCOPED_MODELS } from './db/tenant-middleware';
-export {
-  createConversationRepository,
-  createMessageRepository,
-  createAuditLogRepository,
-} from './db/repositories/repository-factory';
-export type { ConversationRepository, ConversationRecord, CreateConversationInput, UpdateConversationInput } from './db/repositories/conversation/interface';
-export type { MessageRepository, MessageRecord, CreateMessageInput } from './db/repositories/message/interface';
+export { createAuditLogRepository } from './db/repositories/repository-factory';
 export type { AuditLogRepository, AuditLogRecord, CreateAuditLogInput, AuditLogFilters } from './db/repositories/audit-log/interface';
-export type { PaginationParams, PaginatedResult, ConversationStatus, MessageRole, AuditSeverity, InvitationStatus } from './types/domain';
+export type { PaginationParams, PaginatedResult, MessageRole, AuditSeverity, InvitationStatus } from './types/domain';
 
 // Auth
 export { getAuthSession, getSessionTenantId, getSessionUserId, assertSuperAdmin } from './auth/auth-session';
@@ -40,8 +34,6 @@ export type { CustomRoleInput, CustomRoleOutput } from './rbac/custom-role-servi
 
 // Services
 export { AuditService } from './services/audit-service';
-export { ConversationService } from './services/conversation-service';
-export { MessageService } from './services/message-service';
 export { TenantConfigService } from './services/tenant-config-service';
 export { InvitationService } from './services/invitation-service';
 export { LlmProviderService } from './services/llm-provider-service';

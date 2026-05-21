@@ -7,8 +7,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 function getPageTitle(pathname: string) {
   if (pathname === '/dashboard') return 'Dashboard';
-  if (pathname === '/chat') return 'Chat';
-  if (pathname === '/conversations') return 'Conversations';
+  if (pathname === '/sessions' || pathname.startsWith('/sessions/')) return 'Sessions';
   if (pathname === '/audit') return 'Audit Logs';
   if (pathname === '/settings') return 'Settings';
   if (pathname.startsWith('/settings/')) {

@@ -28,7 +28,7 @@ describe('authorize', () => {
 
   it('returns 401 when no session exists', async () => {
     mockGetServerSession.mockResolvedValue(null);
-    const result = await authorize('read', 'Conversation', {});
+    const result = await authorize('read', 'Agent', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });
@@ -41,33 +41,33 @@ describe('authorize', () => {
 
   it('returns 403 when user has no role', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1' } } as any);
-    const result = await authorize('read', 'Conversation', {});
+    const result = await authorize('read', 'Agent', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
   });
 
-  it('returns null when Owner reads Conversation', async () => {
+  it('returns null when Owner reads Agent', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Owner' } } as any);
-    const result = await authorize('read', 'Conversation', {});
+    const result = await authorize('read', 'Agent', {});
     expect(result).toBeNull();
   });
 
-  it('returns 403 when Viewer tries to create Conversation', async () => {
+  it('returns 403 when Viewer tries to create Agent', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Viewer' } } as any);
-    const result = await authorize('create', 'Conversation', {});
+    const result = await authorize('create', 'Agent', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
   });
 
-  it('maps subject type via SUBJECT_TO_MODULE', async () => {
+  it('maps subject type via SUBJECT_TO_MODULE (InferenceSession -> Agents)', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Owner' } } as any);
-    const result = await authorize('read', 'Conversation', {});
+    const result = await authorize('read', 'InferenceSession', {});
     expect(result).toBeNull();
   });
 
   it('handles manage action (maps to all CRUD)', async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: '1', role: 'Member' } } as any);
-    const result = await authorize('manage', 'Conversation', {});
+    const result = await authorize('manage', 'Agent', {});
     expect(result).toBeNull();
   });
 
@@ -76,13 +76,15 @@ describe('authorize', () => {
       user: { id: '1', role: 'CustomRole', tenantId: 't1' },
     } as any);
     mockGetCustomRolePermissions.mockResolvedValue({
-      Conversations: ['read'],
-      Messages: [],
+      Agents: ['read'],
       Settings: [],
       Users: [],
       Tenants: [],
+      KnowledgeBases: [],
+      McpServers: [],
+      LlmProviders: [],
     });
-    const result = await authorize('read', 'Conversation', {});
+    const result = await authorize('read', 'Agent', {});
     expect(result).toBeNull();
     expect(mockGetCustomRolePermissions).toHaveBeenCalledWith('CustomRole', 't1');
   });
@@ -92,7 +94,7 @@ describe('authorize', () => {
       user: { id: '1', role: 'CustomRole', tenantId: 't1' },
     } as any);
     mockGetCustomRolePermissions.mockResolvedValue(null);
-    const result = await authorize('delete', 'Conversation', {});
+    const result = await authorize('delete', 'Agent', {});
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
   });
