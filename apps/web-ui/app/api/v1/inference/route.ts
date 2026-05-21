@@ -394,45 +394,61 @@ export async function POST(req: NextRequest) {
           ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         });
 
-        const reader = result.toUIMessageStreamResponse().body?.getReader();
+        // Drain the plain text stream (NOT the UI message stream — that returns SSE frames).
         let text = '';
-        if (reader) {
-          const decoder = new TextDecoder();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            text += decoder.decode(value, { stream: true });
-          }
+        for await (const chunk of result.textStream) {
+          text += chunk;
         }
+
+        // usage is a PromiseLike on the streamChat result; wrap so we can .catch.
+        const usage = await Promise.resolve(result.usage).catch(() => undefined);
+        const tokenUsage = usage
+          ? {
+              inputTokens: usage.inputTokens ?? 0,
+              outputTokens: usage.outputTokens ?? 0,
+              totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+            }
+          : undefined;
 
         await mcpCleanup();
         const completedAt = new Date();
         const latencyMs = completedAt.getTime() - startedAt.getTime();
+
+        if (tokenUsage) {
+          await quotaService.incrementUsage(tokenUsage.totalTokens);
+        }
+
+        if (cacheEligible) {
+          await cacheService.set(cacheKey, { text, usage: tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } });
+        }
+
+        if (sessionId) {
+          await sessionService.appendMessage(sessionId, {
+            role: 'assistant',
+            content: text,
+            tokenCount: tokenUsage?.outputTokens,
+          });
+        }
 
         await db.apiKeyExecution.update({
           where: { id: executionId },
           data: {
             status: 'completed',
             output: { text },
+            tokenUsage: (tokenUsage ?? null) as any,
             cacheHit: false,
             latencyMs,
             completedAt,
           },
         });
 
-        if (sessionId) {
-          await sessionService.appendMessage(sessionId, {
-            role: 'assistant',
-            content: text,
-          });
-        }
-
-        await deliverWebhook('completed', { text }, undefined, undefined, latencyMs);
+        await deliverWebhook('completed', { text }, undefined, tokenUsage, latencyMs);
 
         return new Response(
           JSON.stringify({
             id: executionId,
             content: text,
+            usage: tokenUsage,
             cacheHit: false,
           }),
           {
