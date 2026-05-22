@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   experimental: { workerThreads: false, cpus: 1 },
+  async rewrites() {
+    return [
+      {
+        source: '/sdk-assets/:path*',
+        destination: 'http://localhost:3000/build/:path*',
+      },
+    ];
+  },
 };
 
 export default withMDX(nextConfig);
