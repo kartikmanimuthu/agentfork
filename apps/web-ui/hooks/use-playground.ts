@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import type { UIMessage } from '@ai-sdk/react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useChat, type UIMessage } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import type { ConsoleEvent, MessageMetrics, RawData, ThinkingContent } from '@/lib/playground/types';
 import { calculateCost } from '@/lib/playground/cost';
 
@@ -44,8 +45,7 @@ export function usePlayground({
       trace?: Record<string, unknown>;
     }>
   >([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState<PlaygroundMessage[]>(initialMessages);
+  const [isGraphLoading, setIsGraphLoading] = useState(false);
 
   // Console state
   const [consoleEvents, setConsoleEvents] = useState<ConsoleEvent[]>([]);
@@ -53,19 +53,126 @@ export function usePlayground({
   const [rawDataMap, setRawDataMap] = useState<Map<string, RawData>>(new Map());
   const [thinkingMap, setThinkingMap] = useState<Map<string, ThinkingContent>>(new Map());
 
+  // For simple agents, use AI SDK streaming
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `/api/agents/${agentId}/playground`,
+        body: {
+          agentVersionId: versionId,
+          alias,
+          systemPrompt: overrides.systemPrompt,
+          model: overrides.model,
+          temperature: overrides.temperature,
+          maxTokens: overrides.maxTokens,
+        },
+      }),
+    [agentId, versionId, alias, overrides]
+  );
+
+  const {
+    messages: aiMessages,
+    status,
+    sendMessage,
+    setMessages: setAiMessages,
+  } = useChat({
+    transport,
+    onError: (err) => {
+      onError?.(err);
+    },
+    onFinish: async ({ message }) => {
+      // After AI SDK stream completes, fetch execution metrics
+      try {
+        const res = await fetch(`/api/agents/${agentId}/playground/executions`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            const latestExec = data[0];
+            const output = latestExec.output as { usage?: { inputTokens?: number; outputTokens?: number }; durationMs?: number; model?: string } | null;
+            if (output?.usage) {
+              const model = output.model ?? 'unknown';
+              const metrics: MessageMetrics = {
+                messageId: message.id,
+                inputTokens: output.usage.inputTokens ?? 0,
+                outputTokens: output.usage.outputTokens ?? 0,
+                thinkingTokens: 0,
+                totalTokens: (output.usage.inputTokens ?? 0) + (output.usage.outputTokens ?? 0),
+                ttftMs: 0,
+                durationMs: output.durationMs ?? 0,
+                model,
+                costEstimate: calculateCost(model, {
+                  inputTokens: output.usage.inputTokens ?? 0,
+                  outputTokens: output.usage.outputTokens ?? 0,
+                }),
+              };
+              setMessageMetrics((prev) => {
+                const next = new Map(prev);
+                next.set(message.id, metrics);
+                return next;
+              });
+
+              // Add console events for the execution
+              const now = Date.now();
+              setConsoleEvents((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  messageId: message.id,
+                  timestamp: now,
+                  relativeMs: 0,
+                  severity: 'info',
+                  type: 'execution_start',
+                  data: { model, executionId: latestExec.id },
+                },
+                {
+                  id: crypto.randomUUID(),
+                  messageId: message.id,
+                  timestamp: now,
+                  relativeMs: output.durationMs ?? 0,
+                  severity: 'info',
+                  type: 'execution_end',
+                  data: {
+                    usage: output.usage,
+                    durationMs: output.durationMs,
+                    model,
+                  },
+                },
+              ]);
+            }
+          }
+        }
+      } catch {
+        // Non-critical — metrics just won't show
+      }
+    },
+  });
+
   // Load initial messages when provided
   useEffect(() => {
     if (initialMessages.length > 0) {
-      setMessages(initialMessages);
+      setAiMessages(initialMessages);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isLoading = status === 'streaming' || status === 'submitted' || isGraphLoading;
+
+  // Use AI SDK messages for simple agents, local state for graph agents
+  const [graphMessages, setGraphMessages] = useState<PlaygroundMessage[]>([]);
+  const messages = agentType === 'simple' ? aiMessages : graphMessages;
+  const setMessages = agentType === 'simple' ? setAiMessages : setGraphMessages;
 
   const handleSend = useCallback(
     async (content: string) => {
       if (!agentId) return;
 
-      setIsLoading(true);
+      if (agentType === 'simple') {
+        sendMessage({ text: content });
+        return;
+      }
+
+      // Graph agent: SSE streaming with console event capture
+      setIsGraphLoading(true);
       const assistantMessageId = crypto.randomUUID();
       const requestStartTime = Date.now();
       let fullText = '';
@@ -79,11 +186,11 @@ export function usePlayground({
         parts: [{ type: 'text' as const, text: content }],
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      setGraphMessages((prev) => [...prev, userMessage]);
 
       const requestBody = {
         messages: [
-          ...messages.map((m) => ({
+          ...graphMessages.map((m) => ({
             role: m.role,
             content: m.parts
               .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
@@ -113,7 +220,6 @@ export function usePlayground({
 
         const executionId = res.headers.get('x-execution-id') ?? undefined;
 
-        // Record raw request/response metadata
         setRawDataMap((prev) => {
           const next = new Map(prev);
           next.set(assistantMessageId, {
@@ -138,10 +244,6 @@ export function usePlayground({
         const decoder = new TextDecoder();
         let buffer = '';
 
-        // Unified SSE parsing for both simple and graph agents.
-        // Simple agents: AI SDK UI message stream lines (0:, 2:, e:, d:) interleaved
-        //   with custom event: / data: pairs for execution_start / execution_end.
-        // Graph agents: pure custom event: / data: pairs.
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -157,7 +259,6 @@ export function usePlayground({
             if (line.startsWith('event: ')) {
               pendingEventType = line.slice(7).trim();
             } else if (line.startsWith('data: ') && pendingEventType) {
-              // Named SSE event (custom protocol)
               const rawData = line.slice(6);
               try {
                 const data = JSON.parse(rawData) as Record<string, unknown>;
@@ -176,7 +277,7 @@ export function usePlayground({
 
                 if (pendingEventType === 'text_delta' && typeof data.delta === 'string') {
                   fullText += data.delta;
-                  setMessages((prev) => {
+                  setGraphMessages((prev) => {
                     const existing = prev.find((m) => m.id === assistantMessageId);
                     if (existing) {
                       return prev.map((m) =>
@@ -239,36 +340,7 @@ export function usePlayground({
                 // skip malformed events
               }
               pendingEventType = '';
-            } else if (line.startsWith('0:') && agentType === 'simple') {
-              // AI SDK text delta format: 0:"chunk"
-              try {
-                const chunk = JSON.parse(line.slice(2)) as string;
-                fullText += chunk;
-                setMessages((prev) => {
-                  const existing = prev.find((m) => m.id === assistantMessageId);
-                  if (existing) {
-                    return prev.map((m) =>
-                      m.id === assistantMessageId
-                        ? { ...m, parts: [{ type: 'text' as const, text: fullText }] }
-                        : m
-                    );
-                  }
-                  return [
-                    ...prev,
-                    {
-                      id: assistantMessageId,
-                      role: 'assistant' as const,
-                      parts: [{ type: 'text' as const, text: fullText }],
-                      executionId,
-                    },
-                  ];
-                });
-              } catch {
-                // skip
-              }
-              pendingEventType = '';
             } else {
-              // Non-data line resets pending event type
               if (line === '') pendingEventType = '';
             }
           }
@@ -284,9 +356,9 @@ export function usePlayground({
           return next;
         });
 
-        // Ensure assistant message exists even if stream produced no text_delta events
+        // Ensure assistant message exists
         if (fullText) {
-          setMessages((prev) => {
+          setGraphMessages((prev) => {
             if (prev.find((m) => m.id === assistantMessageId)) return prev;
             return [
               ...prev,
@@ -302,23 +374,34 @@ export function usePlayground({
       } catch (err) {
         onError?.(err instanceof Error ? err : new Error(String(err)));
       } finally {
-        setIsLoading(false);
+        setIsGraphLoading(false);
       }
     },
-    [agentId, agentType, versionId, alias, overrides, messages, onError]
+    [agentId, agentType, versionId, alias, overrides, graphMessages, sendMessage, onError]
   );
 
   const handleRegenerate = useCallback(() => {
     if (!agentId) return;
-    const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
-    if (lastUserMessage) {
-      const text = lastUserMessage.parts
-        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-        .map((p) => p.text)
-        .join('');
-      handleSend(text);
+    if (agentType === 'simple') {
+      const lastUserMessage = aiMessages.filter((m) => m.role === 'user').pop();
+      if (lastUserMessage) {
+        const text = lastUserMessage.parts
+          .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map((p) => p.text)
+          .join('');
+        sendMessage({ text });
+      }
+    } else {
+      const lastUserMessage = graphMessages.filter((m) => m.role === 'user').pop();
+      if (lastUserMessage) {
+        const text = lastUserMessage.parts
+          .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map((p) => p.text)
+          .join('');
+        handleSend(text);
+      }
     }
-  }, [agentId, messages, handleSend]);
+  }, [agentId, agentType, aiMessages, graphMessages, sendMessage, handleSend]);
 
   const refreshExecutions = useCallback(async () => {
     try {

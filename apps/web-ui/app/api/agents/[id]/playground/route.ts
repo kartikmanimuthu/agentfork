@@ -171,8 +171,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
 
       const startTime = Date.now();
-      let ttftMs: number | undefined;
-      let capturedUsage: { inputTokens?: number; outputTokens?: number } | undefined;
 
       const result = streamChat({
         provider,
@@ -183,94 +181,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
         ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
-          capturedUsage = usage;
           await mcpCleanup();
           const completedAt = new Date();
+          const durationMs = Date.now() - startTime;
           await db.agentExecution.update({
             where: { id: execution.id },
             data: {
               status: 'completed',
-              output: { text, usage },
+              output: { text, usage, durationMs, model: effectiveModel ?? llmConfig?.chatModel ?? 'unknown' },
               completedAt,
             },
           });
-          logger.info({ requestId, executionId: execution.id, usage }, 'Execution completed');
+          logger.info({ requestId, executionId: execution.id, usage, durationMs }, 'Execution completed');
         },
       });
 
-      const originalResponse = result.toUIMessageStreamResponse();
-      const originalBody = originalResponse.body;
-      if (!originalBody) {
-        return originalResponse;
-      }
-
-      const encoder = new TextEncoder();
-
-      const enhancedStream = new ReadableStream({
-        async start(controller) {
-          // Emit execution_start so the client console can record timing
-          controller.enqueue(
-            encoder.encode(
-              `event: execution_start\ndata: ${JSON.stringify({
-                executionId: execution.id,
-                model: effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
-                temperature: effectiveTemperature,
-                maxTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
-                timestamp: startTime,
-              })}\n\n`
-            )
-          );
-
-          const reader = originalBody.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              // Record time-to-first-token on the first chunk
-              if (ttftMs === undefined) {
-                ttftMs = Date.now() - startTime;
-              }
-
-              controller.enqueue(value);
-            }
-
-            const durationMs = Date.now() - startTime;
-            controller.enqueue(
-              encoder.encode(
-                `event: execution_end\ndata: ${JSON.stringify({
-                  usage: {
-                    inputTokens: capturedUsage?.inputTokens ?? 0,
-                    outputTokens: capturedUsage?.outputTokens ?? 0,
-                    thinkingTokens: 0,
-                  },
-                  durationMs,
-                  ttftMs: ttftMs ?? durationMs,
-                  model: effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
-                })}\n\n`
-              )
-            );
-          } catch (err) {
-            controller.enqueue(
-              encoder.encode(
-                `event: error\ndata: ${JSON.stringify({
-                  code: 'STREAM_ERROR',
-                  message: err instanceof Error ? err.message : String(err),
-                  timestamp: Date.now(),
-                })}\n\n`
-              )
-            );
-          } finally {
-            controller.close();
-          }
-        },
-      });
-
-      return new Response(enhancedStream, {
+      return result.toUIMessageStreamResponse({
         headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
           'x-execution-id': execution.id,
           'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
           'x-request-timestamp': String(startTime),
