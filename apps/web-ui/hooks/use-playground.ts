@@ -89,6 +89,40 @@ export function usePlayground({
           if (data.length > 0) {
             const latestExec = data[0];
             const output = latestExec.output as { usage?: { inputTokens?: number; outputTokens?: number }; durationMs?: number; model?: string } | null;
+
+            // Populate raw data for the Raw tab
+            setRawDataMap((prev) => {
+              const next = new Map(prev);
+              next.set(message.id, {
+                request: {
+                  method: 'POST',
+                  url: `/api/agents/${agentId}/playground`,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: {
+                    agentVersionId: versionId,
+                    alias,
+                    systemPrompt: overrides.systemPrompt,
+                    model: overrides.model,
+                    temperature: overrides.temperature,
+                    maxTokens: overrides.maxTokens,
+                  },
+                },
+                response: {
+                  status: 200,
+                  headers: { 'x-execution-id': latestExec.id },
+                },
+                sseStream: output
+                  ? [
+                      `event: execution_start`,
+                      `data: ${JSON.stringify({ model: output.model, executionId: latestExec.id })}`,
+                      `event: execution_end`,
+                      `data: ${JSON.stringify({ usage: output.usage, durationMs: output.durationMs, model: output.model })}`,
+                    ]
+                  : [],
+              });
+              return next;
+            });
+
             if (output?.usage) {
               const model = output.model ?? 'unknown';
               const metrics: MessageMetrics = {

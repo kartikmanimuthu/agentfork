@@ -3,7 +3,6 @@
 import type { UIMessage } from '@ai-sdk/react';
 import { ChatBubble } from './chat-bubble';
 import { useChatScroll } from '@/lib/hooks/use-chat-scroll';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { MessageSquare, Sparkles } from 'lucide-react';
 import { MessageMetadataBar } from '@/components/agents/playground/message-metadata-bar';
@@ -100,7 +99,7 @@ export function ChatMessages({
   }
 
   return (
-    <ScrollArea className="flex-1" ref={scrollRef}>
+    <div className="flex-1 min-h-0 overflow-y-auto" ref={scrollRef}>
       <div className="flex flex-col pb-2">
         {messages.map((message) => {
           const isAssistant = message.role === 'assistant';
@@ -147,6 +146,6 @@ export function ChatMessages({
         })}
         {isLoading && messages[messages.length - 1]?.role === 'user' && <TypingIndicator />}
       </div>
-    </ScrollArea>
+    </div>
   );
 }

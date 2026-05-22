@@ -15,23 +15,18 @@ import {
 import { ChatMessages } from '@/components/chat/chat-messages';
 import { ChatInput } from '@/components/chat/chat-input';
 import { PlaygroundConsole } from '@/components/agents/playground/console';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
-  Play,
   Save,
   Trash2,
   Loader2,
   Bot,
   Plus,
-  Settings,
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
@@ -47,7 +42,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { PlaygroundVersionSelector } from '@/components/agents/playground/version-selector';
 
 export default function PlaygroundPage() {
   const params = useParams<{ id: string }>();
@@ -381,7 +375,7 @@ export default function PlaygroundPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
             <Input
               value={sessionName}
@@ -423,116 +417,40 @@ export default function PlaygroundPage() {
           <ChatInput onSend={handleSend} isLoading={isLoading} />
         </div>
 
-        {/* Right Panel: Console (top) + Config (bottom) */}
+        {/* Right Panel: Console with Config tab */}
         {!rightPanelCollapsed && (
           <div className="w-[380px] border-l flex flex-col shrink-0">
-            <ResizablePanelGroup className="flex-col h-full">
-              {/* Console */}
-              <ResizablePanel defaultSize={65} minSize={30}>
-                <PlaygroundConsole
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  events={filteredEvents}
-                  isAutoScrolling={isAutoScrolling}
-                  onAutoScrollChange={setIsAutoScrolling}
-                  severityFilter={severityFilter}
-                  onSeverityFilterChange={setSeverityFilter}
-                  eventTypes={eventTypes}
-                  eventTypeFilter={eventTypeFilter}
-                  onEventTypeFilterChange={setEventTypeFilter}
-                  rawData={selectedRawData}
-                  selectedMetrics={selectedMetrics}
-                  sessionMetrics={sessionMetrics}
-                  selectedMessageId={selectedMessageId}
-                  onClearSelection={clearSelection}
-                />
-              </ResizablePanel>
-
-              <ResizableHandle withHandle />
-
-              {/* Config */}
-              <ResizablePanel defaultSize={35} minSize={15} collapsible>
-                <ScrollArea className="h-full">
-                  <div className="p-4 space-y-4">
-                    {/* Version Selector */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase text-muted-foreground">
-                        Version
-                      </label>
-                      <PlaygroundVersionSelector
-                        agentId={agentId}
-                        value={versionValue}
-                        onChange={handleVersionChange}
-                      />
-                    </div>
-
-                    <Separator />
-
-                    {/* Overrides */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                        <label className="text-xs font-semibold uppercase text-muted-foreground">
-                          Overrides
-                        </label>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Model</label>
-                        <Input
-                          value={model}
-                          onChange={(e) => setModel(e.target.value)}
-                          placeholder="Override model..."
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">System Prompt</label>
-                        <Textarea
-                          value={systemPrompt}
-                          onChange={(e) => setSystemPrompt(e.target.value)}
-                          placeholder="Override system prompt..."
-                          rows={3}
-                          className="text-xs resize-none"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          Temperature: {temperature}
-                        </label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.1}
-                          value={temperature}
-                          onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                          className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          Max Tokens: {maxTokens ?? 'default'}
-                        </label>
-                        <Input
-                          type="number"
-                          value={maxTokens ?? ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setMaxTokens(val ? parseInt(val, 10) : undefined);
-                          }}
-                          placeholder="Leave blank for default"
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <Button size="sm" className="w-full" onClick={handleApplyOverrides}>
-                        <Play className="h-3.5 w-3.5 mr-1" />
-                        Apply Overrides
-                      </Button>
-                    </div>
-                  </div>
-                </ScrollArea>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            <PlaygroundConsole
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              events={filteredEvents}
+              isAutoScrolling={isAutoScrolling}
+              onAutoScrollChange={setIsAutoScrolling}
+              severityFilter={severityFilter}
+              onSeverityFilterChange={setSeverityFilter}
+              eventTypes={eventTypes}
+              eventTypeFilter={eventTypeFilter}
+              onEventTypeFilterChange={setEventTypeFilter}
+              rawData={selectedRawData}
+              selectedMetrics={selectedMetrics}
+              sessionMetrics={sessionMetrics}
+              selectedMessageId={selectedMessageId}
+              onClearSelection={clearSelection}
+              config={{
+                agentId,
+                versionValue,
+                onVersionChange: handleVersionChange,
+                model,
+                onModelChange: setModel,
+                systemPrompt,
+                onSystemPromptChange: setSystemPrompt,
+                temperature,
+                onTemperatureChange: setTemperature,
+                maxTokens,
+                onMaxTokensChange: setMaxTokens,
+                onApplyOverrides: handleApplyOverrides,
+              }}
+            />
           </div>
         )}
       </div>

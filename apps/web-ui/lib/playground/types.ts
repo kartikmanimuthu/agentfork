@@ -51,7 +51,7 @@ export interface ThinkingContent {
   durationMs: number;
 }
 
-export type ConsoleTab = 'events' | 'raw' | 'trace' | 'metrics';
+export type ConsoleTab = 'events' | 'raw' | 'trace' | 'metrics' | 'config';
 
 export interface TraceNode {
   id: string;

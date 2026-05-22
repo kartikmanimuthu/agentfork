@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, MessageSquare, Clock, CheckCircle2, Activity } from 'lucide-react';
 
 const SENTIMENT_COLORS: Record<string, string> = {
   POSITIVE: '#10B981',
@@ -64,6 +63,20 @@ const DEFAULT_FILTERS: Filters = {
   page: 1,
 };
 
+function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="pt-6 pb-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">{label}</span>
+          <span className="text-muted-foreground">{icon}</span>
+        </div>
+        <div className="text-2xl font-semibold">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SessionsPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -106,31 +119,70 @@ export default function SessionsPage() {
   const sessions = data?.sessions ?? [];
   const pagination = data?.pagination ?? { page: 1, totalPages: 1, total: 0, limit: 20 };
 
+  const totalSessions = pagination.total;
+  const activeSessions = sessions.filter((s) => s.status === 'active').length;
+  const avgLatency = sessions.length > 0
+    ? sessions.reduce((sum, s) => sum + (s.avgLatencyMs ?? 0), 0) / sessions.filter((s) => s.avgLatencyMs !== null).length
+    : null;
+  const totalMessages = sessions.reduce((sum, s) => sum + s.messageCount, 0);
+
   const formatLatency = (ms: number | null) => {
-    if (ms === null || ms === undefined) return '—';
+    if (ms === null || ms === undefined || isNaN(ms)) return '—';
     if (ms < 1000) return `${Math.round(ms)} ms`;
     return `${(ms / 1000).toFixed(2)} s`;
   };
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-        <span className="text-sm text-muted-foreground">
-          Inference sessions across all channels and agents
-        </span>
+        <span className="text-sm text-muted-foreground">Inference sessions across all channels and agents</span>
+      </div>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6 pb-4">
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <StatCard
+              label="Total Sessions"
+              value={totalSessions.toLocaleString()}
+              icon={<MessageSquare className="h-4 w-4" />}
+            />
+            <StatCard
+              label="Active Sessions"
+              value={String(activeSessions)}
+              icon={<Activity className="h-4 w-4" />}
+            />
+            <StatCard
+              label="Avg Latency"
+              value={formatLatency(avgLatency)}
+              icon={<Clock className="h-4 w-4" />}
+            />
+            <StatCard
+              label="Total Messages"
+              value={totalMessages.toLocaleString()}
+              icon={<CheckCircle2 className="h-4 w-4" />}
+            />
+          </>
+        )}
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs font-medium text-muted-foreground">Search</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -138,6 +190,7 @@ export default function SessionsPage() {
                   placeholder="Search by ID or name..."
                   value={filters.search}
                   onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApply()}
                   className="pl-9"
                 />
               </div>
@@ -159,6 +212,19 @@ export default function SessionsPage() {
                 onChange={(e) => setFilters((f) => ({ ...f, toDate: e.target.value }))}
                 className="w-36"
               />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <Select value={filters.status} onValueChange={(v) => setFilters((f) => ({ ...f, status: v }))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="ended">Ended</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Channel</label>
@@ -189,10 +255,7 @@ export default function SessionsPage() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Resolution</label>
-              <Select
-                value={filters.resolvedStatus}
-                onValueChange={(v) => setFilters((f) => ({ ...f, resolvedStatus: v }))}
-              >
+              <Select value={filters.resolvedStatus} onValueChange={(v) => setFilters((f) => ({ ...f, resolvedStatus: v }))}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -203,117 +266,116 @@ export default function SessionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleApply} size="sm">
-              Apply
-            </Button>
-            <Button onClick={handleClear} variant="outline" size="sm">
-              Clear
-            </Button>
+            <Button onClick={handleApply} size="sm">Apply</Button>
+            <Button onClick={handleClear} variant="outline" size="sm">Clear</Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Status tabs */}
-      <Tabs
-        value={applied.status}
-        onValueChange={(v) => {
-          const updated = { ...filters, status: v, page: 1 };
-          setFilters(updated);
-          setApplied(updated);
-        }}
-      >
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="ended">Ended</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* List */}
-      <div className="space-y-2">
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="py-4">
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          ))
-        ) : sessions.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              No sessions found. Sessions are created when integrators call <code>/api/v1/inference</code> with a
-              <code> sessionId</code>.
-            </CardContent>
-          </Card>
-        ) : (
-          sessions.map((s) => (
-            <Card
-              key={s.id}
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() => router.push(`/sessions/${s.id}`)}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium truncate">
-                        {s.analytics?.firstUserQuery ?? s.name ?? 'Untitled session'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <span className="font-mono">{s.id.slice(0, 10)}…</span>
-                      {s.agent && (
-                        <span>
-                          {s.agent.name}
-                          {s.agentVersion ? ` · v${s.agentVersion.version}` : ''}
-                        </span>
-                      )}
-                      <span>started {formatDate(s.startedAt)}</span>
-                      <span>last {formatDate(s.lastActivityAt)}</span>
-                      <span>{s.messageCount} msgs</span>
-                      <span>avg latency {formatLatency(s.avgLatencyMs)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-xs">
-                      {s.channel}
-                    </Badge>
-                    <Badge variant={s.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                      {s.status}
-                      {s.endReason ? ` · ${s.endReason}` : ''}
-                    </Badge>
-                    {s.analytics?.sentiment && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs"
-                        style={{
-                          borderColor: SENTIMENT_COLORS[s.analytics.sentiment],
-                          color: SENTIMENT_COLORS[s.analytics.sentiment],
-                        }}
-                      >
-                        {s.analytics.sentiment}
-                      </Badge>
-                    )}
-                    {s.analytics?.isResolved !== null && s.analytics?.isResolved !== undefined && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs"
-                        style={{
-                          borderColor: s.analytics.isResolved ? '#10B981' : '#EF4444',
-                          color: s.analytics.isResolved ? '#10B981' : '#EF4444',
-                        }}
-                      >
-                        {s.analytics.isResolved ? 'Resolved' : 'Unresolved'}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+      {/* Table */}
+      <Card>
+        <CardContent className="pt-4">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No sessions found. Sessions are created when integrators call{' '}
+              <code className="text-xs bg-muted px-1 rounded">POST /api/v1/inference</code> with a{' '}
+              <code className="text-xs bg-muted px-1 rounded">sessionId</code>.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b">
+                    <th className="py-2 pr-4">Name / Query</th>
+                    <th className="py-2 pr-4">Agent</th>
+                    <th className="py-2 pr-4">Channel</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Messages</th>
+                    <th className="py-2 pr-4">Avg Latency</th>
+                    <th className="py-2 pr-4">Sentiment</th>
+                    <th className="py-2 pr-4">Resolved</th>
+                    <th className="py-2">Started</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="border-b last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => router.push(`/sessions/${s.id}`)}
+                    >
+                      <td className="py-2.5 pr-4 max-w-[200px]">
+                        <div className="truncate font-medium text-sm">
+                          {s.analytics?.firstUserQuery ?? s.name ?? 'Untitled'}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono">{s.id.slice(0, 12)}…</div>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {s.agent?.name ?? '—'}
+                        {s.agentVersion ? (
+                          <span className="text-muted-foreground ml-1 text-xs">v{s.agentVersion.version}</span>
+                        ) : null}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <Badge variant="outline" className="text-[10px]">{s.channel}</Badge>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <Badge
+                          variant={s.status === 'active' ? 'default' : 'secondary'}
+                          className="text-[10px]"
+                        >
+                          {s.status}{s.endReason ? ` · ${s.endReason}` : ''}
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 pr-4 text-center">{s.messageCount}</td>
+                      <td className="py-2.5 pr-4">{formatLatency(s.avgLatencyMs)}</td>
+                      <td className="py-2.5 pr-4">
+                        {s.analytics?.sentiment ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px]"
+                            style={{
+                              borderColor: SENTIMENT_COLORS[s.analytics.sentiment],
+                              color: SENTIMENT_COLORS[s.analytics.sentiment],
+                            }}
+                          >
+                            {s.analytics.sentiment}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {s.analytics?.isResolved !== null && s.analytics?.isResolved !== undefined ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px]"
+                            style={{
+                              borderColor: s.analytics.isResolved ? '#10B981' : '#EF4444',
+                              color: s.analytics.isResolved ? '#10B981' : '#EF4444',
+                            }}
+                          >
+                            {s.analytics.isResolved ? 'Yes' : 'No'}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-xs text-muted-foreground">{formatDate(s.startedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (

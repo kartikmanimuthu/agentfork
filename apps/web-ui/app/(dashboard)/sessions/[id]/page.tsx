@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Bot, Clock, MessageSquare, Zap, Globe } from 'lucide-react';
+import { SessionChatMessage } from '@/components/sessions/session-chat-message';
 
 const SENTIMENT_COLORS: Record<string, string> = {
   POSITIVE: '#10B981',
@@ -82,10 +84,15 @@ export default function SessionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="flex h-[calc(100vh-4rem)]">
+        <div className="flex-1 p-6 space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-[60vh] w-full" />
+        </div>
+        <div className="w-80 border-l p-4 space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       </div>
     );
   }
@@ -111,215 +118,232 @@ export default function SessionDetailPage() {
     iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
   const formatLatency = (ms: number | null) => {
-    if (ms === null || ms === undefined) return '—';
+    if (ms === null) return '—';
     if (ms < 1000) return `${Math.round(ms)} ms`;
     return `${(ms / 1000).toFixed(2)} s`;
   };
 
-  const tokenTotal = (u: unknown): number | null => {
-    if (!u || typeof u !== 'object') return null;
+  const tokenTotal = (u: unknown): string => {
+    if (!u || typeof u !== 'object') return '—';
     const t = (u as { totalTokens?: number }).totalTokens;
-    return typeof t === 'number' ? t : null;
+    return typeof t === 'number' ? t.toLocaleString() : '—';
   };
 
+  const duration = () => {
+    const start = new Date(s.startedAt).getTime();
+    const end = s.endedAt ? new Date(s.endedAt).getTime() : new Date(s.lastActivityAt).getTime();
+    const mins = Math.floor((end - start) / 60000);
+    if (mins < 1) return '<1 min';
+    if (mins < 60) return `${mins} min`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  };
+
+  const title = analytics?.firstUserQuery || s.name || 'Untitled session';
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/sessions')}>
-          <ChevronLeft className="h-4 w-4 mr-1" /> Back
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight font-mono">{s.id}</h1>
-        <Badge variant="outline">{s.channel}</Badge>
-        <Badge variant={s.status === 'active' ? 'default' : 'secondary'}>
-          {s.status}
-          {s.endReason ? ` · ${s.endReason}` : ''}
-        </Badge>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Left: Chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="border-b px-6 py-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => router.push('/sessions')}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
+              <p className="text-xs text-muted-foreground font-mono">{s.id}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className="text-xs">{s.channel}</Badge>
+              <Badge variant={s.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                {s.status}{s.endReason ? ` · ${s.endReason}` : ''}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <ScrollArea className="flex-1" type="always">
+          <div className="p-6 space-y-5">
+            {messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-12">No messages recorded.</p>
+            ) : (
+              messages.map((m) => (
+                <SessionChatMessage
+                  key={m.id}
+                  role={m.role}
+                  content={m.content}
+                  timestamp={m.createdAt}
+                  tokenCount={m.tokenCount}
+                />
+              ))
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Session</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div className="text-muted-foreground text-xs">Agent</div>
-            <div>{s.agent?.name ?? '—'}{s.agent ? ` · ${s.agent.type}` : ''}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Version</div>
-            <div>{s.agentVersion ? `v${s.agentVersion.version} (${s.agentVersion.status})` : '—'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Name</div>
-            <div>{s.name ?? '—'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Started</div>
-            <div>{formatDate(s.startedAt)}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Last activity</div>
-            <div>{formatDate(s.lastActivityAt)}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">
-              {s.status === 'ended' ? 'Ended' : 'Idle expires'}
-            </div>
-            <div>{s.status === 'ended' ? formatDate(s.endedAt) : formatDate(s.idleExpiresAt)}</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Channel metadata */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Channel metadata</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <pre className="bg-muted/40 rounded p-3 text-xs overflow-auto max-h-48">
-            {JSON.stringify(s.channelMetadata ?? null, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
-
-      {/* Analytics */}
-      {analytics && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Analytics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex flex-wrap gap-2">
-              {analytics.sentiment && (
-                <Badge
-                  variant="outline"
-                  style={{
-                    borderColor: SENTIMENT_COLORS[analytics.sentiment],
-                    color: SENTIMENT_COLORS[analytics.sentiment],
-                  }}
-                >
-                  {analytics.sentiment}
-                </Badge>
-              )}
-              {analytics.isResolved !== null && (
-                <Badge
-                  variant="outline"
-                  style={{
-                    borderColor: analytics.isResolved ? '#10B981' : '#EF4444',
-                    color: analytics.isResolved ? '#10B981' : '#EF4444',
-                  }}
-                >
-                  {analytics.isResolved ? 'Resolved' : 'Unresolved'}
-                </Badge>
-              )}
-              {analytics.language && <Badge variant="outline">{analytics.language}</Badge>}
-              {analytics.confidenceScore !== null && (
-                <span className="text-xs text-muted-foreground">
-                  confidence {(analytics.confidenceScore * 100).toFixed(0)}%
+      {/* Right: Sidebar */}
+      <div className="w-80 xl:w-96 border-l shrink-0 overflow-y-auto bg-muted/20">
+        <div className="p-4 space-y-4">
+          {/* Session Info */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Session Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <Bot className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Agent:</span>
+                <span className="font-medium">
+                  {s.agent?.name ?? '—'}
+                  {s.agentVersion ? ` v${s.agentVersion.version}` : ''}
                 </span>
-              )}
-            </div>
-            {analytics.summary && (
-              <div>
-                <div className="text-muted-foreground text-xs mb-1">Summary</div>
-                <p>{analytics.summary}</p>
               </div>
-            )}
-            {analytics.firstUserQuery && (
-              <div>
-                <div className="text-muted-foreground text-xs mb-1">First user query</div>
-                <p>{analytics.firstUserQuery}</p>
-              </div>
-            )}
-            <Separator />
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <div className="text-muted-foreground mb-1">Sentiment scores</div>
-                <pre className="bg-muted/40 rounded p-2 overflow-auto">
-                  {JSON.stringify(analytics.sentimentScores ?? null, null, 2)}
-                </pre>
-              </div>
-              <div>
-                <div className="text-muted-foreground mb-1">Emotional tone</div>
-                <pre className="bg-muted/40 rounded p-2 overflow-auto">
-                  {JSON.stringify(analytics.emotionalTone ?? null, null, 2)}
-                </pre>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Messages timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Messages ({messages.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No messages recorded yet.</p>
-          ) : (
-            messages.map((m) => (
-              <div key={m.id} className="border rounded p-3 space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant={m.role === 'user' ? 'default' : 'secondary'} className="text-[10px]">
-                    {m.role}
-                  </Badge>
-                  <span>{formatDate(m.createdAt)}</span>
-                  {m.tokenCount !== null && <span>{m.tokenCount} tok</span>}
+              {s.agent?.type && (
+                <div className="flex items-center gap-2">
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Type:</span>
+                  <Badge variant="outline" className="text-[10px]">{s.agent.type}</Badge>
                 </div>
-                <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+              )}
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Started:</span>
+                <span>{formatDate(s.startedAt)}</span>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Duration:</span>
+                <span>{duration()}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Messages:</span>
+                <span>{messages.length}</span>
+              </div>
+              {s.endedAt && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Ended:</span>
+                  <span>{formatDate(s.endedAt)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Executions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Executions ({executions.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {executions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No executions linked to this session.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted-foreground border-b">
-                    <th className="py-2 pr-3">ID</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3">Latency</th>
-                    <th className="py-2 pr-3">Tokens</th>
-                    <th className="py-2 pr-3">Cache</th>
-                    <th className="py-2 pr-3">Webhook</th>
-                    <th className="py-2 pr-3">When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {executions.map((ex) => (
-                    <tr key={ex.id} className="border-b last:border-b-0">
-                      <td className="py-2 pr-3 font-mono text-xs">{ex.id.slice(0, 10)}…</td>
-                      <td className="py-2 pr-3">
-                        <Badge variant={ex.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
-                          {ex.status}
-                        </Badge>
-                      </td>
-                      <td className="py-2 pr-3">{formatLatency(ex.latencyMs)}</td>
-                      <td className="py-2 pr-3">{tokenTotal(ex.tokenUsage) ?? '—'}</td>
-                      <td className="py-2 pr-3">{ex.cacheHit ? 'hit' : 'miss'}</td>
-                      <td className="py-2 pr-3">{ex.webhookStatus ?? '—'}</td>
-                      <td className="py-2 pr-3 text-xs">{formatDate(ex.completedAt ?? ex.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {/* Channel Metadata */}
+          {Boolean(s.channelMetadata) && typeof s.channelMetadata === 'object' && Object.keys(s.channelMetadata as Record<string, unknown>).length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5" />
+                  Channel Metadata
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-muted/40 rounded p-2.5 text-xs overflow-auto max-h-32 font-mono">
+                  {JSON.stringify(s.channelMetadata, null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+
+          {/* Analytics */}
+          {analytics && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Analytics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {analytics.sentiment && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px]"
+                      style={{
+                        borderColor: SENTIMENT_COLORS[analytics.sentiment],
+                        color: SENTIMENT_COLORS[analytics.sentiment],
+                      }}
+                    >
+                      {analytics.sentiment}
+                    </Badge>
+                  )}
+                  {analytics.isResolved !== null && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px]"
+                      style={{
+                        borderColor: analytics.isResolved ? '#10B981' : '#EF4444',
+                        color: analytics.isResolved ? '#10B981' : '#EF4444',
+                      }}
+                    >
+                      {analytics.isResolved ? 'Resolved' : 'Unresolved'}
+                    </Badge>
+                  )}
+                  {analytics.language && (
+                    <Badge variant="outline" className="text-[11px]">{analytics.language}</Badge>
+                  )}
+                  {analytics.confidenceScore !== null && (
+                    <Badge variant="outline" className="text-[11px]">
+                      {(analytics.confidenceScore * 100).toFixed(0)}% conf
+                    </Badge>
+                  )}
+                </div>
+                {analytics.summary && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">{analytics.summary}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Executions */}
+          {executions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Executions ({executions.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {executions.map((ex) => (
+                  <div key={ex.id} className="rounded border p-2.5 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-muted-foreground">{ex.id.slice(0, 12)}…</span>
+                      <Badge
+                        variant={ex.status === 'completed' ? 'default' : 'destructive'}
+                        className="text-[10px] px-1.5"
+                      >
+                        {ex.status}
+                      </Badge>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                      <div>
+                        <span className="text-muted-foreground">Latency: </span>
+                        <span className="font-mono">{formatLatency(ex.latencyMs)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Tokens: </span>
+                        <span className="font-mono">{tokenTotal(ex.tokenUsage)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Cache: </span>
+                        <span>{ex.cacheHit ? 'hit' : 'miss'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Webhook: </span>
+                        <span>{ex.webhookStatus ?? '—'}</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {formatDate(ex.completedAt ?? ex.createdAt)}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
