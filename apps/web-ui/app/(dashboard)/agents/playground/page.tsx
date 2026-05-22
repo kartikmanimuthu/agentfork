@@ -47,12 +47,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export default function GenericPlaygroundPage() {
-  const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
-  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
+interface AgentItem {
+  id: string;
+  name: string;
+  type: 'simple' | 'graph';
+  config?: Record<string, unknown>;
+}
 
-  const agent = agentsData?.items.find((a) => a.id === selectedAgentId);
-  const { data: versions } = useAgentVersions(selectedAgentId ?? '');
+function PlaygroundWorkspace({ agent }: { agent: AgentItem }) {
+  const agentId = agent.id;
+  const { data: versions } = useAgentVersions(agentId);
 
   const [versionValue, setVersionValue] = useState('current');
   const selectedVersionId = versionValue.startsWith('version:')
@@ -71,12 +75,11 @@ export default function GenericPlaygroundPage() {
   const [deleteSessionTarget, setDeleteSessionTarget] = useState<string | null>(null);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
-  const { data: sessions, isLoading: sessionsLoading } = usePlaygroundSessions(selectedAgentId ?? '');
-  const createSession = useCreatePlaygroundSession(selectedAgentId ?? '');
-  const updateSession = useUpdatePlaygroundSession(selectedAgentId ?? '');
-  const deleteSession = useDeletePlaygroundSession(selectedAgentId ?? '');
+  const { data: sessions, isLoading: sessionsLoading } = usePlaygroundSessions(agentId);
+  const createSession = useCreatePlaygroundSession(agentId);
+  const updateSession = useUpdatePlaygroundSession(agentId);
+  const deleteSession = useDeletePlaygroundSession(agentId);
 
-  // Load config into override fields when version/agent selection changes
   const lastSelectionRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const currentSelection = selectedVersionId ?? selectedAlias ?? 'agent';
@@ -95,7 +98,7 @@ export default function GenericPlaygroundPage() {
       config = (agent.config as Record<string, unknown>) ?? {};
     }
 
-    if (agent?.type === 'graph' && config.nodes) {
+    if (agent.type === 'graph' && config.nodes) {
       const nodes = config.nodes as Array<{
         config?: {
           type?: string;
@@ -135,8 +138,8 @@ export default function GenericPlaygroundPage() {
     rawDataMap,
     thinkingMap,
   } = usePlayground({
-    agentId: selectedAgentId ?? '',
-    agentType: agent?.type ?? 'simple',
+    agentId,
+    agentType: agent.type,
     versionId: selectedVersionId,
     alias: selectedAlias,
     onError: (err) => toast.error(err.message),
@@ -161,15 +164,6 @@ export default function GenericPlaygroundPage() {
     eventTypes,
   } = useConsole({ consoleEvents, messageMetrics, rawDataMap });
 
-  const handleAgentChange = (agentId: string) => {
-    setSelectedAgentId(agentId);
-    setVersionValue('current');
-    setMessages([]);
-    setActiveSessionId(undefined);
-    setSessionName('New Session');
-    lastSelectionRef.current = undefined;
-  };
-
   const handleVersionChange = (val: string) => {
     if (val !== versionValue) {
       setVersionValue(val);
@@ -188,7 +182,6 @@ export default function GenericPlaygroundPage() {
   };
 
   const handleSaveSession = async () => {
-    if (!selectedAgentId) return;
     const payload = {
       name: sessionName,
       messages: messages.map((m) => ({
@@ -257,203 +250,159 @@ export default function GenericPlaygroundPage() {
     }
   };
 
-  if (agentsLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Skeleton className="h-8 w-48" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b bg-background shrink-0">
-        <Bot className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Playground</span>
-        <div className="flex items-center gap-2 ml-4">
-          <Select value={selectedAgentId ?? ''} onValueChange={handleAgentChange}>
-            <SelectTrigger className="h-8 text-xs w-56">
-              <SelectValue placeholder="Select an agent..." />
-            </SelectTrigger>
-            <SelectContent>
-              {agentsData?.items.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {agent && (
-            <Badge variant="outline" className="capitalize text-[10px]">
-              {agent.type}
-            </Badge>
-          )}
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Sub-header with session name + actions */}
+      <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
+        <Input
+          value={sessionName}
+          onChange={(e) => setSessionName(e.target.value)}
+          className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
+          placeholder="Session name..."
+        />
+        {activeSessionId && (
+          <Badge variant="outline" className="text-[10px]">
+            Saved
+          </Badge>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleNewSession}>
+            <Plus className="h-4 w-4 mr-1" />
+            New
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSaveSession}
+            disabled={createSession.isPending || updateSession.isPending}
+          >
+            <Save className="h-4 w-4 mr-1" />
+            Save
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+            title={rightPanelCollapsed ? 'Show console' : 'Hide console'}
+          >
+            {rightPanelCollapsed ? (
+              <PanelRightOpen className="h-4 w-4" />
+            ) : (
+              <PanelRightClose className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        {selectedAgentId && (
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleNewSession}>
-              <Plus className="h-4 w-4 mr-1" />
-              New
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveSession}
-              disabled={createSession.isPending || updateSession.isPending}
-            >
-              <Save className="h-4 w-4 mr-1" />
-              Save
-            </Button>
+      </div>
+
+      {/* Three-panel layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sessions Sidebar */}
+        <div className="w-64 border-r bg-muted/30 flex flex-col shrink-0">
+          <div className="px-3 py-2 border-b">
+            <h3 className="text-xs font-semibold uppercase text-muted-foreground">Sessions</h3>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {sessionsLoading && (
+                <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  Loading...
+                </div>
+              )}
+              {sessions?.length === 0 && !sessionsLoading && (
+                <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  No saved sessions
+                </div>
+              )}
+              {sessions?.map((session) => (
+                <div
+                  key={session.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleLoadSession(session)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLoadSession(session); }}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded-md text-xs transition-colors group flex items-center justify-between cursor-pointer',
+                    activeSessionId === session.id
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-accent text-muted-foreground'
+                  )}
+                >
+                  <div className="flex flex-col truncate">
+                    <span className="font-medium truncate">{session.name}</span>
+                    <span className="text-[10px] opacity-70">
+                      {new Date(session.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteSessionTarget(session.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <ChatMessages
+            messages={messages}
+            isLoading={isLoading}
+            onRegenerate={handleRegenerate}
+            selectedMessageId={selectedMessageId}
+            onSelectMessage={selectMessage}
+            messageMetrics={messageMetrics}
+            thinkingMap={thinkingMap}
+            showMetadata
+          />
+          <ChatInput onSend={handleSend} isLoading={isLoading} />
+        </div>
+
+        {/* Right Panel: Console */}
+        {!rightPanelCollapsed && (
+          <div className="w-[380px] border-l flex flex-col shrink-0">
+            <PlaygroundConsole
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              events={filteredEvents}
+              isAutoScrolling={isAutoScrolling}
+              onAutoScrollChange={setIsAutoScrolling}
+              severityFilter={severityFilter}
+              onSeverityFilterChange={setSeverityFilter}
+              eventTypes={eventTypes}
+              eventTypeFilter={eventTypeFilter}
+              onEventTypeFilterChange={setEventTypeFilter}
+              rawData={selectedRawData}
+              selectedMetrics={selectedMetrics}
+              sessionMetrics={sessionMetrics}
+              selectedMessageId={selectedMessageId}
+              onClearSelection={clearSelection}
+              config={{
+                agentId,
+                versionValue,
+                onVersionChange: handleVersionChange,
+                model,
+                onModelChange: setModel,
+                systemPrompt,
+                onSystemPromptChange: setSystemPrompt,
+                temperature,
+                onTemperatureChange: setTemperature,
+                maxTokens,
+                onMaxTokensChange: setMaxTokens,
+                onApplyOverrides: handleApplyOverrides,
+              }}
+            />
           </div>
         )}
       </div>
-
-      {/* Main Content */}
-      {!selectedAgentId ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="border border-dashed rounded-lg p-8 text-center space-y-4 w-96">
-            <Bot className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-muted-foreground">
-              Select an agent from the dropdown above to start testing.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sessions Sidebar */}
-          <div className="w-64 border-r bg-muted/30 flex flex-col shrink-0">
-            <div className="px-3 py-2 border-b">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground">Sessions</h3>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {sessionsLoading && (
-                  <div className="text-xs text-muted-foreground px-2 py-4 text-center">
-                    Loading...
-                  </div>
-                )}
-                {sessions?.length === 0 && !sessionsLoading && (
-                  <div className="text-xs text-muted-foreground px-2 py-4 text-center">
-                    No saved sessions
-                  </div>
-                )}
-                {sessions?.map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => handleLoadSession(session)}
-                    className={cn(
-                      'w-full text-left px-3 py-2 rounded-md text-xs transition-colors group flex items-center justify-between',
-                      activeSessionId === session.id
-                        ? 'bg-primary/10 text-primary'
-                        : 'hover:bg-accent text-muted-foreground'
-                    )}
-                  >
-                    <div className="flex flex-col truncate">
-                      <span className="font-medium truncate">{session.name}</span>
-                      <span className="text-[10px] opacity-70">
-                        {new Date(session.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteSessionTarget(session.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Chat Area */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
-              <Input
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
-                placeholder="Session name..."
-              />
-              {activeSessionId && (
-                <Badge variant="outline" className="text-[10px]">
-                  Saved
-                </Badge>
-              )}
-              <div className="ml-auto">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-                  title={rightPanelCollapsed ? 'Show console' : 'Hide console'}
-                >
-                  {rightPanelCollapsed ? (
-                    <PanelRightOpen className="h-4 w-4" />
-                  ) : (
-                    <PanelRightClose className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <ChatMessages
-              messages={messages}
-              isLoading={isLoading}
-              onRegenerate={handleRegenerate}
-              selectedMessageId={selectedMessageId}
-              onSelectMessage={selectMessage}
-              messageMetrics={messageMetrics}
-              thinkingMap={thinkingMap}
-              showMetadata
-            />
-            <ChatInput onSend={handleSend} isLoading={isLoading} />
-          </div>
-
-          {/* Right Panel: Console */}
-          {!rightPanelCollapsed && (
-            <div className="w-[380px] border-l flex flex-col shrink-0">
-              <PlaygroundConsole
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                events={filteredEvents}
-                isAutoScrolling={isAutoScrolling}
-                onAutoScrollChange={setIsAutoScrolling}
-                severityFilter={severityFilter}
-                onSeverityFilterChange={setSeverityFilter}
-                eventTypes={eventTypes}
-                eventTypeFilter={eventTypeFilter}
-                onEventTypeFilterChange={setEventTypeFilter}
-                rawData={selectedRawData}
-                selectedMetrics={selectedMetrics}
-                sessionMetrics={sessionMetrics}
-                selectedMessageId={selectedMessageId}
-                onClearSelection={clearSelection}
-                config={{
-                  agentId: selectedAgentId,
-                  versionValue,
-                  onVersionChange: handleVersionChange,
-                  model,
-                  onModelChange: setModel,
-                  systemPrompt,
-                  onSystemPromptChange: setSystemPrompt,
-                  temperature,
-                  onTemperatureChange: setTemperature,
-                  maxTokens,
-                  onMaxTokensChange: setMaxTokens,
-                  onApplyOverrides: handleApplyOverrides,
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       <AlertDialog
         open={!!deleteSessionTarget}
@@ -477,6 +426,65 @@ export default function GenericPlaygroundPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+export default function GenericPlaygroundPage() {
+  const { data: agentsData, isLoading: agentsLoading } = useAgents({ pageSize: 100 });
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
+
+  const agent = agentsData?.items.find((a) => a.id === selectedAgentId);
+
+  if (agentsLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Skeleton className="h-8 w-48" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header with agent selector */}
+      <div className="flex items-center gap-3 px-4 py-2 border-b bg-background shrink-0">
+        <Bot className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Playground</span>
+        <div className="flex items-center gap-2 ml-4">
+          <Select value={selectedAgentId ?? ''} onValueChange={setSelectedAgentId}>
+            <SelectTrigger className="h-8 text-xs w-56">
+              <SelectValue placeholder="Select an agent..." />
+            </SelectTrigger>
+            <SelectContent>
+              {agentsData?.items.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {agent && (
+            <Badge variant="outline" className="capitalize text-[10px]">
+              {agent.type}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      {!selectedAgentId || !agent ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="border border-dashed rounded-lg p-8 text-center space-y-4 w-96">
+            <Bot className="h-8 w-8 mx-auto text-muted-foreground" />
+            <p className="text-muted-foreground">
+              Select an agent from the dropdown above to start testing.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <PlaygroundWorkspace key={selectedAgentId} agent={agent as AgentItem} />
+      )}
     </div>
   );
 }
