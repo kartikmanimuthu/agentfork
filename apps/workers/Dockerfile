@@ -50,7 +50,7 @@ RUN cd libs/ai && bunx tsc --project tsconfig.lib.json && \
     printf '{"name":"@chatbot/ai","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/ai/package.json
 
 # Compile workers
-RUN cd apps/workers && bunx tsc --noEmit false
+RUN cd apps/workers && bunx tsc
 
 # Flatten workspace-specific symlinked deps into root node_modules so runtime resolution works.
 # Only copies packages not already in root node_modules to avoid duplication.

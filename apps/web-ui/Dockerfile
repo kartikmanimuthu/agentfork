@@ -47,8 +47,8 @@ ENV PORT=3005 \
 RUN mkdir -p /tmp/cache && mkdir -p .next/cache
 
 COPY --from=builder /app/apps/web-ui/.next/standalone ./
-COPY --from=builder /app/apps/web-ui/.next/static ./.next/static
-COPY --from=builder /app/apps/web-ui/public ./public
+COPY --from=builder /app/apps/web-ui/.next/static ./apps/web-ui/.next/static
+COPY --from=builder /app/apps/web-ui/public ./apps/web-ui/public
 COPY --from=builder /app/prisma ./prisma
 
 RUN ln -sf /tmp/cache ./.next/cache

@@ -8,7 +8,6 @@
     "sourceMap": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noEmit": true,
     "types": ["node"]
   },
   "include": ["src/**/*"],
