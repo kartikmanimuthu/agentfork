@@ -63,33 +63,36 @@ export function PlaygroundConsole({
   onClearSelection,
 }: PlaygroundConsoleProps) {
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-muted/20">
       {/* Tab bar */}
-      <div className="flex items-center border-b px-2 py-1 shrink-0">
-        <div className="flex gap-0.5">
+      <div className="flex items-center justify-between border-b bg-background px-1 shrink-0">
+        <div className="flex">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => onTabChange(id)}
               className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors',
+                'flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-colors border-b-2 -mb-px',
                 activeTab === id
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className="h-3 w-3" />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </button>
           ))}
         </div>
         {selectedMessageId && (
-          <div className="ml-auto flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground">Filtered to message</span>
-            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onClearSelection}>
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px] gap-1 text-muted-foreground"
+            onClick={onClearSelection}
+          >
+            Filtered
+            <X className="h-3 w-3" />
+          </Button>
         )}
       </div>
 
