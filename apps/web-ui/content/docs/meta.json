@@ -8,6 +8,8 @@
     "api-reference",
     "architecture",
     "kb-worker-testing",
-    "faq"
+    "faq",
+    "---",
+    "...sdk"
   ]
 }

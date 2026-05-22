@@ -1,0 +1,69 @@
+---
+title: Configuration
+description: Full reference for all widget properties.
+---
+
+## Props Reference
+
+All props are set as HTML attributes on the `<smc-chat-widget>` element.
+
+### Required
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `api-url` | string | Backend endpoint for sending/receiving messages |
+| `session` | string (JSON) | Authentication headers sent with every request |
+
+### Appearance
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `header-text` | string | `"Chat Assistant"` | Title shown in the chat header |
+| `header-icon` | string | — | URL or base64 image for the header logo |
+| `start-chat-logo` | string | *(chat icon)* | Image for the floating action button |
+| `primary-color` | string | `"#2196f3"` | Main brand color (header, send button, user messages) |
+| `secondary-color` | string | `"#1976d2"` | Hover/accent color |
+| `theme` | `"light"` \| `"dark"` | `"light"` | Color scheme |
+| `position` | `"left"` \| `"right"` | `"right"` | Screen position of the widget |
+
+### Content
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `user-name` | string | `"You"` | Display name for user messages |
+| `bot-name` | string | `"Bot"` | Display name for bot messages |
+| `welcome-message` | string | `"Welcome! How can I help you today?"` | First message shown when chat opens |
+| `input-placeholder` | string | `"Type your message..."` | Placeholder text in the input field |
+| `default-options` | string (JSON array) | `"[]"` | Quick reply buttons shown after bot responses |
+
+## Theming
+
+The widget uses CSS custom properties internally. Set `primary-color` and `secondary-color` to match your brand:
+
+```html
+<smc-chat-widget
+  primary-color="#6366f1"
+  secondary-color="#4f46e5"
+  theme="dark"
+></smc-chat-widget>
+```
+
+## Quick Reply Options
+
+Pass a JSON array of strings to show clickable quick-reply buttons after each bot response:
+
+```html
+<smc-chat-widget
+  default-options='["What are your hours?", "Talk to a human", "Pricing info"]'
+></smc-chat-widget>
+```
+
+## Dynamic Updates
+
+You can update props at runtime by setting attributes on the element:
+
+```js
+const widget = document.querySelector('smc-chat-widget');
+widget.setAttribute('primary-color', '#10b981');
+widget.setAttribute('theme', 'dark');
+```

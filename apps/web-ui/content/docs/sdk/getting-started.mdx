@@ -1,0 +1,39 @@
+---
+title: Getting Started
+description: Add the chat widget to your site in under 2 minutes.
+---
+
+## Installation
+
+Add the SDK script tag to your HTML page, just before the closing `</body>` tag:
+
+```html
+<script type="module" src="https://your-cdn.com/sdk/smc-chat-widget.esm.js"></script>
+```
+
+## Basic Usage
+
+Add the widget element anywhere in your page body:
+
+```html
+<smc-chat-widget
+  api-url="https://your-api.example.com/chat"
+  session='{"x-api-key":"your-api-key","x-platform-agent":"web"}'
+></smc-chat-widget>
+```
+
+That's it. The widget renders a floating chat button in the bottom-right corner. Click it to open the chat panel.
+
+## Required Props
+
+| Prop | Description |
+|------|-------------|
+| `api-url` | Your backend chat endpoint URL |
+| `session` | JSON string with authentication headers |
+
+## Next Steps
+
+- [Configuration](/docs/sdk/configuration) — customize appearance and behavior
+- [API Reference](/docs/sdk/api-reference) — backend contract your API must implement
+- [Examples](/docs/sdk/examples) — framework-specific integration guides
+- [Playground](/playground) — try it live
