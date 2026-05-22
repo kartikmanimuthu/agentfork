@@ -380,169 +380,161 @@ export default function PlaygroundPage() {
           </ScrollArea>
         </div>
 
-        {/* Chat + Right Panel */}
-        <ResizablePanelGroup className="flex-1">
-          {/* Chat Area */}
-          <ResizablePanel defaultSize={rightPanelCollapsed ? 100 : 55} minSize={35}>
-            <div className="flex flex-col h-full min-w-0">
-              <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
-                <Input
-                  value={sessionName}
-                  onChange={(e) => setSessionName(e.target.value)}
-                  className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
-                  placeholder="Session name..."
-                />
-                {activeSessionId && (
-                  <Badge variant="outline" className="text-[10px]">
-                    Saved
-                  </Badge>
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-2">
+            <Input
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              className="h-7 text-sm font-medium border-0 bg-transparent focus-visible:ring-0 px-0 w-auto min-w-[200px]"
+              placeholder="Session name..."
+            />
+            {activeSessionId && (
+              <Badge variant="outline" className="text-[10px]">
+                Saved
+              </Badge>
+            )}
+            <div className="ml-auto">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                title={rightPanelCollapsed ? 'Show console' : 'Hide console'}
+              >
+                {rightPanelCollapsed ? (
+                  <PanelRightOpen className="h-4 w-4" />
+                ) : (
+                  <PanelRightClose className="h-4 w-4" />
                 )}
-                <div className="ml-auto">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-                    title={rightPanelCollapsed ? 'Show console' : 'Hide console'}
-                  >
-                    {rightPanelCollapsed ? (
-                      <PanelRightOpen className="h-4 w-4" />
-                    ) : (
-                      <PanelRightClose className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <ChatMessages
-                messages={messages}
-                isLoading={isLoading}
-                onRegenerate={handleRegenerate}
-                selectedMessageId={selectedMessageId}
-                onSelectMessage={selectMessage}
-                messageMetrics={messageMetrics}
-                thinkingMap={thinkingMap}
-                showMetadata
-              />
-              <ChatInput onSend={handleSend} isLoading={isLoading} />
+              </Button>
             </div>
-          </ResizablePanel>
+          </div>
+          <ChatMessages
+            messages={messages}
+            isLoading={isLoading}
+            onRegenerate={handleRegenerate}
+            selectedMessageId={selectedMessageId}
+            onSelectMessage={selectMessage}
+            messageMetrics={messageMetrics}
+            thinkingMap={thinkingMap}
+            showMetadata
+          />
+          <ChatInput onSend={handleSend} isLoading={isLoading} />
+        </div>
 
-          {/* Drag handle */}
-          {!rightPanelCollapsed && <ResizableHandle withHandle />}
+        {/* Right Panel: Console (top) + Config (bottom) */}
+        {!rightPanelCollapsed && (
+          <div className="w-[380px] border-l flex flex-col shrink-0">
+            <ResizablePanelGroup className="flex-col h-full">
+              {/* Console */}
+              <ResizablePanel defaultSize={65} minSize={30}>
+                <PlaygroundConsole
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  events={filteredEvents}
+                  isAutoScrolling={isAutoScrolling}
+                  onAutoScrollChange={setIsAutoScrolling}
+                  severityFilter={severityFilter}
+                  onSeverityFilterChange={setSeverityFilter}
+                  eventTypes={eventTypes}
+                  eventTypeFilter={eventTypeFilter}
+                  onEventTypeFilterChange={setEventTypeFilter}
+                  rawData={selectedRawData}
+                  selectedMetrics={selectedMetrics}
+                  sessionMetrics={sessionMetrics}
+                  selectedMessageId={selectedMessageId}
+                  onClearSelection={clearSelection}
+                />
+              </ResizablePanel>
 
-          {/* Right Panel: Console (top) + Config (bottom) */}
-          {!rightPanelCollapsed && (
-            <ResizablePanel defaultSize={45} minSize={25} maxSize={60}>
-              <ResizablePanelGroup className="flex-col">
-                {/* Console */}
-                <ResizablePanel defaultSize={65} minSize={30}>
-                  <PlaygroundConsole
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    events={filteredEvents}
-                    isAutoScrolling={isAutoScrolling}
-                    onAutoScrollChange={setIsAutoScrolling}
-                    severityFilter={severityFilter}
-                    onSeverityFilterChange={setSeverityFilter}
-                    eventTypes={eventTypes}
-                    eventTypeFilter={eventTypeFilter}
-                    onEventTypeFilterChange={setEventTypeFilter}
-                    rawData={selectedRawData}
-                    selectedMetrics={selectedMetrics}
-                    sessionMetrics={sessionMetrics}
-                    selectedMessageId={selectedMessageId}
-                    onClearSelection={clearSelection}
-                  />
-                </ResizablePanel>
+              <ResizableHandle withHandle />
 
-                <ResizableHandle withHandle />
+              {/* Config */}
+              <ResizablePanel defaultSize={35} minSize={15} collapsible>
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-4">
+                    {/* Version Selector */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Version
+                      </label>
+                      <PlaygroundVersionSelector
+                        agentId={agentId}
+                        value={versionValue}
+                        onChange={handleVersionChange}
+                      />
+                    </div>
 
-                {/* Config */}
-                <ResizablePanel defaultSize={35} minSize={15} collapsible>
-                  <ScrollArea className="h-full">
-                    <div className="p-4 space-y-4">
-                      {/* Version Selector */}
-                      <div className="space-y-2">
+                    <Separator />
+
+                    {/* Overrides */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                         <label className="text-xs font-semibold uppercase text-muted-foreground">
-                          Version
+                          Overrides
                         </label>
-                        <PlaygroundVersionSelector
-                          agentId={agentId}
-                          value={versionValue}
-                          onChange={handleVersionChange}
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Model</label>
+                        <Input
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          placeholder="Override model..."
+                          className="h-8 text-xs"
                         />
                       </div>
-
-                      <Separator />
-
-                      {/* Overrides */}
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                          <label className="text-xs font-semibold uppercase text-muted-foreground">
-                            Overrides
-                          </label>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">Model</label>
-                          <Input
-                            value={model}
-                            onChange={(e) => setModel(e.target.value)}
-                            placeholder="Override model..."
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">System Prompt</label>
-                          <Textarea
-                            value={systemPrompt}
-                            onChange={(e) => setSystemPrompt(e.target.value)}
-                            placeholder="Override system prompt..."
-                            rows={3}
-                            className="text-xs resize-none"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">
-                            Temperature: {temperature}
-                          </label>
-                          <input
-                            type="range"
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={temperature}
-                            onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                            className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">
-                            Max Tokens: {maxTokens ?? 'default'}
-                          </label>
-                          <Input
-                            type="number"
-                            value={maxTokens ?? ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setMaxTokens(val ? parseInt(val, 10) : undefined);
-                            }}
-                            placeholder="Leave blank for default"
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <Button size="sm" className="w-full" onClick={handleApplyOverrides}>
-                          <Play className="h-3.5 w-3.5 mr-1" />
-                          Apply Overrides
-                        </Button>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">System Prompt</label>
+                        <Textarea
+                          value={systemPrompt}
+                          onChange={(e) => setSystemPrompt(e.target.value)}
+                          placeholder="Override system prompt..."
+                          rows={3}
+                          className="text-xs resize-none"
+                        />
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          Temperature: {temperature}
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.1}
+                          value={temperature}
+                          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          Max Tokens: {maxTokens ?? 'default'}
+                        </label>
+                        <Input
+                          type="number"
+                          value={maxTokens ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMaxTokens(val ? parseInt(val, 10) : undefined);
+                          }}
+                          placeholder="Leave blank for default"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <Button size="sm" className="w-full" onClick={handleApplyOverrides}>
+                        <Play className="h-3.5 w-3.5 mr-1" />
+                        Apply Overrides
+                      </Button>
                     </div>
-                  </ScrollArea>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </ResizablePanel>
-          )}
-        </ResizablePanelGroup>
+                  </div>
+                </ScrollArea>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+        )}
       </div>
 
       <AlertDialog
