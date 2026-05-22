@@ -62,3 +62,15 @@ test.describe('Sessions Dashboard API', () => {
     expect([401, 403]).toContain(response.status());
   });
 });
+
+test.describe('Inferences Dashboard API', () => {
+  test('GET /api/inferences rejects unauthenticated', async ({ request }) => {
+    const response = await request.get('/api/inferences');
+    expect([401, 403]).toContain(response.status());
+  });
+
+  test('GET /api/inferences/[id] rejects unauthenticated', async ({ request }) => {
+    const response = await request.get('/api/inferences/some-id');
+    expect([401, 403]).toContain(response.status());
+  });
+});

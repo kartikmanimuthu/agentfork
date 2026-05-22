@@ -25,6 +25,11 @@ test.describe('Navigation — Unauthenticated Redirects', () => {
     await page.goto('/sessions', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('unauthenticated user visiting /inferences is redirected to /login', async ({ page }) => {
+    await page.goto('/inferences', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/login/);
+  });
 });
 
 test.describe('Navigation — Removed Routes (chat module dropped)', () => {

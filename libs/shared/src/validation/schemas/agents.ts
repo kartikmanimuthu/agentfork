@@ -134,10 +134,10 @@ export const playgroundSessionMessageSchema = z.object({
 });
 
 export const createPlaygroundSessionSchema = z.object({
-  name: z.string().max(200).optional(),
+  name: z.string().max(200).optional().nullable(),
   messages: z.array(playgroundSessionMessageSchema).optional(),
-  configOverrides: z.record(z.string(), z.unknown()).optional(),
-  agentVersionId: z.string().optional(),
+  configOverrides: z.record(z.string(), z.unknown()).optional().nullable(),
+  agentVersionId: z.string().optional().nullable(),
 });
 
 export const updatePlaygroundSessionSchema = z.object({

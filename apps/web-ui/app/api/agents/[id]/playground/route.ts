@@ -170,6 +170,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
 
+      const startTime = Date.now();
+
       const result = streamChat({
         provider,
         messages: coreMessages,
@@ -181,21 +183,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
           const completedAt = new Date();
+          const durationMs = Date.now() - startTime;
           await db.agentExecution.update({
             where: { id: execution.id },
             data: {
               status: 'completed',
-              output: { text, usage },
+              output: { text, usage, durationMs, model: effectiveModel ?? llmConfig?.chatModel ?? 'unknown' },
               completedAt,
             },
           });
-          logger.info({ requestId, executionId: execution.id, usage }, 'Execution completed');
+          logger.info({ requestId, executionId: execution.id, usage, durationMs }, 'Execution completed');
         },
       });
 
       return result.toUIMessageStreamResponse({
         headers: {
           'x-execution-id': execution.id,
+          'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
+          'x-request-timestamp': String(startTime),
         },
       });
     }
@@ -250,6 +255,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       executor.register(new DelayNodeExecutor());
 
       let fullText = '';
+      const graphStartTime = Date.now();
+      let graphTtftMs: number | undefined;
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -259,6 +266,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
           };
 
+          sendEvent('execution_start', {
+            executionId: execution.id,
+            model: 'graph',
+            temperature: 0,
+            maxTokens: 0,
+            timestamp: graphStartTime,
+          });
+
           try {
             await executor.execute(
               { nodes, edges },
@@ -266,6 +281,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               { executionId: execution.id, agentId: id, tenantId, userId },
               {
                 onEvent: (event) => {
+                  if (event.type === 'text_delta' && graphTtftMs === undefined) {
+                    graphTtftMs = Date.now() - graphStartTime;
+                  }
                   sendEvent(event.type, event);
                   if (event.type === 'text_delta') {
                     fullText += event.delta;
@@ -273,6 +291,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 },
               }
             );
+
+            const durationMs = Date.now() - graphStartTime;
+            sendEvent('execution_end', {
+              usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
+              durationMs,
+              ttftMs: graphTtftMs ?? durationMs,
+              model: 'graph',
+            });
 
             await db.agentExecution.update({
               where: { id: execution.id },
@@ -284,7 +310,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             });
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            sendEvent('execution_error', { error: errorMessage });
+            const durationMs = Date.now() - graphStartTime;
+            sendEvent('error', { code: 'EXECUTION_ERROR', message: errorMessage, timestamp: Date.now() });
+            sendEvent('execution_end', {
+              usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
+              durationMs,
+              ttftMs: graphTtftMs ?? durationMs,
+              model: 'graph',
+              error: errorMessage,
+            });
             await db.agentExecution.update({
               where: { id: execution.id },
               data: { status: 'failed', output: { error: errorMessage }, completedAt: new Date() },

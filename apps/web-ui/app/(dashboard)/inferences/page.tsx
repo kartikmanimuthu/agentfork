@@ -9,57 +9,50 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Search, MessageSquare, Clock, CheckCircle2, Activity } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Zap, CheckCircle2, Clock, Database } from 'lucide-react';
 
-const SENTIMENT_COLORS: Record<string, string> = {
-  POSITIVE: '#10B981',
-  NEGATIVE: '#EF4444',
-  NEUTRAL: '#6366F1',
-  MIXED: '#F59E0B',
-};
-
-interface SessionRow {
+interface ExecutionRow {
   id: string;
-  name: string | null;
-  channel: string;
+  agentId: string;
+  agentVersionId: string | null;
+  sessionId: string | null;
   status: string;
-  startedAt: string;
-  lastActivityAt: string;
-  endedAt: string | null;
-  endReason: string | null;
-  messageCount: number;
-  executionCount: number;
-  avgLatencyMs: number | null;
+  latencyMs: number | null;
+  tokenUsage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
+  cacheHit: boolean;
+  webhookStatus: string | null;
+  createdAt: string;
+  completedAt: string | null;
   agent: { id: string; name: string; type: string } | null;
   agentVersion: { id: string; version: number; status: string } | null;
-  analytics: {
-    sentiment: string | null;
-    isResolved: boolean | null;
-    confidenceScore: number | null;
-    firstUserQuery: string | null;
-    summary: string | null;
-  } | null;
+}
+
+interface Stats {
+  total: number;
+  successRate: number;
+  avgLatencyMs: number | null;
+  cacheHitRate: number;
 }
 
 interface Filters {
-  channel: string;
+  search: string;
+  agentId: string;
   status: string;
-  sentiment: string;
-  resolvedStatus: string;
+  type: string;
+  cacheHit: string;
   fromDate: string;
   toDate: string;
-  search: string;
   page: number;
 }
 
 const DEFAULT_FILTERS: Filters = {
-  channel: 'all',
+  search: '',
+  agentId: 'all',
   status: 'all',
-  sentiment: 'all',
-  resolvedStatus: 'all',
+  type: 'all',
+  cacheHit: 'all',
   fromDate: '',
   toDate: '',
-  search: '',
   page: 1,
 };
 
@@ -77,32 +70,33 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
   );
 }
 
-export default function SessionsPage() {
+export default function InferencesPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [applied, setApplied] = useState<Filters>(DEFAULT_FILTERS);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sessions', applied],
+    queryKey: ['inferences', applied],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (applied.channel !== 'all') params.append('channel', applied.channel);
+      if (applied.agentId !== 'all') params.append('agentId', applied.agentId);
       if (applied.status !== 'all') params.append('status', applied.status);
-      if (applied.sentiment !== 'all') params.append('sentiment', applied.sentiment);
-      if (applied.resolvedStatus !== 'all') params.append('resolvedStatus', applied.resolvedStatus);
+      if (applied.type !== 'all') params.append('type', applied.type);
+      if (applied.cacheHit !== 'all') params.append('cacheHit', applied.cacheHit);
       if (applied.fromDate) params.append('fromDate', applied.fromDate);
       if (applied.toDate) params.append('toDate', applied.toDate);
       if (applied.search) params.append('search', applied.search);
       params.append('page', String(applied.page));
       params.append('limit', '20');
-      const res = await fetch(`/api/sessions?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch sessions');
+      const res = await fetch(`/api/inferences?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch inferences');
       return res.json() as Promise<{
-        sessions: SessionRow[];
+        stats: Stats;
+        executions: ExecutionRow[];
         pagination: { page: number; limit: number; total: number; totalPages: number };
       }>;
     },
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60,
   });
 
   const handleApply = () => setApplied({ ...filters, page: 1 });
@@ -116,18 +110,12 @@ export default function SessionsPage() {
     setApplied(updated);
   };
 
-  const sessions = data?.sessions ?? [];
+  const executions = data?.executions ?? [];
+  const stats = data?.stats;
   const pagination = data?.pagination ?? { page: 1, totalPages: 1, total: 0, limit: 20 };
 
-  const totalSessions = pagination.total;
-  const activeSessions = sessions.filter((s) => s.status === 'active').length;
-  const avgLatency = sessions.length > 0
-    ? sessions.reduce((sum, s) => sum + (s.avgLatencyMs ?? 0), 0) / sessions.filter((s) => s.avgLatencyMs !== null).length
-    : null;
-  const totalMessages = sessions.reduce((sum, s) => sum + s.messageCount, 0);
-
   const formatLatency = (ms: number | null) => {
-    if (ms === null || ms === undefined || isNaN(ms)) return '—';
+    if (ms === null || ms === undefined) return '—';
     if (ms < 1000) return `${Math.round(ms)} ms`;
     return `${(ms / 1000).toFixed(2)} s`;
   };
@@ -135,16 +123,22 @@ export default function SessionsPage() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
+  const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' => {
+    if (s === 'completed') return 'default';
+    if (s === 'failed') return 'destructive';
+    return 'secondary';
+  };
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-        <span className="text-sm text-muted-foreground">Inference sessions across all channels and agents</span>
+        <h1 className="text-3xl font-bold tracking-tight">Inferences</h1>
+        <span className="text-sm text-muted-foreground">All API inference calls across agents</span>
       </div>
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {isLoading ? (
+        {isLoading || !stats ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="pt-6 pb-4">
@@ -155,24 +149,24 @@ export default function SessionsPage() {
         ) : (
           <>
             <StatCard
-              label="Total Sessions"
-              value={totalSessions.toLocaleString()}
-              icon={<MessageSquare className="h-4 w-4" />}
+              label="Total Inferences"
+              value={stats.total.toLocaleString()}
+              icon={<Zap className="h-4 w-4" />}
             />
             <StatCard
-              label="Active Sessions"
-              value={String(activeSessions)}
-              icon={<Activity className="h-4 w-4" />}
+              label="Success Rate"
+              value={`${(stats.successRate * 100).toFixed(1)}%`}
+              icon={<CheckCircle2 className="h-4 w-4" />}
             />
             <StatCard
               label="Avg Latency"
-              value={formatLatency(avgLatency)}
+              value={formatLatency(stats.avgLatencyMs)}
               icon={<Clock className="h-4 w-4" />}
             />
             <StatCard
-              label="Total Messages"
-              value={totalMessages.toLocaleString()}
-              icon={<CheckCircle2 className="h-4 w-4" />}
+              label="Cache Hit Rate"
+              value={`${(stats.cacheHitRate * 100).toFixed(1)}%`}
+              icon={<Database className="h-4 w-4" />}
             />
           </>
         )}
@@ -183,14 +177,13 @@ export default function SessionsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[180px]">
-              <label className="text-xs font-medium text-muted-foreground">Search</label>
+              <label className="text-xs font-medium text-muted-foreground">Search by ID</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by ID or name..."
+                  placeholder="Execution ID..."
                   value={filters.search}
                   onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApply()}
                   className="pl-9"
                 />
               </div>
@@ -221,48 +214,35 @@ export default function SessionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="ended">Ended</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="running">Running</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Channel</label>
-              <Select value={filters.channel} onValueChange={(v) => setFilters((f) => ({ ...f, channel: v }))}>
+              <label className="text-xs font-medium text-muted-foreground">Type</label>
+              <Select value={filters.type} onValueChange={(v) => setFilters((f) => ({ ...f, type: v }))}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="API">API</SelectItem>
+                  <SelectItem value="stateful">Stateful</SelectItem>
+                  <SelectItem value="stateless">Stateless</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Sentiment</label>
-              <Select value={filters.sentiment} onValueChange={(v) => setFilters((f) => ({ ...f, sentiment: v }))}>
-                <SelectTrigger className="w-32">
+              <label className="text-xs font-medium text-muted-foreground">Cache</label>
+              <Select value={filters.cacheHit} onValueChange={(v) => setFilters((f) => ({ ...f, cacheHit: v }))}>
+                <SelectTrigger className="w-28">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="POSITIVE">Positive</SelectItem>
-                  <SelectItem value="NEGATIVE">Negative</SelectItem>
-                  <SelectItem value="NEUTRAL">Neutral</SelectItem>
-                  <SelectItem value="MIXED">Mixed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Resolution</label>
-              <Select value={filters.resolvedStatus} onValueChange={(v) => setFilters((f) => ({ ...f, resolvedStatus: v }))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="unresolved">Unresolved</SelectItem>
+                  <SelectItem value="true">Hit</SelectItem>
+                  <SelectItem value="false">Miss</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -281,93 +261,66 @@ export default function SessionsPage() {
                 <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
-          ) : sessions.length === 0 ? (
+          ) : executions.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">
-              No sessions found. Sessions are created when integrators call{' '}
-              <code className="text-xs bg-muted px-1 rounded">POST /api/v1/inference</code> with a{' '}
-              <code className="text-xs bg-muted px-1 rounded">sessionId</code>.
+              No inferences found. Calls to{' '}
+              <code className="text-xs bg-muted px-1 rounded">POST /api/v1/inference</code> appear here.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground border-b">
-                    <th className="py-2 pr-4">Name / Query</th>
+                    <th className="py-2 pr-4">ID</th>
                     <th className="py-2 pr-4">Agent</th>
-                    <th className="py-2 pr-4">Channel</th>
+                    <th className="py-2 pr-4">Type</th>
                     <th className="py-2 pr-4">Status</th>
-                    <th className="py-2 pr-4">Messages</th>
-                    <th className="py-2 pr-4">Avg Latency</th>
-                    <th className="py-2 pr-4">Sentiment</th>
-                    <th className="py-2 pr-4">Resolved</th>
-                    <th className="py-2">Started</th>
+                    <th className="py-2 pr-4">Latency</th>
+                    <th className="py-2 pr-4">Tokens</th>
+                    <th className="py-2 pr-4">Cache</th>
+                    <th className="py-2 pr-4">Webhook</th>
+                    <th className="py-2">When</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((s) => (
+                  {executions.map((ex) => (
                     <tr
-                      key={s.id}
+                      key={ex.id}
                       className="border-b last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => router.push(`/sessions/${s.id}`)}
+                      onClick={() => router.push(`/inferences/${ex.id}`)}
                     >
-                      <td className="py-2.5 pr-4 max-w-[200px]">
-                        <div className="truncate font-medium text-sm">
-                          {s.analytics?.firstUserQuery ?? s.name ?? 'Untitled'}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground font-mono">{s.id.slice(0, 12)}…</div>
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        {s.agent?.name ?? '—'}
-                        {s.agentVersion ? (
-                          <span className="text-muted-foreground ml-1 text-xs">v{s.agentVersion.version}</span>
+                      <td className="py-2 pr-4 font-mono text-xs">{ex.id.slice(0, 12)}…</td>
+                      <td className="py-2 pr-4">
+                        {ex.agent?.name ?? '—'}
+                        {ex.agentVersion ? (
+                          <span className="text-muted-foreground ml-1 text-xs">v{ex.agentVersion.version}</span>
                         ) : null}
                       </td>
-                      <td className="py-2.5 pr-4">
-                        <Badge variant="outline" className="text-[10px]">{s.channel}</Badge>
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        <Badge
-                          variant={s.status === 'active' ? 'default' : 'secondary'}
-                          className="text-[10px]"
-                        >
-                          {s.status}{s.endReason ? ` · ${s.endReason}` : ''}
+                      <td className="py-2 pr-4">
+                        <Badge variant={ex.sessionId ? 'default' : 'secondary'} className="text-[10px]">
+                          {ex.sessionId ? 'Stateful' : 'Stateless'}
                         </Badge>
                       </td>
-                      <td className="py-2.5 pr-4 text-center">{s.messageCount}</td>
-                      <td className="py-2.5 pr-4">{formatLatency(s.avgLatencyMs)}</td>
-                      <td className="py-2.5 pr-4">
-                        {s.analytics?.sentiment ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px]"
-                            style={{
-                              borderColor: SENTIMENT_COLORS[s.analytics.sentiment],
-                              color: SENTIMENT_COLORS[s.analytics.sentiment],
-                            }}
-                          >
-                            {s.analytics.sentiment}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                      <td className="py-2 pr-4">
+                        <Badge variant={statusVariant(ex.status)} className="text-[10px]">
+                          {ex.status}
+                        </Badge>
                       </td>
-                      <td className="py-2.5 pr-4">
-                        {s.analytics?.isResolved !== null && s.analytics?.isResolved !== undefined ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px]"
-                            style={{
-                              borderColor: s.analytics.isResolved ? '#10B981' : '#EF4444',
-                              color: s.analytics.isResolved ? '#10B981' : '#EF4444',
-                            }}
-                          >
-                            {s.analytics.isResolved ? 'Yes' : 'No'}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                      <td className="py-2 pr-4">{formatLatency(ex.latencyMs)}</td>
+                      <td className="py-2 pr-4">
+                        {ex.tokenUsage &&
+                        typeof ex.tokenUsage === 'object' &&
+                        'totalTokens' in ex.tokenUsage
+                          ? (ex.tokenUsage as { totalTokens: number }).totalTokens
+                          : '—'}
                       </td>
-                      <td className="py-2.5 text-xs text-muted-foreground">{formatDate(s.startedAt)}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={ex.cacheHit ? 'default' : 'outline'} className="text-[10px]">
+                          {ex.cacheHit ? 'Hit' : 'Miss'}
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">{ex.webhookStatus ?? '—'}</td>
+                      <td className="py-2 text-xs text-muted-foreground">{formatDate(ex.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
