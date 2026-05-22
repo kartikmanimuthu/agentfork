@@ -341,11 +341,14 @@ export default function PlaygroundPage() {
                 </div>
               )}
               {sessions?.map((session) => (
-                <button
+                <div
                   key={session.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleLoadSession(session)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLoadSession(session); }}
                   className={cn(
-                    'w-full text-left px-3 py-2 rounded-md text-xs transition-colors group flex items-center justify-between',
+                    'w-full text-left px-3 py-2 rounded-md text-xs transition-colors group flex items-center justify-between cursor-pointer',
                     activeSessionId === session.id
                       ? 'bg-primary/10 text-primary'
                       : 'hover:bg-accent text-muted-foreground'
@@ -368,7 +371,7 @@ export default function PlaygroundPage() {
                   >
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
-                </button>
+                </div>
               ))}
             </div>
           </ScrollArea>
