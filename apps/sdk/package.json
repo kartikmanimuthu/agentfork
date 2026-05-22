@@ -1,0 +1,22 @@
+{
+  "name": "@chatbot/sdk",
+  "version": "0.0.1",
+  "description": "Embeddable chat widget — drop-in Web Component for any site",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.js",
+  "types": "./dist/types/components.d.ts",
+  "collection": "./dist/collection/collection-manifest.json",
+  "scripts": {
+    "build": "stencil build",
+    "start": "stencil build --dev --watch --serve --port 3000",
+    "test": "stencil test --spec"
+  },
+  "dependencies": {
+    "@stencil/core": "^4.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "keywords": ["stencil", "chat", "widget", "web-component"],
+  "license": "MIT"
+}
