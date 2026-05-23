@@ -1,0 +1,89 @@
+---
+title: MCP API
+description: MCP server management, testing, and versioning endpoints.
+---
+
+### GET /api/mcp-servers
+
+List all MCP servers for the current tenant.
+
+**Auth:** Session cookie required.
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "mcp-id",
+      "name": "Weather API",
+      "transportType": "sse",
+      "endpoint": "https://weather.example.com/sse",
+      "status": "active"
+    }
+  ]
+}
+```
+
+### POST /api/mcp-servers
+
+Create a new MCP server.
+
+**Request body:**
+```json
+{
+  "name": "Weather API",
+  "transportType": "sse",
+  "endpoint": "https://weather.example.com/sse",
+  "config": {
+    "apiKey": "..."
+  }
+}
+```
+
+### GET /api/mcp-servers/[id]
+
+Get an MCP server by ID.
+
+### PUT /api/mcp-servers/[id]
+
+Update an MCP server.
+
+**Request body:** Same as POST, any subset of fields.
+
+### POST /api/mcp-servers/[id]/test
+
+Test the MCP server connection.
+
+**Response:**
+```json
+{
+  "success": true,
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a location"
+    }
+  ]
+}
+```
+
+### GET /api/mcp-servers/[id]/versions
+
+List all versions of an MCP server configuration.
+
+**Response:**
+```json
+{
+  "versions": [
+    {
+      "versionId": 1,
+      "note": "Added timeout config",
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /api/mcp-servers/[id]/versions/[versionId]/restore
+
+Restore a previous MCP server configuration version.

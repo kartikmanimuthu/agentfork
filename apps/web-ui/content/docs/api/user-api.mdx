@@ -1,0 +1,187 @@
+---
+title: User & Tenant API
+description: Tenants, members, roles, invitations, and authentication.
+---
+
+## Tenants
+
+### GET /api/tenants
+
+Get the current active tenant.
+
+**Auth:** Session cookie required.
+
+**Response:**
+```json
+{
+  "id": "tenant-1",
+  "name": "Acme Corp",
+  "slug": "acme",
+  "settings": {
+    "defaultModel": "anthropic.claude-sonnet-4-20250514"
+  }
+}
+```
+
+### POST /api/tenants
+
+Create a new tenant/organization.
+
+**Auth:** Session cookie required.
+
+**Request body:**
+```json
+{
+  "name": "Acme Corp",
+  "slug": "acme"
+}
+```
+
+### POST /api/tenants/switch
+
+Switch to a different tenant.
+
+**Request body:**
+```json
+{
+  "tenantId": "tenant-2"
+}
+```
+
+### GET /api/tenants/my-orgs
+
+List all tenants the current user belongs to.
+
+**Response:**
+```json
+{
+  "items": [
+    { "id": "tenant-1", "name": "Acme Corp", "role": "owner" }
+  ]
+}
+```
+
+### POST /api/tenants/check-slug
+
+Check if a tenant slug is available.
+
+**Request body:**
+```json
+{
+  "slug": "acme"
+}
+```
+
+**Response:**
+```json
+{
+  "available": true
+}
+```
+
+## Members
+
+### GET /api/members
+
+List members of the current tenant.
+
+**Auth:** Session cookie required.
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "user-1",
+      "name": "Alice",
+      "email": "alice@example.com",
+      "role": "admin",
+      "joinedAt": "2026-05-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+## Invitations
+
+### POST /api/invitations
+
+Send an invitation to join the tenant.
+
+**Auth:** Session cookie required (Admin or Owner only).
+
+**Request body:**
+```json
+{
+  "email": "bob@example.com",
+  "role": "member"
+}
+```
+
+## Roles
+
+### GET /api/roles
+
+List available roles and their permissions.
+
+**Response:**
+```json
+{
+  "roles": [
+    {
+      "name": "Owner",
+      "permissions": ["*"]
+    },
+    {
+      "name": "Admin",
+      "permissions": ["agent.*", "kb.*", "member.read", "member.invite"]
+    },
+    {
+      "name": "Member",
+      "permissions": ["agent.read", "agent.playground", "kb.read"]
+    },
+    {
+      "name": "Viewer",
+      "permissions": ["agent.read", "kb.read"]
+    }
+  ]
+}
+```
+
+## Authentication
+
+### POST /api/auth/signup
+
+Register a new user account.
+
+**Request body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "secure-password",
+  "name": "John Doe"
+}
+```
+
+### POST /api/auth/forgot-password
+
+Request a password reset email.
+
+**Request body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+### POST /api/auth/reset-password
+
+Reset password with a token from the email.
+
+**Request body:**
+```json
+{
+  "token": "reset-token",
+  "password": "new-password"
+}
+```

@@ -1,28 +1,32 @@
 ---
 title: Chatbot Documentation
-description: Open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. Self-hosted, MIT licensed.
+description: Open-source, multi-tenant AI chatbot and agent platform. Self-hosted, MIT licensed.
 ---
 
-Chatbot is an open-source AI chatbot platform with multi-tenant isolation, RBAC, audit logging, and RAG support. Built on Next.js 15, AWS Bedrock, and PostgreSQL with pgvector.
+Chatbot is an open-source AI agent and chatbot platform with multi-tenant isolation, RBAC, audit logging, RAG support, and an Agent Studio. Built on Next.js 15, AWS Bedrock, and PostgreSQL with pgvector.
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
+| Agent Studio | Build, version, and publish AI agents with a visual playground |
+| Knowledge Bases | Upload documents, sync web sources, semantic search with pgvector |
+| MCP Servers | Connect external tools and APIs via Model Context Protocol |
+| LLM Providers | Multi-provider model management (Bedrock, OpenAI-compatible) |
+| RAG Pipeline | Retrieval-augmented generation with vector embeddings |
+| Analytics & Sessions | Track inference usage, token costs, session history |
 | Multi-Tenant | Isolated organizations with tenant-scoped data |
-| AWS Bedrock | Claude models via Vercel AI SDK |
-| RAG Pipeline | pgvector embeddings for retrieval-augmented generation |
 | RBAC | Role-based access control (Owner, Admin, Member, Viewer) |
 | Audit Logs | Complete activity trail with filtering |
 | Background Jobs | pg-boss workers for embeddings and summaries |
 | Auth | NextAuth with Cognito SSO support |
-| Conversations | Persistent chat history with search |
+| Chat Widget SDK | Embeddable chat widget for external apps |
 
 ## Quick Links
 
-- [Getting Started](/docs/getting-started) — Set up your first instance in 5 minutes
-- [Installation](/docs/installation) — Deploy with Docker or Pulumi
-- [Configuration](/docs/configuration) — Configure Bedrock, Cognito, and pgvector
-- [API Reference](/docs/api-reference) — REST API endpoints
-- [Architecture](/docs/architecture) — System design and data flow
-- [FAQ](/docs/faq) — Frequently asked questions
+- [User Guide](/docs/user-guide/getting-started) — Set up your first instance and create agents
+- [Developer Guide](/docs/dev-guide/installation) — Deploy with Docker or Pulumi
+- [Configuration](/docs/dev-guide/configuration) — Configure Bedrock, Cognito, and pgvector
+- [API Reference](/docs/api/index) — REST API endpoints
+- [Architecture](/docs/dev-guide/architecture) — System design and data flow
+- [FAQ](/docs/dev-guide/faq) — Frequently asked questions

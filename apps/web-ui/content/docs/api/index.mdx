@@ -1,0 +1,61 @@
+---
+title: API Reference
+description: REST API endpoints for the Chatbot platform.
+---
+
+## Authentication
+
+All API endpoints (except `/api/health` and `/api/auth/*`) require a valid NextAuth session cookie for browser access, or a valid **API Key** for external integration.
+
+### API Key Authentication
+
+Include the API key in the `Authorization` header:
+
+```bash
+Authorization: Bearer <api-key>
+```
+
+API keys are created per-agent in the Agent Studio under the **API Keys** tab.
+
+## Base URL
+
+```
+https://your-chatbot-domain.com/api
+```
+
+For local development:
+
+```
+http://localhost:3001/api
+```
+
+## Content-Type
+
+All POST/PUT requests should set:
+
+```bash
+Content-Type: application/json
+```
+
+## Error Responses
+
+Errors follow a consistent format:
+
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+```
+
+Common HTTP status codes:
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Not Found |
+| 500 | Internal Server Error |

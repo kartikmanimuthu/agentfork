@@ -1,0 +1,47 @@
+---
+title: Sessions
+description: Unified inference session tracking and history.
+---
+
+Sessions provide a unified view of all inference activity across the platform — both public API calls and playground interactions.
+
+## What is a Session?
+
+A session represents a single inference conversation or API call:
+- Created when an inference starts
+- Tracks all messages, metadata, and events
+- Closed when the conversation ends or the API call completes
+- Aggregates token usage and cost estimates
+
+## Viewing Sessions
+
+1. Go to **Analytics > Sessions** in the sidebar
+2. The list shows:
+   - Session ID
+   - Status (active, closed, error)
+   - Model used
+   - Total tokens
+   - Estimated cost
+   - Created at
+
+## Session Detail
+
+Click any session to view:
+- **Messages** — full conversation history
+- **Metadata** — model, latency, token counts, user/agent info
+- **Raw Events** — complete SSE stream log (for debugging)
+
+## Closing Sessions
+
+Active sessions can be closed manually:
+1. Open the session detail
+2. Click **Close Session**
+3. The session status changes to **closed** and final metrics are recorded
+
+## Usage Aggregation
+
+Sessions feed into the Analytics dashboard for:
+- Total inference count
+- Token consumption trends
+- Cost estimation
+- Agent usage rankings

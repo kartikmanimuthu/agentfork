@@ -1,0 +1,62 @@
+---
+title: Agents
+description: Build, test, version, and publish AI agents with the Agent Studio.
+---
+
+The Agent Studio is the visual interface for building AI agents. Each agent has a name, system prompt, attached model, and optional knowledge base or MCP servers.
+
+## Creating an Agent
+
+1. Go to **Agents** in the sidebar and click **New Agent**
+2. Enter a **Name** (e.g., "Support Bot")
+3. Write a **System Prompt** that defines the agent's behavior
+4. Select a **Model** from your configured LLM providers
+5. Optionally attach a **Knowledge Base** for RAG
+6. Optionally attach **MCP Servers** for tool use
+7. Click **Save**
+
+## Testing in the Playground
+
+Every agent has a built-in Playground for live testing:
+
+1. Open an agent and click the **Playground** tab
+2. Type a message and press Enter
+3. The response streams in real-time with:
+   - **Thinking blocks** — visible reasoning steps (when supported by the model)
+   - **Message metadata** — token count, latency, model used
+   - **Console panel** — execution events, metrics, and raw SSE stream
+
+The Playground supports resizable panels so you can expand the console to inspect traces.
+
+## Versions
+
+Agents support versioning so you can experiment safely:
+
+1. In the agent editor, click **Save Version**
+2. Enter a version note (e.g., "Added pricing context")
+3. Versions are listed under the **Versions** tab
+4. You can restore any previous version
+5. The latest version is what the Playground and public API use
+
+## Publishing
+
+To expose an agent via public API:
+
+1. In the agent editor, click **Publish**
+2. Choose visibility: **Public** or **Private**
+3. Public agents are accessible via API key
+4. Private agents are only usable within the platform
+
+## API Keys
+
+Published agents require API keys for external access:
+
+1. Go to the agent's **API Keys** tab
+2. Click **Create API Key**
+3. Copy the key — it is shown only once
+4. Use the key in the `Authorization` header: `Bearer <api-key>`
+5. You can rotate or revoke keys at any time
+
+## Agent Aliases
+
+Aliases let you publish an agent under a stable URL while iterating on the underlying version. Create an alias in the agent settings.

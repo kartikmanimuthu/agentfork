@@ -1,0 +1,12 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "index",
+    "agents-api",
+    "knowledge-base-api",
+    "mcp-api",
+    "inference-api",
+    "analytics-api",
+    "user-api"
+  ]
+}

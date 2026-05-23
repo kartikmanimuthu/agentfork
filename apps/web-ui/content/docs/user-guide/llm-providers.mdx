@@ -1,0 +1,46 @@
+---
+title: LLM Providers
+description: Manage AI model providers and configure defaults.
+---
+
+LLM Providers let you connect multiple AI model backends. The platform supports AWS Bedrock natively and can be extended with OpenAI-compatible providers.
+
+## Adding a Provider
+
+1. Go to **Agents > LLM Providers** in the sidebar
+2. Click **New Provider**
+3. Enter:
+   - **Name** — display name (e.g., "OpenAI GPT-4")
+   - **Base URL** — API endpoint (e.g., `https://api.openai.com/v1`)
+   - **API Key** — authentication key
+   - **Default** — whether this is the platform default
+4. Click **Save**
+
+## Fetching Models
+
+After adding a provider, click **Refresh Models** to pull the list of available models from the provider's API. Models are stored locally and can be selected when creating or editing agents.
+
+## Setting a Default Provider
+
+1. Open a provider
+2. Toggle **Set as Default**
+3. New agents will use this provider's default model unless overridden
+
+## Validation
+
+The platform validates provider connectivity when you save or test:
+- Checks API key authentication
+- Verifies the base URL is reachable
+- Confirms at least one model is available
+
+## Provider Types
+
+| Type | Base URL Example | Notes |
+|------|-----------------|-------|
+| AWS Bedrock | (IAM-based) | Default; uses AWS credentials |
+| OpenAI | `https://api.openai.com/v1` | Requires API key |
+| OpenAI-compatible | Custom endpoint | Any provider with compatible API |
+
+## Per-Agent Model Selection
+
+When creating or editing an agent, you can override the global default and choose any model from any configured provider.
