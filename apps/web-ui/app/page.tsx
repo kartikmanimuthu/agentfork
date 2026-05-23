@@ -13,6 +13,8 @@ import {
   KeyRound,
   Code2,
   Zap,
+  BarChart3,
+  ClipboardList,
 } from 'lucide-react';
 import { motion, useInView, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useRef, useEffect } from 'react';
@@ -21,19 +23,23 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 
 const features = [
+  { icon: Bot, title: 'Agent Studio', description: 'Build, version, and publish AI agents with a visual playground.' },
+  { icon: Database, title: 'Knowledge Bases', description: 'Upload documents, sync web sources, and run semantic search with pgvector.' },
+  { icon: Code2, title: 'MCP Servers', description: 'Connect external tools and APIs via Model Context Protocol.' },
+  { icon: Zap, title: 'LLM Providers', description: 'Multi-provider model management including Bedrock and OpenAI-compatible APIs.' },
+  { icon: FileText, title: 'RAG Pipeline', description: 'pgvector embeddings for retrieval-augmented generation over your data.' },
+  { icon: BarChart3, title: 'Analytics & Sessions', description: 'Track inference usage, token costs, and session history.' },
   { icon: Users, title: 'Multi-Tenant', description: 'Isolated organizations with tenant-scoped data and separate configurations.' },
-  { icon: Bot, title: 'AWS Bedrock', description: 'Claude models via Vercel AI SDK with streaming chat completions.' },
-  { icon: Database, title: 'RAG Pipeline', description: 'pgvector embeddings for retrieval-augmented generation over your data.' },
   { icon: Shield, title: 'RBAC & Security', description: 'Four predefined roles — Owner, Admin, Member, Viewer — with granular permissions.' },
-  { icon: FileText, title: 'Audit Logs', description: 'Complete activity trail with filtering by event type, severity, and date range.' },
+  { icon: ClipboardList, title: 'Audit Logs', description: 'Complete activity trail with filtering by event type, severity, and date range.' },
   { icon: Clock, title: 'Background Jobs', description: 'pg-boss workers handle embedding generation and conversation summaries.' },
   { icon: KeyRound, title: 'Cognito Auth', description: 'NextAuth with AWS Cognito SSO support and credentials-based login.' },
-  { icon: History, title: 'Conversation History', description: 'Persistent chat history with pagination, search, and model selection.' },
+  { icon: MessageSquare, title: 'Chat Widget SDK', description: 'Embeddable chat widget for external apps and websites.' },
 ];
 
 const stats = [
   { value: 100, suffix: '%', label: 'Free & open source' },
-  { value: 10, suffix: '+', label: 'Tenant isolation' },
+  { value: 12, suffix: '+', label: 'Core features' },
   { value: 4, suffix: '', label: 'Built-in roles' },
   { value: 1, suffix: '', label: 'MIT Licensed' },
 ];
@@ -109,17 +115,17 @@ export default function HomePage() {
           className="relative"
         >
           <motion.span variants={item} className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            Open Source · MIT License
+            Open Source · Agent Studio · RAG · MCP · MIT License
           </motion.span>
 
           <motion.h1
             variants={item}
             className="mt-6 text-5xl font-extrabold tracking-tight">
-            <span className="bg-gradient-to-r from-primary to-ring bg-clip-text text-transparent">AI Chatbot Platform</span>
+            <span className="bg-gradient-to-r from-primary to-ring bg-clip-text text-transparent">AI Agent & Chatbot Platform</span>
           </motion.h1>
 
           <motion.p variants={item} className="mt-4 text-lg text-muted-foreground">
-            Self-hosted, multi-tenant chatbot powered by AWS Bedrock. Deploy for free, keep full control of your data.
+            Self-hosted, multi-tenant AI platform. Build agents, connect knowledge bases, integrate MCP tools, and deploy a chat widget — all with AWS Bedrock.
           </motion.p>
 
           <motion.div variants={item} className="mt-8 flex items-center justify-center gap-4">
@@ -271,7 +277,7 @@ export default function HomePage() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl font-bold">Ready to deploy your AI chatbot?</h2>
+          <h2 className="text-3xl font-bold">Ready to deploy your AI agents?</h2>
           <p className="mt-2 text-muted-foreground">Get started in under 5 minutes. Free, open source, and self-hosted.</p>
           <Link href="/register" className="mt-6 inline-block">
             <Button size="lg">Get started free</Button>
@@ -286,7 +292,7 @@ export default function HomePage() {
             <span>Chatbot · MIT License</span>
             <div className="flex gap-4">
               <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
-              <Link href="/docs/getting-started" className="hover:text-foreground transition-colors">Getting Started</Link>
+              <Link href="/docs/user-guide/getting-started" className="hover:text-foreground transition-colors">Getting Started</Link>
               <a href="https://github.com/kartikmanimuthu/chatbot" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
             </div>
           </div>
