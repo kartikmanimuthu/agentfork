@@ -49,6 +49,12 @@ RUN cd libs/ai && bunx tsc --project tsconfig.lib.json && \
     cp -rL /app/dist/libs/ai/libs/ai/src /app/node_modules/@chatbot/ai/src && \
     printf '{"name":"@chatbot/ai","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/ai/package.json
 
+COPY libs/knowledge-base/ libs/knowledge-base/
+RUN cd libs/knowledge-base && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/knowledge-base && \
+    cp -rL /app/dist/libs/knowledge-base/libs/knowledge-base/src /app/node_modules/@chatbot/knowledge-base/src && \
+    printf '{"name":"@chatbot/knowledge-base","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/knowledge-base/package.json
+
 # Compile workers
 RUN cd apps/workers && bunx tsc --project tsconfig.build.json
 
