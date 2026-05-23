@@ -16,7 +16,7 @@
       "executor": "nx:run-commands",
       "continuous": true,
       "options": {
-        "command": "bunx stencil build --dev --watch --serve --port 3000",
+        "command": "bunx stencil build --dev --watch --serve --port 3007",
         "cwd": "apps/sdk"
       }
     },

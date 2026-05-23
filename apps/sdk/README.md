@@ -19,38 +19,51 @@ bun install
 ### 2. Build the SDK
 
 ```bash
-bunx nx run sdk:build
+bun run sdk:build
 ```
 
-This produces the distributable bundle in `apps/sdk/dist/`. The key output file is `dist/smc-chat-widget/smc-chat-widget.esm.js`.
+This produces the distributable bundle in `apps/sdk/dist/` and copies the JS files to `apps/web-ui/public/sdk-assets/` for the designer/sandbox pages.
 
 ### 3. Start the dev server (with hot reload)
 
 ```bash
-bunx nx run sdk:serve
+bun run sdk:dev
 ```
 
-The Stencil dev server starts at `http://localhost:3000`. It watches for file changes and rebuilds automatically.
+The Stencil dev server starts at `http://localhost:3007`. It watches for file changes and rebuilds automatically.
 
-Open `http://localhost:3000` to see the dev test page with the widget rendered.
+Open `http://localhost:3007` to see the dev test page with the widget rendered.
 
-### 4. Run the playground (optional)
+### 4. Run the designer/sandbox (optional)
 
-The playground page in the web-ui lets you configure the widget interactively. You need both servers running:
+The designer page in web-ui lets you configure the widget interactively. Two approaches:
 
-**Terminal 1 — SDK dev server:**
+**Without live reload (static assets):**
 ```bash
-bunx nx run sdk:serve
+bun run sdk:build    # Build once + copy to public/sdk-assets/
+bun run dev          # Start Next.js — designer uses static files
 ```
 
-**Terminal 2 — Web UI dev server:**
+Then open `http://localhost:3005/sdks/chat-widget/designer`.
+
+**With live reload (proxied to Stencil dev server):**
+
 ```bash
-bunx nx run web-ui:serve
+# Terminal 1 — SDK dev server:
+bun run sdk:dev
+
+# Terminal 2 — Web UI with SDK proxy:
+SDK_DEV=true bun run dev
 ```
 
-Then open `http://localhost:3001/playground` in your browser.
+Or run everything together:
+```bash
+bun run dev:all      # web-ui + workers + SDK dev server (SDK_DEV=true)
+```
 
-The playground loads the widget from `/sdk-assets/smc-chat-widget.esm.js`, which is proxied to the Stencil dev server via a Next.js rewrite.
+Then open `http://localhost:3005/sdks/chat-widget/designer`.
+
+With `SDK_DEV=true`, Next.js rewrites `/sdk-assets/*` to the Stencil dev server at `localhost:3007`, so widget changes appear immediately without manual rebuilds.
 
 ## Project Structure
 
@@ -76,10 +89,15 @@ apps/sdk/
 
 ## Available Commands
 
+From the monorepo root:
+
 | Command | Description |
 |---------|-------------|
-| `bunx nx run sdk:build` | Production build → `dist/` |
-| `bunx nx run sdk:serve` | Dev server with hot reload on port 3000 |
+| `bun run sdk:build` | Production build → `dist/` + copy to `web-ui/public/sdk-assets/` |
+| `bun run sdk:dev` | Dev server with hot reload on port 3007 |
+| `bun run dev:all` | Web-ui + workers + SDK dev server together |
+| `bunx nx run sdk:build` | Production build → `dist/` (no copy) |
+| `bunx nx run sdk:serve` | Dev server with hot reload on port 3007 |
 | `bunx nx run sdk:test` | Run unit tests |
 
 Or from inside `apps/sdk/`:
@@ -87,26 +105,24 @@ Or from inside `apps/sdk/`:
 | Command | Description |
 |---------|-------------|
 | `bunx stencil build` | Production build |
-| `bunx stencil build --dev --watch --serve --port 3000` | Dev server |
+| `bunx stencil build --dev --watch --serve --port 3007` | Dev server |
 | `bunx stencil test --spec` | Unit tests |
 
 ## Testing the Widget
 
 ### Quick test with the dev server
 
-1. Run `bunx nx run sdk:serve`
-2. Open `http://localhost:3000`
+1. Run `bun run sdk:dev`
+2. Open `http://localhost:3007`
 3. The widget renders with a floating chat button (bottom-right)
 4. Click the button to open the chat panel
 5. The widget won't connect to a real API (dev test page uses `http://localhost:8000/chat`), but the UI should be fully interactive
 
 ### Test with a real API
 
-1. Start the SDK dev server: `bunx nx run sdk:serve`
-2. Start the web-ui: `bunx nx run web-ui:serve`
-3. Open `http://localhost:3001/playground`
-4. Go to the "Live Sandbox" tab
-5. Enter your API URL and session config:
+1. Start the web-ui: `bun run dev`
+2. Open `http://localhost:3005/sdks/chat-widget/sandbox`
+3. Enter your API URL and session config:
 
 ```json
 {
@@ -123,7 +139,7 @@ Or from inside `apps/sdk/`:
 }
 ```
 
-6. Click "Connect" — the widget renders and communicates with your backend
+4. Click "Connect" — the widget renders and communicates with your backend
 
 ### Test as a standalone script tag (simulates tenant integration)
 
@@ -133,7 +149,7 @@ Create an HTML file anywhere on your machine:
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="module" src="http://localhost:3000/build/smc-chat-widget.esm.js"></script>
+  <script type="module" src="http://localhost:3007/build/smc-chat-widget.esm.js"></script>
 </head>
 <body>
   <h1>My App</h1>
@@ -184,14 +200,14 @@ The widget expects your backend to implement:
 - `GET {api-url}/history` — Load chat history. Response: `{ "chatHistory": [...] }`
 - `POST {api-url}` with `endSession: true` in session header — End session
 
-See the full API reference in the docs: `http://localhost:3001/docs/sdk/api-reference`
+See the full API reference in the docs: `http://localhost:3005/docs/sdk/api-reference`
 
 ## Deployment (CDN)
 
 Build the production bundle:
 
 ```bash
-bunx nx run sdk:build
+bun run sdk:build
 ```
 
 Upload the contents of `apps/sdk/dist/smc-chat-widget/` to your CDN (e.g., S3 bucket). Tenants then reference:

@@ -3,7 +3,7 @@ import { Config } from '@stencil/core';
 export const config: Config = {
   namespace: 'smc-chat-widget',
   devServer: {
-    port: 3000,
+    port: 3007,
     openBrowser: false,
     reloadStrategy: 'pageReload',
   },

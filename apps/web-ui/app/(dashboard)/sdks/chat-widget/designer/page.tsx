@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,40 +67,38 @@ function generateEmbedCode(config: WidgetConfig): string {
 export default function DesignerPage() {
   const [config, setConfig] = useState<WidgetConfig>(DEFAULT_CONFIG);
   const [copied, setCopied] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = SDK_SCRIPT_URL;
-    document.head.appendChild(script);
-    return () => { script.remove(); };
-  }, []);
+    const iframe = previewRef.current;
+    if (!iframe) return;
 
-  const renderWidget = useCallback((container: HTMLDivElement | null, widgetConfig: WidgetConfig) => {
-    if (!container) return;
-    container.innerHTML = '';
-    const widget = document.createElement('smc-chat-widget');
-    widget.setAttribute('api-url', widgetConfig.apiUrl);
-    widget.setAttribute('session', widgetConfig.session.replace(/\n/g, '').replace(/\s{2,}/g, ''));
-    widget.setAttribute('user-name', widgetConfig.userName);
-    widget.setAttribute('bot-name', widgetConfig.botName);
-    widget.setAttribute('header-text', widgetConfig.headerText);
-    if (widgetConfig.headerIcon) widget.setAttribute('header-icon', widgetConfig.headerIcon);
-    widget.setAttribute('welcome-message', widgetConfig.welcomeMessage);
-    widget.setAttribute('start-chat-logo', widgetConfig.startChatLogo);
-    widget.setAttribute('theme', widgetConfig.theme);
-    widget.setAttribute('position', widgetConfig.position);
-    widget.setAttribute('primary-color', widgetConfig.primaryColor);
-    widget.setAttribute('secondary-color', widgetConfig.secondaryColor);
-    widget.setAttribute('input-placeholder', widgetConfig.inputPlaceholder);
-    if (widgetConfig.defaultOptions !== '[]') widget.setAttribute('default-options', widgetConfig.defaultOptions);
-    container.appendChild(widget);
-  }, []);
+    const attrs = [
+      `api-url="${config.apiUrl}"`,
+      `session='${config.session.replace(/\n/g, '').replace(/\s{2,}/g, '')}'`,
+      `user-name="${config.userName}"`,
+      `bot-name="${config.botName}"`,
+      `header-text="${config.headerText}"`,
+      config.headerIcon ? `header-icon="${config.headerIcon}"` : '',
+      `welcome-message="${config.welcomeMessage}"`,
+      `start-chat-logo="${config.startChatLogo}"`,
+      `theme="${config.theme}"`,
+      `position="${config.position}"`,
+      `primary-color="${config.primaryColor}"`,
+      `secondary-color="${config.secondaryColor}"`,
+      `input-placeholder="${config.inputPlaceholder}"`,
+      config.defaultOptions !== '[]' ? `default-options='${config.defaultOptions}'` : '',
+    ].filter(Boolean).join(' ');
 
-  useEffect(() => {
-    renderWidget(previewRef.current, config);
-  }, [config, renderWidget]);
+    const html = `<!DOCTYPE html>
+<html><head><style>body{margin:0;overflow:hidden;}</style></head>
+<body>
+<smc-chat-widget ${attrs}></smc-chat-widget>
+<script type="module" src="${SDK_SCRIPT_URL}"><\/script>
+</body></html>`;
+
+    iframe.srcdoc = html;
+  }, [config]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generateEmbedCode(config));
@@ -186,7 +184,7 @@ export default function DesignerPage() {
               <CardTitle>Live Preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div ref={previewRef} className="relative min-h-[400px] border rounded-lg bg-muted/30" />
+              <iframe ref={previewRef} className="w-full h-[400px] border rounded-lg" sandbox="allow-scripts allow-same-origin" title="Widget Preview" />
             </CardContent>
           </Card>
 

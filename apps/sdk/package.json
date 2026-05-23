@@ -7,9 +7,9 @@
   "types": "./dist/types/components.d.ts",
   "collection": "./dist/collection/collection-manifest.json",
   "scripts": {
-    "build": "stencil build",
-    "start": "stencil build --dev --watch --serve --port 3000",
-    "test": "stencil test --spec"
+    "build": "bunx stencil build",
+    "start": "bunx stencil build --dev --watch --serve --port 3007",
+    "test": "bunx stencil test --spec"
   },
   "dependencies": {
     "@stencil/core": "^4.2.0"

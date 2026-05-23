@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,82 +10,53 @@ import { Play } from 'lucide-react';
 
 const SDK_SCRIPT_URL = '/sdk-assets/smc-chat-widget.esm.js';
 
-interface WidgetConfig {
-  apiUrl: string;
-  session: string;
-  userName: string;
-  botName: string;
-  headerText: string;
-  headerIcon: string;
-  welcomeMessage: string;
-  startChatLogo: string;
-  theme: 'light' | 'dark';
-  position: 'left' | 'right';
-  primaryColor: string;
-  secondaryColor: string;
-  inputPlaceholder: string;
-  defaultOptions: string;
-}
-
-const DEFAULT_CONFIG: WidgetConfig = {
-  apiUrl: '',
-  session: '',
-  userName: 'You',
-  botName: 'Bot',
-  headerText: 'Chat Assistant',
-  headerIcon: '',
-  welcomeMessage: 'Welcome! How can I help you today?',
-  startChatLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png',
-  theme: 'light',
-  position: 'right',
-  primaryColor: '#2196f3',
-  secondaryColor: '#1976d2',
-  inputPlaceholder: 'Type your message...',
-  defaultOptions: '[]',
-};
-
 export default function SandboxPage() {
   const [sandboxConfig, setSandboxConfig] = useState({ apiUrl: '', session: '' });
   const [sandboxActive, setSandboxActive] = useState(false);
-  const sandboxRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = SDK_SCRIPT_URL;
-    document.head.appendChild(script);
-    return () => { script.remove(); };
-  }, []);
-
-  const renderWidget = useCallback((container: HTMLDivElement | null, widgetConfig: WidgetConfig) => {
-    if (!container) return;
-    container.innerHTML = '';
-    const widget = document.createElement('smc-chat-widget');
-    widget.setAttribute('api-url', widgetConfig.apiUrl);
-    widget.setAttribute('session', widgetConfig.session.replace(/\n/g, '').replace(/\s{2,}/g, ''));
-    widget.setAttribute('user-name', widgetConfig.userName);
-    widget.setAttribute('bot-name', widgetConfig.botName);
-    widget.setAttribute('header-text', widgetConfig.headerText);
-    if (widgetConfig.headerIcon) widget.setAttribute('header-icon', widgetConfig.headerIcon);
-    widget.setAttribute('welcome-message', widgetConfig.welcomeMessage);
-    widget.setAttribute('start-chat-logo', widgetConfig.startChatLogo);
-    widget.setAttribute('theme', widgetConfig.theme);
-    widget.setAttribute('position', widgetConfig.position);
-    widget.setAttribute('primary-color', widgetConfig.primaryColor);
-    widget.setAttribute('secondary-color', widgetConfig.secondaryColor);
-    widget.setAttribute('input-placeholder', widgetConfig.inputPlaceholder);
-    if (widgetConfig.defaultOptions !== '[]') widget.setAttribute('default-options', widgetConfig.defaultOptions);
-    container.appendChild(widget);
-  }, []);
+  const sandboxRef = useRef<HTMLIFrameElement>(null);
 
   const handleSandboxConnect = () => {
     setSandboxActive(true);
     setTimeout(() => {
-      renderWidget(sandboxRef.current, {
-        ...DEFAULT_CONFIG,
+      const iframe = sandboxRef.current;
+      if (!iframe) return;
+
+      const config = {
         apiUrl: sandboxConfig.apiUrl,
-        session: sandboxConfig.session,
-      });
+        session: sandboxConfig.session.replace(/\n/g, '').replace(/\s{2,}/g, ''),
+        userName: 'You',
+        botName: 'Bot',
+        headerText: 'Chat Assistant',
+        welcomeMessage: 'Welcome! How can I help you today?',
+        startChatLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png',
+        theme: 'light',
+        position: 'right',
+        primaryColor: '#2196f3',
+        secondaryColor: '#1976d2',
+        inputPlaceholder: 'Type your message...',
+      };
+
+      const attrs = [
+        `api-url="${config.apiUrl}"`,
+        `session='${config.session}'`,
+        `user-name="${config.userName}"`,
+        `bot-name="${config.botName}"`,
+        `header-text="${config.headerText}"`,
+        `welcome-message="${config.welcomeMessage}"`,
+        `start-chat-logo="${config.startChatLogo}"`,
+        `theme="${config.theme}"`,
+        `position="${config.position}"`,
+        `primary-color="${config.primaryColor}"`,
+        `secondary-color="${config.secondaryColor}"`,
+        `input-placeholder="${config.inputPlaceholder}"`,
+      ].join(' ');
+
+      iframe.srcdoc = `<!DOCTYPE html>
+<html><head><style>body{margin:0;overflow:hidden;}</style></head>
+<body>
+<smc-chat-widget ${attrs}></smc-chat-widget>
+<script type="module" src="${SDK_SCRIPT_URL}"><\/script>
+</body></html>`;
     }, 100);
   };
 
@@ -149,7 +120,7 @@ export default function SandboxPage() {
             <CardTitle>Live Widget</CardTitle>
           </CardHeader>
           <CardContent>
-            <div ref={sandboxRef} className="relative min-h-[500px] border rounded-lg bg-muted/30" />
+            <iframe ref={sandboxRef} className="w-full h-[500px] border rounded-lg" sandbox="allow-scripts allow-same-origin" title="Widget Sandbox" />
           </CardContent>
         </Card>
       )}
