@@ -4,7 +4,7 @@
 # ── Stage 1: Dependencies ──
 FROM public.ecr.aws/docker/library/node:20-slim AS deps
 WORKDIR /app
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 COPY package.json bun.lock ./
 COPY apps/web-ui/package.json apps/web-ui/
 COPY apps/workers/package.json apps/workers/
@@ -20,7 +20,7 @@ FROM public.ecr.aws/docker/library/node:20-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/workers/node_modules ./apps/workers/node_modules
@@ -81,7 +81,7 @@ FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
     -o /etc/ssl/certs/rds-combined-ca-bundle.pem

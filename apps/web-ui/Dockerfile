@@ -6,7 +6,7 @@ FROM public.ecr.aws/docker/library/node:20-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 COPY package.json bun.lock ./
 COPY apps/web-ui/package.json apps/web-ui/
@@ -34,7 +34,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y curl openssl && \
     rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
     -o /etc/ssl/certs/rds-combined-ca-bundle.pem
