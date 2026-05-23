@@ -56,6 +56,9 @@ import {
   Sparkles,
   BarChart3,
   Zap,
+  Code2,
+  Palette,
+  Play,
 } from 'lucide-react';
 
 const mainNav = [
@@ -87,6 +90,13 @@ const settingsNav = [
   { name: 'Roles & Permissions', href: '/settings/roles', icon: Shield },
 ];
 
+const sdksNav = [
+  { name: 'Chat Widget', href: '/sdks/chat-widget', icon: MessageSquare, children: [
+    { name: 'Designer', href: '/sdks/chat-widget/designer', icon: Palette },
+    { name: 'Sandbox', href: '/sdks/chat-widget/sandbox', icon: Play },
+  ]},
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -110,6 +120,9 @@ export function AppSidebar() {
 
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
   const [agentStudioOpen, setAgentStudioOpen] = useState(isAgentStudioActive);
+
+  const isSdksActive = pathname === '/sdks' || pathname.startsWith('/sdks/');
+  const [sdksOpen, setSdksOpen] = useState(isSdksActive);
 
   const getUserInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -255,6 +268,46 @@ export function AppSidebar() {
                   <SidebarMenuSub>
                     {knowledgeBaseNav.map((item) => {
                       const isActive = pathname === item.href;
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton
+                            isActive={isActive}
+                            onClick={() => router.push(item.href)}
+                          >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>SDKs</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={sdksOpen} onOpenChange={setSdksOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton
+                      isActive={isSdksActive}
+                      tooltip="SDKs"
+                    >
+                      <Code2 className="size-4" />
+                      <span>Chat Widget</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {sdksNav[0].children.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                       return (
                         <SidebarMenuSubItem key={item.name}>
                           <SidebarMenuSubButton

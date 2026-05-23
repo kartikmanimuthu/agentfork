@@ -1,0 +1,118 @@
+---
+title: API Reference
+description: Backend contract your API must implement for the widget.
+---
+
+## Overview
+
+The widget communicates with your backend via three HTTP endpoints. All requests include the headers defined in the `session` prop.
+
+## Endpoints
+
+### Send Message
+
+```
+POST {api-url}
+```
+
+**Request Headers:**
+```
+Content-Type: application/json
+{...session headers}
+```
+
+Note: `x-prompt-session-attribute` and `x-session-attribute` values are automatically JSON-stringified before sending.
+
+**Request Body:**
+```json
+{
+  "inputText": "user's message here",
+  "role": "user"
+}
+```
+
+**Expected Response:**
+```json
+{
+  "response": "Bot's reply message"
+}
+```
+
+### Load Chat History
+
+```
+GET {api-url}/history
+```
+
+**Request Headers:**
+```
+Content-Type: application/json
+{...session headers}
+```
+
+**Expected Response:**
+```json
+{
+  "chatHistory": [
+    {
+      "chatRole": "user",
+      "message": "{\"message\": \"Hello\"}",
+      "timestamp": "1716422400000",
+      "createdAt": "2026-05-23T00:00:00.000Z"
+    },
+    {
+      "chatRole": "assistant",
+      "message": "{\"message\": \"Hi! How can I help?\"}",
+      "timestamp": "1716422401000",
+      "createdAt": "2026-05-23T00:00:01.000Z"
+    }
+  ]
+}
+```
+
+### End Session
+
+```
+POST {api-url}
+```
+
+Triggered when the user clicks "End Session" in the widget.
+
+**Request Headers:**
+```
+Content-Type: application/json
+{...session headers with x-session-attribute containing endSession: true}
+```
+
+**Request Body:**
+```json
+{
+  "inputText": "end",
+  "role": "user"
+}
+```
+
+## Session Config Format
+
+The `session` prop accepts a JSON string. All top-level keys become HTTP headers:
+
+```json
+{
+  "x-platform-agent": "web",
+  "x-prompt-session-attribute": {
+    "oauthToken": "user-token",
+    "clientCode": "client-123"
+  },
+  "x-session-attribute": {
+    "oauthToken": "user-token",
+    "clientCode": "client-123"
+  },
+  "x-api-key": "your-api-key"
+}
+```
+
+## Error Handling
+
+- If the API returns a non-2xx status, the widget shows: "Sorry, I encountered an error processing your request."
+- If chat history fails to load, the widget falls back to showing the welcome message.
+- Network errors are caught and displayed as error messages in the chat.
