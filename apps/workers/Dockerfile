@@ -13,7 +13,7 @@ COPY infra/package.json infra/
 COPY prisma/ prisma/
 COPY tsconfig.base.json ./
 COPY nx.json ./
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --ignore-scripts
 
 # ── Stage 2: Build ──
 FROM public.ecr.aws/docker/library/node:20-slim AS builder

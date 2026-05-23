@@ -16,7 +16,7 @@ COPY infra/package.json infra/
 COPY prisma/ prisma/
 COPY tsconfig.base.json ./
 COPY nx.json ./
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --ignore-scripts
 
 COPY apps/web-ui/ apps/web-ui/
 COPY apps/workers/ apps/workers/
