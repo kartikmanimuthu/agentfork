@@ -638,6 +638,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "COGNITO_ISSUER", value: `https://cognito-idp.${region}.amazonaws.com/${cognitoPoolId}` },
             { name: "NEXTAUTH_URL", value: appUrl },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "DATA_DIR", value: "/tmp" },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
@@ -1084,6 +1085,7 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
@@ -1183,6 +1185,7 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
