@@ -13,6 +13,16 @@ MCP servers expose a set of tools that agents can invoke during inference. For e
 - A code execution sandbox
 - A file system access tool
 
+```mermaid
+graph LR
+    A[Agent] --> B[MCP Client]
+    B --> C[MCP Server]
+    C --> D[External Tool/API]
+    D --> C
+    C --> B
+    B --> A
+```
+
 ## Creating an MCP Server
 
 1. Go to **MCP Servers** in the sidebar

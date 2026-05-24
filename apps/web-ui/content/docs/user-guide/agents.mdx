@@ -5,6 +5,15 @@ description: Build, test, version, and publish AI agents with the Agent Studio.
 
 The Agent Studio is the visual interface for building AI agents. Each agent has a name, system prompt, attached model, and optional knowledge base or MCP servers.
 
+```mermaid
+graph LR
+    A[Create Agent] --> B[Configure]
+    B --> C[Test in Playground]
+    C --> D[Save Version]
+    D --> E[Publish]
+    E --> F[Generate API Key]
+```
+
 ## Creating an Agent
 
 1. Go to **Agents** in the sidebar and click **New Agent**

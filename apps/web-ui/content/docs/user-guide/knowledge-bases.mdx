@@ -5,6 +5,15 @@ description: Upload documents, sync web sources, and enable semantic search for 
 
 Knowledge Bases power RAG (Retrieval-Augmented Generation) for your agents. You can upload files, sync web pages, and search across all content semantically.
 
+```mermaid
+graph LR
+    A[Upload Document] --> B[Parse & Chunk]
+    B --> C[Generate Embeddings]
+    C --> D[Store in pgvector]
+    D --> E[Semantic Search]
+    E --> F[RAG Response]
+```
+
 ## Creating a Knowledge Base
 
 1. Go to **Knowledge Bases** in the sidebar

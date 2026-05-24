@@ -3,6 +3,18 @@ title: Agents API
 description: Agent CRUD, versions, publishing, playground, and API keys.
 ---
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/agents` | List all agents |
+| POST | `/api/agents` | Create agent |
+| GET | `/api/agents/[id]` | Get agent |
+| PUT | `/api/agents/[id]` | Update agent |
+| DELETE | `/api/agents/[id]` | Delete agent |
+| POST | `/api/agents/[id]/publish` | Publish agent |
+| GET | `/api/agents/[id]/versions` | List versions |
+| POST | `/api/agents/[id]/playground` | Run playground inference |
+| POST | `/api/agents/[id]/api-keys` | Create API key |
+
 ## Agent CRUD
 
 ### GET /api/agents

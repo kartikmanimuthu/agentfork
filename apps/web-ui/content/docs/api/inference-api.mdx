@@ -3,6 +3,15 @@ title: Inference API
 description: Public inference API, sessions, and usage tracking.
 ---
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/inference` | Run inference |
+| GET | `/api/v1/inference/sessions` | List sessions |
+| POST | `/api/v1/inference/sessions` | Create session |
+| GET | `/api/v1/inference/sessions/[id]` | Get session |
+| POST | `/api/v1/inference/sessions/[id]/close` | Close session |
+| GET | `/api/v1/inference/usage` | Usage stats |
+
 ## Run Inference
 
 ### POST /api/v1/inference

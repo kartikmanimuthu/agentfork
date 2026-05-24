@@ -13,6 +13,14 @@ A session represents a single inference conversation or API call:
 - Closed when the conversation ends or the API call completes
 - Aggregates token usage and cost estimates
 
+```mermaid
+graph LR
+    A[Inference Start] --> B[Session Created]
+    B --> C[Messages Tracked]
+    C --> D[Metrics Recorded]
+    D --> E[Session Closed]
+```
+
 ## Viewing Sessions
 
 1. Go to **Analytics > Sessions** in the sidebar

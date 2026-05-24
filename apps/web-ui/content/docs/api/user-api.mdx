@@ -3,6 +3,19 @@ title: User & Tenant API
 description: Tenants, members, roles, invitations, and authentication.
 ---
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/tenants` | Current tenant |
+| POST | `/api/tenants` | Create tenant |
+| POST | `/api/tenants/switch` | Switch tenant |
+| GET | `/api/tenants/my-orgs` | List my orgs |
+| GET | `/api/members` | List members |
+| POST | `/api/invitations` | Send invitation |
+| GET | `/api/roles` | List roles |
+| POST | `/api/auth/signup` | Register |
+| POST | `/api/auth/forgot-password` | Forgot password |
+| POST | `/api/auth/reset-password` | Reset password |
+
 ## Tenants
 
 ### GET /api/tenants

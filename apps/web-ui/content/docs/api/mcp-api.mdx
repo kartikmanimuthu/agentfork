@@ -3,6 +3,16 @@ title: MCP API
 description: MCP server management, testing, and versioning endpoints.
 ---
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/mcp-servers` | List MCP servers |
+| POST | `/api/mcp-servers` | Create MCP server |
+| GET | `/api/mcp-servers/[id]` | Get MCP server |
+| PUT | `/api/mcp-servers/[id]` | Update MCP server |
+| POST | `/api/mcp-servers/[id]/test` | Test connection |
+| GET | `/api/mcp-servers/[id]/versions` | List versions |
+| POST | `/api/mcp-servers/[id]/versions/[versionId]/restore` | Restore version |
+
 ### GET /api/mcp-servers
 
 List all MCP servers for the current tenant.

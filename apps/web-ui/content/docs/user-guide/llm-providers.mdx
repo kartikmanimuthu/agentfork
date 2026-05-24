@@ -41,6 +41,8 @@ The platform validates provider connectivity when you save or test:
 | OpenAI | `https://api.openai.com/v1` | Requires API key |
 | OpenAI-compatible | Custom endpoint | Any provider with compatible API |
 
+> **Tip:** AWS Bedrock is recommended for production deployments as it uses IAM-based authentication and doesn't require managing API keys. OpenAI-compatible providers are useful for development or when you need access to specific models not available on Bedrock.
+
 ## Per-Agent Model Selection
 
 When creating or editing an agent, you can override the global default and choose any model from any configured provider.

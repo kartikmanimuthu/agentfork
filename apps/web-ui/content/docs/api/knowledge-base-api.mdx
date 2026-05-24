@@ -3,6 +3,19 @@ title: Knowledge Base API
 description: Knowledge base, document, source, upload, sync, and search endpoints.
 ---
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/knowledge-bases` | List knowledge bases |
+| POST | `/api/knowledge-bases` | Create knowledge base |
+| GET | `/api/knowledge-bases/[id]` | Get knowledge base |
+| DELETE | `/api/knowledge-bases/[id]` | Delete knowledge base |
+| POST | `/api/knowledge-bases/[id]/upload` | Get upload URL |
+| POST | `/api/knowledge-bases/[id]/ingest` | Enqueue ingestion |
+| GET | `/api/knowledge-bases/[id]/sources` | List sources |
+| POST | `/api/knowledge-bases/[id]/sources` | Create source |
+| POST | `/api/knowledge-bases/[id]/sources/[sourceId]/sync` | Sync source |
+| GET | `/api/knowledge-bases/[id]/search` | Search |
+
 ## Knowledge Bases
 
 ### GET /api/knowledge-bases
