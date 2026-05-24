@@ -54,3 +54,19 @@ Currently, an agent can be attached to one knowledge base at a time. You can cre
 ## How does inference tracking work?
 
 All inference calls (both public API and playground) create a Session record. Each streaming response is tracked with token counts, model used, latency, and cost estimates. Sessions can be viewed under Analytics > Sessions.
+
+## How do I add custom roles?
+
+The platform ships with 4 predefined roles (Owner, Admin, Member, Viewer). Custom roles can be created via the Settings > Roles page. Each custom role defines granular permissions for every resource type.
+
+## What happens when a worker crashes?
+
+pg-boss handles job reliability. If a worker crashes mid-job, the job is automatically retried after a configurable timeout. Failed jobs are logged with error details and can be manually retried from the dashboard.
+
+## How do I monitor production deployments?
+
+The platform uses Pino for structured logging. In production:
+- Logs are JSON-formatted for easy ingestion into CloudWatch, Datadog, or ELK
+- The Analytics dashboard shows real-time inference metrics
+- Audit logs track all user and system actions
+- Set up CloudWatch alarms on ECS task health and RDS metrics

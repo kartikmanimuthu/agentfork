@@ -3,6 +3,34 @@ title: Architecture
 description: System design, monorepo structure, and data flow.
 ---
 
+## System Overview
+
+```mermaid
+graph TB
+    subgraph Client
+        A[Browser / Chat Widget]
+    end
+    subgraph "Next.js App"
+        B[App Router / API Routes]
+        C[NextAuth Middleware]
+    end
+    subgraph Services
+        D[AI Service - Bedrock]
+        E[pg-boss Workers]
+    end
+    subgraph Storage
+        F[PostgreSQL + pgvector]
+        G[S3 - Documents]
+    end
+    A --> C --> B
+    B --> D
+    B --> F
+    B --> G
+    E --> F
+    E --> D
+    E --> G
+```
+
 ## Monorepo Structure
 
 ```
