@@ -607,12 +607,18 @@ export default function DesignerPage() {
               <CardTitle>Live Preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <iframe
-                srcDoc={iframeHtml}
-                className="w-full h-[500px] border rounded-lg"
-                sandbox="allow-scripts allow-same-origin"
-                title="Widget Preview"
-              />
+              {sdkId ? (
+                <iframe
+                  srcDoc={iframeHtml}
+                  className="w-full h-[500px] border rounded-lg"
+                  sandbox="allow-scripts allow-same-origin"
+                  title="Widget Preview"
+                />
+              ) : (
+                <div className="w-full h-[500px] border rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                  Publish your widget to see the live preview
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
