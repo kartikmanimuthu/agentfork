@@ -330,6 +330,18 @@ const deployProject = new aws.codebuild.Project("chatbot-deploy", {
 const pipeline = new aws.codepipeline.Pipeline("chatbot-pipeline", {
     name: pipelineName,
     roleArn: codePipelineRole.arn,
+    pipelineType: "V2",
+    triggers: [{
+        providerType: "CodeStarSourceConnection",
+        gitConfiguration: {
+            sourceActionName: "GitHubSource",
+            pushes: [{
+                branches: {
+                    includes: ["main"],
+                },
+            }],
+        },
+    }],
     artifactStores: [{
         type: "S3",
         location: artifactBucket.id,

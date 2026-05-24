@@ -8,6 +8,7 @@ import {
   getChunker,
   getEmbeddingProvider,
   runPreProcessingPipeline,
+  type ChunkResult,
 } from '@chatbot/knowledge-base';
 import { createLogger } from '../../lib/logger.js';
 import { documentIngestionJobSchema } from './schema.js';
@@ -72,12 +73,12 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     log.info({ documentId, strategy: kb.chunkStrategy, chunkSize: kb.chunkSize, chunkOverlap: kb.chunkOverlap }, 'Chunking document');
     const chunker = getChunker(kb.chunkStrategy as any);
     const chunks = chunker.chunk(processedText, kb.chunkSize, kb.chunkOverlap);
-    log.info({ documentId, chunkCount: chunks.length, totalTokens: chunks.reduce((s, c) => s + c.tokenCount, 0) }, 'Chunking complete');
+    log.info({ documentId, chunkCount: chunks.length, totalTokens: chunks.reduce((s: number, c: ChunkResult) => s + c.tokenCount, 0) }, 'Chunking complete');
 
     // 6. Store chunks (without embeddings first)
     log.info({ documentId, chunkCount: chunks.length }, 'Storing chunks in database');
     const chunkRecords = await chunkRepo.createMany(
-      chunks.map((c, i) => ({
+      chunks.map((c: ChunkResult, i: number) => ({
         documentId,
         chunkIndex: i,
         content: c.content,
@@ -124,11 +125,11 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
       const batch = storedChunks.items.slice(i, i + batchSize);
       log.info({ documentId, batchIndex, totalBatches, batchChunkCount: batch.length }, 'Embedding batch');
 
-      const embeddings = await embeddingProvider.embedBatch(batch.map((c) => c.content));
+      const embeddings = await embeddingProvider.embedBatch(batch.map((c: { content: string }) => c.content));
       log.debug({ documentId, batchIndex, embeddingsDimensions: embeddings[0]?.length }, 'Embeddings generated');
 
       await chunkRepo.updateEmbeddingBatch(
-        batch.map((c, j) => ({ id: c.id, embedding: embeddings[j] }))
+        batch.map((c: { id: string }, j: number) => ({ id: c.id, embedding: embeddings[j] }))
       );
       log.info({ documentId, batchIndex, totalBatches }, 'Embedding batch stored');
     }
@@ -143,7 +144,7 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     log.info({ documentId }, 'tsvector update complete');
 
     // 9. Mark document as ready
-    const totalTokens = chunks.reduce((sum, c) => sum + c.tokenCount, 0);
+    const totalTokens = chunks.reduce((sum: number, c: ChunkResult) => sum + c.tokenCount, 0);
     await docRepo.update(documentId, {
       status: 'READY',
       tokenCount: totalTokens,

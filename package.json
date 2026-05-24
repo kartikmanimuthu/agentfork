@@ -1,6 +1,7 @@
 {
   "name": "@chatbot/source",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "packageManager": "bun@1.2.12",
   "engines": {
@@ -16,7 +17,7 @@
     "prepare": "prisma generate --schema=./prisma/schema.prisma",
     "dev": "nx serve web-ui",
     "dev:workers": "nx serve workers",
-    "dev:all": "nx run-many -t serve -p web-ui,workers --parallel",
+    "dev:all": "SDK_DEV=true nx run-many -t serve -p web-ui,workers,sdk --parallel",
     "build": "nx run-many -t build --all",
     "build:web": "nx build web-ui",
     "build:workers": "nx build workers",
@@ -28,7 +29,9 @@
     "e2e:ui": "nx e2e:ui web-ui",
     "affected:test": "nx affected -t test",
     "affected:build": "nx affected -t build",
-    "graph": "nx graph"
+    "graph": "nx graph",
+    "sdk:build": "cd apps/sdk && bunx stencil build && rm -rf ../web-ui/public/sdk-assets && mkdir -p ../web-ui/public/sdk-assets && cp dist/smc-chat-widget/*.js ../web-ui/public/sdk-assets/",
+    "sdk:dev": "cd apps/sdk && bunx stencil build --dev --watch --serve --port 3007"
   },
   "devDependencies": {
     "@nx/eslint-plugin": "^21.0.0",

@@ -4,6 +4,8 @@
     "index",
     "user-guide",
     "dev-guide",
-    "api"
+    "api",
+    "---",
+    "...sdk"
   ]
 }

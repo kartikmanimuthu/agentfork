@@ -24,4 +24,4 @@ while [ $retries -lt $MAX_RETRIES ]; do
 done
 
 echo "Starting Next.js server..."
-exec bun run server.js
+cd apps/web-ui && exec bun run server.js

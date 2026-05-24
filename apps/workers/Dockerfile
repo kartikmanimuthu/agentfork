@@ -4,7 +4,7 @@
 # ── Stage 1: Dependencies ──
 FROM public.ecr.aws/docker/library/node:20-slim AS deps
 WORKDIR /app
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 COPY package.json bun.lock ./
 COPY apps/web-ui/package.json apps/web-ui/
 COPY apps/workers/package.json apps/workers/
@@ -13,14 +13,14 @@ COPY infra/package.json infra/
 COPY prisma/ prisma/
 COPY tsconfig.base.json ./
 COPY nx.json ./
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --ignore-scripts
 
 # ── Stage 2: Build ──
 FROM public.ecr.aws/docker/library/node:20-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/workers/node_modules ./apps/workers/node_modules
@@ -49,8 +49,14 @@ RUN cd libs/ai && bunx tsc --project tsconfig.lib.json && \
     cp -rL /app/dist/libs/ai/libs/ai/src /app/node_modules/@chatbot/ai/src && \
     printf '{"name":"@chatbot/ai","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/ai/package.json
 
+COPY libs/knowledge-base/ libs/knowledge-base/
+RUN cd libs/knowledge-base && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/knowledge-base && \
+    cp -rL /app/dist/libs/knowledge-base/libs/knowledge-base/src /app/node_modules/@chatbot/knowledge-base/src && \
+    printf '{"name":"@chatbot/knowledge-base","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/knowledge-base/package.json
+
 # Compile workers
-RUN cd apps/workers && bunx tsc --noEmit false
+RUN cd apps/workers && bunx tsc --project tsconfig.build.json
 
 # Flatten workspace-specific symlinked deps into root node_modules so runtime resolution works.
 # Only copies packages not already in root node_modules to avoid duplication.
@@ -75,7 +81,7 @@ FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g bun
+RUN npm install -g bun@1.3.6
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
     -o /etc/ssl/certs/rds-combined-ca-bundle.pem

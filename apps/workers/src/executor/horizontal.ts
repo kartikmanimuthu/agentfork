@@ -25,7 +25,7 @@ export class HorizontalExecutor implements JobExecutor {
       overrides: {
         containerOverrides: [
           {
-            name: 'worker',
+            name: 'WorkersContainer',
             environment: [
               { name: 'JOB_NAME', value: jobName },
               { name: 'JOB_DATA', value: JSON.stringify(jobData) },
