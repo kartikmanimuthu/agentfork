@@ -90,9 +90,12 @@ COPY --from=builder /app/apps/workers/dist ./dist
 COPY --from=builder /app/apps/workers/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
+COPY apps/workers/docker-entrypoint.sh ./docker-entrypoint.sh
 
 ENV NODE_ENV=production
 RUN groupadd -r bun && useradd -r -g bun bun
+RUN chmod +x ./docker-entrypoint.sh
 USER bun
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["bun", "run", "dist/index.js"]
