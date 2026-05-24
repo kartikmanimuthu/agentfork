@@ -328,6 +328,86 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Plain SSE format for SDK widget / custom clients
+      const sseFormat = req.nextUrl.searchParams.get('format') === 'sse';
+
+      if (stream && sseFormat) {
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          async start(controller) {
+            try {
+              const sseResult = streamChat({
+                provider,
+                messages: coreMessages,
+                model: effectiveModel,
+                system: effectiveSystem,
+                temperature: effectiveTemperature,
+                maxOutputTokens: effectiveMaxTokens,
+                ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
+              });
+
+              let fullText = '';
+              for await (const chunk of sseResult.textStream) {
+                fullText += chunk;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'token', content: chunk })}\n\n`)
+                );
+              }
+
+              const sseUsage = await Promise.resolve(sseResult.usage).catch(() => undefined);
+              const sseTokenUsage = sseUsage
+                ? { inputTokens: sseUsage.inputTokens ?? 0, outputTokens: sseUsage.outputTokens ?? 0, totalTokens: (sseUsage.inputTokens ?? 0) + (sseUsage.outputTokens ?? 0) }
+                : undefined;
+
+              await mcpCleanup();
+              const sseCompletedAt = new Date();
+              const sseLatencyMs = sseCompletedAt.getTime() - startedAt.getTime();
+
+              if (sseTokenUsage) await quotaService.incrementUsage(sseTokenUsage.totalTokens);
+              if (cacheEligible) await cacheService.set(cacheKey, { text: fullText, usage: sseTokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } });
+
+              let messageId: string | undefined;
+              if (sessionId) {
+                const msg = await sessionService.appendMessage(sessionId, {
+                  role: 'assistant',
+                  content: fullText,
+                  tokenCount: sseTokenUsage?.outputTokens,
+                });
+                messageId = (msg as any)?.id;
+              }
+
+              await db.apiKeyExecution.update({
+                where: { id: executionId },
+                data: { status: 'completed', output: { text: fullText }, tokenUsage: (sseTokenUsage ?? null) as any, cacheHit: false, latencyMs: sseLatencyMs, completedAt: sseCompletedAt },
+              });
+
+              await deliverWebhook('completed', { text: fullText }, undefined, sseTokenUsage, sseLatencyMs);
+
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'done', content: fullText, messageId, usage: sseTokenUsage })}\n\n`)
+              );
+              controller.close();
+            } catch (err) {
+              const error = err instanceof Error ? err : new Error(String(err));
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`)
+              );
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(readable, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Execution-Id': executionId,
+            ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
+          },
+        });
+      }
+
       if (stream) {
         const result = streamChat({
           provider,
