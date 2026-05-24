@@ -314,7 +314,7 @@ const deployProject = new aws.codebuild.Project("chatbot-deploy", {
     artifacts: { type: "CODEPIPELINE" },
     environment: {
         type: "LINUX_CONTAINER",
-        computeType: "BUILD_GENERAL1_2XLARGE",
+        computeType: "BUILD_GENERAL1_LARGE",
         image: "aws/codebuild/standard:7.0",
         privilegedMode: true,
     },
