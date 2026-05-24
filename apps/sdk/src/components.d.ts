@@ -17,6 +17,8 @@ export namespace Components {
     }
     interface SmcHeader {
     }
+    interface SmcInputBar {
+    }
     interface SmcLauncher {
     }
     interface SmcMarkdown {
@@ -31,11 +33,19 @@ export namespace Components {
     }
     interface SmcMessageList {
     }
+    interface SmcPreChatForm {
+    }
+    interface SmcQuickReplies {
+    }
     interface SmcTimestamp {
         "timestamp": string;
     }
     interface SmcTypingIndicator {
     }
+}
+export interface SmcQuickRepliesCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLSmcQuickRepliesElement;
 }
 declare global {
     interface HTMLSmcChatWidgetElement extends Components.SmcChatWidget, HTMLStencilElement {
@@ -62,6 +72,12 @@ declare global {
         prototype: HTMLSmcHeaderElement;
         new (): HTMLSmcHeaderElement;
     };
+    interface HTMLSmcInputBarElement extends Components.SmcInputBar, HTMLStencilElement {
+    }
+    var HTMLSmcInputBarElement: {
+        prototype: HTMLSmcInputBarElement;
+        new (): HTMLSmcInputBarElement;
+    };
     interface HTMLSmcLauncherElement extends Components.SmcLauncher, HTMLStencilElement {
     }
     var HTMLSmcLauncherElement: {
@@ -86,6 +102,29 @@ declare global {
         prototype: HTMLSmcMessageListElement;
         new (): HTMLSmcMessageListElement;
     };
+    interface HTMLSmcPreChatFormElement extends Components.SmcPreChatForm, HTMLStencilElement {
+    }
+    var HTMLSmcPreChatFormElement: {
+        prototype: HTMLSmcPreChatFormElement;
+        new (): HTMLSmcPreChatFormElement;
+    };
+    interface HTMLSmcQuickRepliesElementEventMap {
+        "smcQuickReply": { text: string };
+    }
+    interface HTMLSmcQuickRepliesElement extends Components.SmcQuickReplies, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLSmcQuickRepliesElementEventMap>(type: K, listener: (this: HTMLSmcQuickRepliesElement, ev: SmcQuickRepliesCustomEvent<HTMLSmcQuickRepliesElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLSmcQuickRepliesElementEventMap>(type: K, listener: (this: HTMLSmcQuickRepliesElement, ev: SmcQuickRepliesCustomEvent<HTMLSmcQuickRepliesElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLSmcQuickRepliesElement: {
+        prototype: HTMLSmcQuickRepliesElement;
+        new (): HTMLSmcQuickRepliesElement;
+    };
     interface HTMLSmcTimestampElement extends Components.SmcTimestamp, HTMLStencilElement {
     }
     var HTMLSmcTimestampElement: {
@@ -103,10 +142,13 @@ declare global {
         "smc-chat-window": HTMLSmcChatWindowElement;
         "smc-feedback": HTMLSmcFeedbackElement;
         "smc-header": HTMLSmcHeaderElement;
+        "smc-input-bar": HTMLSmcInputBarElement;
         "smc-launcher": HTMLSmcLauncherElement;
         "smc-markdown": HTMLSmcMarkdownElement;
         "smc-message": HTMLSmcMessageElement;
         "smc-message-list": HTMLSmcMessageListElement;
+        "smc-pre-chat-form": HTMLSmcPreChatFormElement;
+        "smc-quick-replies": HTMLSmcQuickRepliesElement;
         "smc-timestamp": HTMLSmcTimestampElement;
         "smc-typing-indicator": HTMLSmcTypingIndicatorElement;
     }
@@ -125,6 +167,8 @@ declare namespace LocalJSX {
     }
     interface SmcHeader {
     }
+    interface SmcInputBar {
+    }
     interface SmcLauncher {
     }
     interface SmcMarkdown {
@@ -138,6 +182,11 @@ declare namespace LocalJSX {
         "timestamp": string;
     }
     interface SmcMessageList {
+    }
+    interface SmcPreChatForm {
+    }
+    interface SmcQuickReplies {
+        "onSmcQuickReply"?: (event: SmcQuickRepliesCustomEvent<{ text: string }>) => void;
     }
     interface SmcTimestamp {
         "timestamp": string;
@@ -171,10 +220,13 @@ declare namespace LocalJSX {
         "smc-chat-window": SmcChatWindow;
         "smc-feedback": Omit<SmcFeedback, keyof SmcFeedbackAttributes> & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes]?: SmcFeedback[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `attr:${K}`]?: SmcFeedbackAttributes[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `prop:${K}`]?: SmcFeedback[K] } & OneOf<"messageId", SmcFeedback["messageId"], SmcFeedbackAttributes["messageId"]>;
         "smc-header": SmcHeader;
+        "smc-input-bar": SmcInputBar;
         "smc-launcher": SmcLauncher;
         "smc-markdown": Omit<SmcMarkdown, keyof SmcMarkdownAttributes> & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes]?: SmcMarkdown[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `attr:${K}`]?: SmcMarkdownAttributes[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `prop:${K}`]?: SmcMarkdown[K] } & OneOf<"content", SmcMarkdown["content"], SmcMarkdownAttributes["content"]>;
         "smc-message": Omit<SmcMessage, keyof SmcMessageAttributes> & { [K in keyof SmcMessage & keyof SmcMessageAttributes]?: SmcMessage[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `attr:${K}`]?: SmcMessageAttributes[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `prop:${K}`]?: SmcMessage[K] } & OneOf<"content", SmcMessage["content"], SmcMessageAttributes["content"]> & OneOf<"role", SmcMessage["role"], SmcMessageAttributes["role"]> & OneOf<"timestamp", SmcMessage["timestamp"], SmcMessageAttributes["timestamp"]> & OneOf<"messageId", SmcMessage["messageId"], SmcMessageAttributes["messageId"]>;
         "smc-message-list": SmcMessageList;
+        "smc-pre-chat-form": SmcPreChatForm;
+        "smc-quick-replies": SmcQuickReplies;
         "smc-timestamp": Omit<SmcTimestamp, keyof SmcTimestampAttributes> & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes]?: SmcTimestamp[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `attr:${K}`]?: SmcTimestampAttributes[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `prop:${K}`]?: SmcTimestamp[K] } & OneOf<"timestamp", SmcTimestamp["timestamp"], SmcTimestampAttributes["timestamp"]>;
         "smc-typing-indicator": SmcTypingIndicator;
     }
@@ -187,10 +239,13 @@ declare module "@stencil/core" {
             "smc-chat-window": LocalJSX.IntrinsicElements["smc-chat-window"] & JSXBase.HTMLAttributes<HTMLSmcChatWindowElement>;
             "smc-feedback": LocalJSX.IntrinsicElements["smc-feedback"] & JSXBase.HTMLAttributes<HTMLSmcFeedbackElement>;
             "smc-header": LocalJSX.IntrinsicElements["smc-header"] & JSXBase.HTMLAttributes<HTMLSmcHeaderElement>;
+            "smc-input-bar": LocalJSX.IntrinsicElements["smc-input-bar"] & JSXBase.HTMLAttributes<HTMLSmcInputBarElement>;
             "smc-launcher": LocalJSX.IntrinsicElements["smc-launcher"] & JSXBase.HTMLAttributes<HTMLSmcLauncherElement>;
             "smc-markdown": LocalJSX.IntrinsicElements["smc-markdown"] & JSXBase.HTMLAttributes<HTMLSmcMarkdownElement>;
             "smc-message": LocalJSX.IntrinsicElements["smc-message"] & JSXBase.HTMLAttributes<HTMLSmcMessageElement>;
             "smc-message-list": LocalJSX.IntrinsicElements["smc-message-list"] & JSXBase.HTMLAttributes<HTMLSmcMessageListElement>;
+            "smc-pre-chat-form": LocalJSX.IntrinsicElements["smc-pre-chat-form"] & JSXBase.HTMLAttributes<HTMLSmcPreChatFormElement>;
+            "smc-quick-replies": LocalJSX.IntrinsicElements["smc-quick-replies"] & JSXBase.HTMLAttributes<HTMLSmcQuickRepliesElement>;
             "smc-timestamp": LocalJSX.IntrinsicElements["smc-timestamp"] & JSXBase.HTMLAttributes<HTMLSmcTimestampElement>;
             "smc-typing-indicator": LocalJSX.IntrinsicElements["smc-typing-indicator"] & JSXBase.HTMLAttributes<HTMLSmcTypingIndicatorElement>;
         }
