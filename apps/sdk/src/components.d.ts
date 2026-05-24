@@ -12,12 +12,22 @@ export namespace Components {
     }
     interface SmcChatWindow {
     }
+    interface SmcCsatSurvey {
+    }
     interface SmcFeedback {
         "messageId": string;
+    }
+    interface SmcFilePreview {
+        "fileName": string;
+        "fileSize": number;
+        "fileUrl": string;
+        "mimeType": string;
     }
     interface SmcHeader {
     }
     interface SmcInputBar {
+    }
+    interface SmcKbSuggestions {
     }
     interface SmcLauncher {
     }
@@ -35,7 +45,12 @@ export namespace Components {
     }
     interface SmcPreChatForm {
     }
+    interface SmcProactiveEngine {
+    }
     interface SmcQuickReplies {
+    }
+    interface SmcRichCard {
+        "cardData": string;
     }
     interface SmcTimestamp {
         "timestamp": string;
@@ -60,11 +75,23 @@ declare global {
         prototype: HTMLSmcChatWindowElement;
         new (): HTMLSmcChatWindowElement;
     };
+    interface HTMLSmcCsatSurveyElement extends Components.SmcCsatSurvey, HTMLStencilElement {
+    }
+    var HTMLSmcCsatSurveyElement: {
+        prototype: HTMLSmcCsatSurveyElement;
+        new (): HTMLSmcCsatSurveyElement;
+    };
     interface HTMLSmcFeedbackElement extends Components.SmcFeedback, HTMLStencilElement {
     }
     var HTMLSmcFeedbackElement: {
         prototype: HTMLSmcFeedbackElement;
         new (): HTMLSmcFeedbackElement;
+    };
+    interface HTMLSmcFilePreviewElement extends Components.SmcFilePreview, HTMLStencilElement {
+    }
+    var HTMLSmcFilePreviewElement: {
+        prototype: HTMLSmcFilePreviewElement;
+        new (): HTMLSmcFilePreviewElement;
     };
     interface HTMLSmcHeaderElement extends Components.SmcHeader, HTMLStencilElement {
     }
@@ -77,6 +104,12 @@ declare global {
     var HTMLSmcInputBarElement: {
         prototype: HTMLSmcInputBarElement;
         new (): HTMLSmcInputBarElement;
+    };
+    interface HTMLSmcKbSuggestionsElement extends Components.SmcKbSuggestions, HTMLStencilElement {
+    }
+    var HTMLSmcKbSuggestionsElement: {
+        prototype: HTMLSmcKbSuggestionsElement;
+        new (): HTMLSmcKbSuggestionsElement;
     };
     interface HTMLSmcLauncherElement extends Components.SmcLauncher, HTMLStencilElement {
     }
@@ -108,6 +141,12 @@ declare global {
         prototype: HTMLSmcPreChatFormElement;
         new (): HTMLSmcPreChatFormElement;
     };
+    interface HTMLSmcProactiveEngineElement extends Components.SmcProactiveEngine, HTMLStencilElement {
+    }
+    var HTMLSmcProactiveEngineElement: {
+        prototype: HTMLSmcProactiveEngineElement;
+        new (): HTMLSmcProactiveEngineElement;
+    };
     interface HTMLSmcQuickRepliesElementEventMap {
         "smcQuickReply": { text: string };
     }
@@ -125,6 +164,12 @@ declare global {
         prototype: HTMLSmcQuickRepliesElement;
         new (): HTMLSmcQuickRepliesElement;
     };
+    interface HTMLSmcRichCardElement extends Components.SmcRichCard, HTMLStencilElement {
+    }
+    var HTMLSmcRichCardElement: {
+        prototype: HTMLSmcRichCardElement;
+        new (): HTMLSmcRichCardElement;
+    };
     interface HTMLSmcTimestampElement extends Components.SmcTimestamp, HTMLStencilElement {
     }
     var HTMLSmcTimestampElement: {
@@ -140,15 +185,20 @@ declare global {
     interface HTMLElementTagNameMap {
         "smc-chat-widget": HTMLSmcChatWidgetElement;
         "smc-chat-window": HTMLSmcChatWindowElement;
+        "smc-csat-survey": HTMLSmcCsatSurveyElement;
         "smc-feedback": HTMLSmcFeedbackElement;
+        "smc-file-preview": HTMLSmcFilePreviewElement;
         "smc-header": HTMLSmcHeaderElement;
         "smc-input-bar": HTMLSmcInputBarElement;
+        "smc-kb-suggestions": HTMLSmcKbSuggestionsElement;
         "smc-launcher": HTMLSmcLauncherElement;
         "smc-markdown": HTMLSmcMarkdownElement;
         "smc-message": HTMLSmcMessageElement;
         "smc-message-list": HTMLSmcMessageListElement;
         "smc-pre-chat-form": HTMLSmcPreChatFormElement;
+        "smc-proactive-engine": HTMLSmcProactiveEngineElement;
         "smc-quick-replies": HTMLSmcQuickRepliesElement;
+        "smc-rich-card": HTMLSmcRichCardElement;
         "smc-timestamp": HTMLSmcTimestampElement;
         "smc-typing-indicator": HTMLSmcTypingIndicatorElement;
     }
@@ -162,12 +212,22 @@ declare namespace LocalJSX {
     }
     interface SmcChatWindow {
     }
+    interface SmcCsatSurvey {
+    }
     interface SmcFeedback {
         "messageId": string;
+    }
+    interface SmcFilePreview {
+        "fileName": string;
+        "fileSize": number;
+        "fileUrl": string;
+        "mimeType": string;
     }
     interface SmcHeader {
     }
     interface SmcInputBar {
+    }
+    interface SmcKbSuggestions {
     }
     interface SmcLauncher {
     }
@@ -185,8 +245,13 @@ declare namespace LocalJSX {
     }
     interface SmcPreChatForm {
     }
+    interface SmcProactiveEngine {
+    }
     interface SmcQuickReplies {
         "onSmcQuickReply"?: (event: SmcQuickRepliesCustomEvent<{ text: string }>) => void;
+    }
+    interface SmcRichCard {
+        "cardData": string;
     }
     interface SmcTimestamp {
         "timestamp": string;
@@ -201,6 +266,12 @@ declare namespace LocalJSX {
     interface SmcFeedbackAttributes {
         "messageId": string;
     }
+    interface SmcFilePreviewAttributes {
+        "fileName": string;
+        "fileUrl": string;
+        "mimeType": string;
+        "fileSize": number;
+    }
     interface SmcMarkdownAttributes {
         "content": string;
     }
@@ -211,6 +282,9 @@ declare namespace LocalJSX {
         "messageId": string;
         "status": string;
     }
+    interface SmcRichCardAttributes {
+        "cardData": string;
+    }
     interface SmcTimestampAttributes {
         "timestamp": string;
     }
@@ -218,15 +292,20 @@ declare namespace LocalJSX {
     interface IntrinsicElements {
         "smc-chat-widget": Omit<SmcChatWidget, keyof SmcChatWidgetAttributes> & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes]?: SmcChatWidget[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `attr:${K}`]?: SmcChatWidgetAttributes[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `prop:${K}`]?: SmcChatWidget[K] } & OneOf<"sdkId", SmcChatWidget["sdkId"], SmcChatWidgetAttributes["sdkId"]>;
         "smc-chat-window": SmcChatWindow;
+        "smc-csat-survey": SmcCsatSurvey;
         "smc-feedback": Omit<SmcFeedback, keyof SmcFeedbackAttributes> & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes]?: SmcFeedback[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `attr:${K}`]?: SmcFeedbackAttributes[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `prop:${K}`]?: SmcFeedback[K] } & OneOf<"messageId", SmcFeedback["messageId"], SmcFeedbackAttributes["messageId"]>;
+        "smc-file-preview": Omit<SmcFilePreview, keyof SmcFilePreviewAttributes> & { [K in keyof SmcFilePreview & keyof SmcFilePreviewAttributes]?: SmcFilePreview[K] } & { [K in keyof SmcFilePreview & keyof SmcFilePreviewAttributes as `attr:${K}`]?: SmcFilePreviewAttributes[K] } & { [K in keyof SmcFilePreview & keyof SmcFilePreviewAttributes as `prop:${K}`]?: SmcFilePreview[K] } & OneOf<"fileName", SmcFilePreview["fileName"], SmcFilePreviewAttributes["fileName"]> & OneOf<"fileUrl", SmcFilePreview["fileUrl"], SmcFilePreviewAttributes["fileUrl"]> & OneOf<"mimeType", SmcFilePreview["mimeType"], SmcFilePreviewAttributes["mimeType"]> & OneOf<"fileSize", SmcFilePreview["fileSize"], SmcFilePreviewAttributes["fileSize"]>;
         "smc-header": SmcHeader;
         "smc-input-bar": SmcInputBar;
+        "smc-kb-suggestions": SmcKbSuggestions;
         "smc-launcher": SmcLauncher;
         "smc-markdown": Omit<SmcMarkdown, keyof SmcMarkdownAttributes> & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes]?: SmcMarkdown[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `attr:${K}`]?: SmcMarkdownAttributes[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `prop:${K}`]?: SmcMarkdown[K] } & OneOf<"content", SmcMarkdown["content"], SmcMarkdownAttributes["content"]>;
         "smc-message": Omit<SmcMessage, keyof SmcMessageAttributes> & { [K in keyof SmcMessage & keyof SmcMessageAttributes]?: SmcMessage[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `attr:${K}`]?: SmcMessageAttributes[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `prop:${K}`]?: SmcMessage[K] } & OneOf<"content", SmcMessage["content"], SmcMessageAttributes["content"]> & OneOf<"role", SmcMessage["role"], SmcMessageAttributes["role"]> & OneOf<"timestamp", SmcMessage["timestamp"], SmcMessageAttributes["timestamp"]> & OneOf<"messageId", SmcMessage["messageId"], SmcMessageAttributes["messageId"]>;
         "smc-message-list": SmcMessageList;
         "smc-pre-chat-form": SmcPreChatForm;
+        "smc-proactive-engine": SmcProactiveEngine;
         "smc-quick-replies": SmcQuickReplies;
+        "smc-rich-card": Omit<SmcRichCard, keyof SmcRichCardAttributes> & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes]?: SmcRichCard[K] } & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes as `attr:${K}`]?: SmcRichCardAttributes[K] } & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes as `prop:${K}`]?: SmcRichCard[K] } & OneOf<"cardData", SmcRichCard["cardData"], SmcRichCardAttributes["cardData"]>;
         "smc-timestamp": Omit<SmcTimestamp, keyof SmcTimestampAttributes> & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes]?: SmcTimestamp[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `attr:${K}`]?: SmcTimestampAttributes[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `prop:${K}`]?: SmcTimestamp[K] } & OneOf<"timestamp", SmcTimestamp["timestamp"], SmcTimestampAttributes["timestamp"]>;
         "smc-typing-indicator": SmcTypingIndicator;
     }
@@ -237,15 +316,20 @@ declare module "@stencil/core" {
         interface IntrinsicElements {
             "smc-chat-widget": LocalJSX.IntrinsicElements["smc-chat-widget"] & JSXBase.HTMLAttributes<HTMLSmcChatWidgetElement>;
             "smc-chat-window": LocalJSX.IntrinsicElements["smc-chat-window"] & JSXBase.HTMLAttributes<HTMLSmcChatWindowElement>;
+            "smc-csat-survey": LocalJSX.IntrinsicElements["smc-csat-survey"] & JSXBase.HTMLAttributes<HTMLSmcCsatSurveyElement>;
             "smc-feedback": LocalJSX.IntrinsicElements["smc-feedback"] & JSXBase.HTMLAttributes<HTMLSmcFeedbackElement>;
+            "smc-file-preview": LocalJSX.IntrinsicElements["smc-file-preview"] & JSXBase.HTMLAttributes<HTMLSmcFilePreviewElement>;
             "smc-header": LocalJSX.IntrinsicElements["smc-header"] & JSXBase.HTMLAttributes<HTMLSmcHeaderElement>;
             "smc-input-bar": LocalJSX.IntrinsicElements["smc-input-bar"] & JSXBase.HTMLAttributes<HTMLSmcInputBarElement>;
+            "smc-kb-suggestions": LocalJSX.IntrinsicElements["smc-kb-suggestions"] & JSXBase.HTMLAttributes<HTMLSmcKbSuggestionsElement>;
             "smc-launcher": LocalJSX.IntrinsicElements["smc-launcher"] & JSXBase.HTMLAttributes<HTMLSmcLauncherElement>;
             "smc-markdown": LocalJSX.IntrinsicElements["smc-markdown"] & JSXBase.HTMLAttributes<HTMLSmcMarkdownElement>;
             "smc-message": LocalJSX.IntrinsicElements["smc-message"] & JSXBase.HTMLAttributes<HTMLSmcMessageElement>;
             "smc-message-list": LocalJSX.IntrinsicElements["smc-message-list"] & JSXBase.HTMLAttributes<HTMLSmcMessageListElement>;
             "smc-pre-chat-form": LocalJSX.IntrinsicElements["smc-pre-chat-form"] & JSXBase.HTMLAttributes<HTMLSmcPreChatFormElement>;
+            "smc-proactive-engine": LocalJSX.IntrinsicElements["smc-proactive-engine"] & JSXBase.HTMLAttributes<HTMLSmcProactiveEngineElement>;
             "smc-quick-replies": LocalJSX.IntrinsicElements["smc-quick-replies"] & JSXBase.HTMLAttributes<HTMLSmcQuickRepliesElement>;
+            "smc-rich-card": LocalJSX.IntrinsicElements["smc-rich-card"] & JSXBase.HTMLAttributes<HTMLSmcRichCardElement>;
             "smc-timestamp": LocalJSX.IntrinsicElements["smc-timestamp"] & JSXBase.HTMLAttributes<HTMLSmcTimestampElement>;
             "smc-typing-indicator": LocalJSX.IntrinsicElements["smc-typing-indicator"] & JSXBase.HTMLAttributes<HTMLSmcTypingIndicatorElement>;
         }
