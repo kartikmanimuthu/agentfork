@@ -39,7 +39,8 @@ export class HorizontalExecutor implements JobExecutor {
             {
               name: 'WorkersContainer',
               command: [
-                'node',
+                'bun',
+                'run',
                 'dist/job-runner.js',
                 '--job',
                 jobName,
