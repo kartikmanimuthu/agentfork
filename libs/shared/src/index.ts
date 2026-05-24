@@ -45,6 +45,8 @@ export { InferenceSessionService } from './services/inference-session-service';
 export { WebhookService } from './services/webhook-service';
 export { S3Service } from './services/s3-service';
 export { EncryptionService } from './services/encryption-service';
+export { SdkWidgetService } from './services/sdk-widget-service';
+export type { CreateSdkWidgetInput, SdkWidgetDb } from './services/sdk-widget-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 
