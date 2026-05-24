@@ -12,9 +12,29 @@ export namespace Components {
     }
     interface SmcChatWindow {
     }
+    interface SmcFeedback {
+        "messageId": string;
+    }
     interface SmcHeader {
     }
     interface SmcLauncher {
+    }
+    interface SmcMarkdown {
+        "content": string;
+    }
+    interface SmcMessage {
+        "content": string;
+        "messageId": string;
+        "role": 'user' | 'assistant';
+        "status"?: string;
+        "timestamp": string;
+    }
+    interface SmcMessageList {
+    }
+    interface SmcTimestamp {
+        "timestamp": string;
+    }
+    interface SmcTypingIndicator {
     }
 }
 declare global {
@@ -30,6 +50,12 @@ declare global {
         prototype: HTMLSmcChatWindowElement;
         new (): HTMLSmcChatWindowElement;
     };
+    interface HTMLSmcFeedbackElement extends Components.SmcFeedback, HTMLStencilElement {
+    }
+    var HTMLSmcFeedbackElement: {
+        prototype: HTMLSmcFeedbackElement;
+        new (): HTMLSmcFeedbackElement;
+    };
     interface HTMLSmcHeaderElement extends Components.SmcHeader, HTMLStencilElement {
     }
     var HTMLSmcHeaderElement: {
@@ -42,11 +68,47 @@ declare global {
         prototype: HTMLSmcLauncherElement;
         new (): HTMLSmcLauncherElement;
     };
+    interface HTMLSmcMarkdownElement extends Components.SmcMarkdown, HTMLStencilElement {
+    }
+    var HTMLSmcMarkdownElement: {
+        prototype: HTMLSmcMarkdownElement;
+        new (): HTMLSmcMarkdownElement;
+    };
+    interface HTMLSmcMessageElement extends Components.SmcMessage, HTMLStencilElement {
+    }
+    var HTMLSmcMessageElement: {
+        prototype: HTMLSmcMessageElement;
+        new (): HTMLSmcMessageElement;
+    };
+    interface HTMLSmcMessageListElement extends Components.SmcMessageList, HTMLStencilElement {
+    }
+    var HTMLSmcMessageListElement: {
+        prototype: HTMLSmcMessageListElement;
+        new (): HTMLSmcMessageListElement;
+    };
+    interface HTMLSmcTimestampElement extends Components.SmcTimestamp, HTMLStencilElement {
+    }
+    var HTMLSmcTimestampElement: {
+        prototype: HTMLSmcTimestampElement;
+        new (): HTMLSmcTimestampElement;
+    };
+    interface HTMLSmcTypingIndicatorElement extends Components.SmcTypingIndicator, HTMLStencilElement {
+    }
+    var HTMLSmcTypingIndicatorElement: {
+        prototype: HTMLSmcTypingIndicatorElement;
+        new (): HTMLSmcTypingIndicatorElement;
+    };
     interface HTMLElementTagNameMap {
         "smc-chat-widget": HTMLSmcChatWidgetElement;
         "smc-chat-window": HTMLSmcChatWindowElement;
+        "smc-feedback": HTMLSmcFeedbackElement;
         "smc-header": HTMLSmcHeaderElement;
         "smc-launcher": HTMLSmcLauncherElement;
+        "smc-markdown": HTMLSmcMarkdownElement;
+        "smc-message": HTMLSmcMessageElement;
+        "smc-message-list": HTMLSmcMessageListElement;
+        "smc-timestamp": HTMLSmcTimestampElement;
+        "smc-typing-indicator": HTMLSmcTypingIndicatorElement;
     }
 }
 declare namespace LocalJSX {
@@ -58,21 +120,63 @@ declare namespace LocalJSX {
     }
     interface SmcChatWindow {
     }
+    interface SmcFeedback {
+        "messageId": string;
+    }
     interface SmcHeader {
     }
     interface SmcLauncher {
+    }
+    interface SmcMarkdown {
+        "content": string;
+    }
+    interface SmcMessage {
+        "content": string;
+        "messageId": string;
+        "role": 'user' | 'assistant';
+        "status"?: string;
+        "timestamp": string;
+    }
+    interface SmcMessageList {
+    }
+    interface SmcTimestamp {
+        "timestamp": string;
+    }
+    interface SmcTypingIndicator {
     }
 
     interface SmcChatWidgetAttributes {
         "sdkId": string;
         "apiUrl": string;
     }
+    interface SmcFeedbackAttributes {
+        "messageId": string;
+    }
+    interface SmcMarkdownAttributes {
+        "content": string;
+    }
+    interface SmcMessageAttributes {
+        "content": string;
+        "role": 'user' | 'assistant';
+        "timestamp": string;
+        "messageId": string;
+        "status": string;
+    }
+    interface SmcTimestampAttributes {
+        "timestamp": string;
+    }
 
     interface IntrinsicElements {
         "smc-chat-widget": Omit<SmcChatWidget, keyof SmcChatWidgetAttributes> & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes]?: SmcChatWidget[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `attr:${K}`]?: SmcChatWidgetAttributes[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `prop:${K}`]?: SmcChatWidget[K] } & OneOf<"sdkId", SmcChatWidget["sdkId"], SmcChatWidgetAttributes["sdkId"]>;
         "smc-chat-window": SmcChatWindow;
+        "smc-feedback": Omit<SmcFeedback, keyof SmcFeedbackAttributes> & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes]?: SmcFeedback[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `attr:${K}`]?: SmcFeedbackAttributes[K] } & { [K in keyof SmcFeedback & keyof SmcFeedbackAttributes as `prop:${K}`]?: SmcFeedback[K] } & OneOf<"messageId", SmcFeedback["messageId"], SmcFeedbackAttributes["messageId"]>;
         "smc-header": SmcHeader;
         "smc-launcher": SmcLauncher;
+        "smc-markdown": Omit<SmcMarkdown, keyof SmcMarkdownAttributes> & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes]?: SmcMarkdown[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `attr:${K}`]?: SmcMarkdownAttributes[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `prop:${K}`]?: SmcMarkdown[K] } & OneOf<"content", SmcMarkdown["content"], SmcMarkdownAttributes["content"]>;
+        "smc-message": Omit<SmcMessage, keyof SmcMessageAttributes> & { [K in keyof SmcMessage & keyof SmcMessageAttributes]?: SmcMessage[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `attr:${K}`]?: SmcMessageAttributes[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `prop:${K}`]?: SmcMessage[K] } & OneOf<"content", SmcMessage["content"], SmcMessageAttributes["content"]> & OneOf<"role", SmcMessage["role"], SmcMessageAttributes["role"]> & OneOf<"timestamp", SmcMessage["timestamp"], SmcMessageAttributes["timestamp"]> & OneOf<"messageId", SmcMessage["messageId"], SmcMessageAttributes["messageId"]>;
+        "smc-message-list": SmcMessageList;
+        "smc-timestamp": Omit<SmcTimestamp, keyof SmcTimestampAttributes> & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes]?: SmcTimestamp[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `attr:${K}`]?: SmcTimestampAttributes[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `prop:${K}`]?: SmcTimestamp[K] } & OneOf<"timestamp", SmcTimestamp["timestamp"], SmcTimestampAttributes["timestamp"]>;
+        "smc-typing-indicator": SmcTypingIndicator;
     }
 }
 export { LocalJSX as JSX };
@@ -81,8 +185,14 @@ declare module "@stencil/core" {
         interface IntrinsicElements {
             "smc-chat-widget": LocalJSX.IntrinsicElements["smc-chat-widget"] & JSXBase.HTMLAttributes<HTMLSmcChatWidgetElement>;
             "smc-chat-window": LocalJSX.IntrinsicElements["smc-chat-window"] & JSXBase.HTMLAttributes<HTMLSmcChatWindowElement>;
+            "smc-feedback": LocalJSX.IntrinsicElements["smc-feedback"] & JSXBase.HTMLAttributes<HTMLSmcFeedbackElement>;
             "smc-header": LocalJSX.IntrinsicElements["smc-header"] & JSXBase.HTMLAttributes<HTMLSmcHeaderElement>;
             "smc-launcher": LocalJSX.IntrinsicElements["smc-launcher"] & JSXBase.HTMLAttributes<HTMLSmcLauncherElement>;
+            "smc-markdown": LocalJSX.IntrinsicElements["smc-markdown"] & JSXBase.HTMLAttributes<HTMLSmcMarkdownElement>;
+            "smc-message": LocalJSX.IntrinsicElements["smc-message"] & JSXBase.HTMLAttributes<HTMLSmcMessageElement>;
+            "smc-message-list": LocalJSX.IntrinsicElements["smc-message-list"] & JSXBase.HTMLAttributes<HTMLSmcMessageListElement>;
+            "smc-timestamp": LocalJSX.IntrinsicElements["smc-timestamp"] & JSXBase.HTMLAttributes<HTMLSmcTimestampElement>;
+            "smc-typing-indicator": LocalJSX.IntrinsicElements["smc-typing-indicator"] & JSXBase.HTMLAttributes<HTMLSmcTypingIndicatorElement>;
         }
     }
 }

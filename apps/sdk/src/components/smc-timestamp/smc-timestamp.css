@@ -1,0 +1,12 @@
+.timestamp {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.timestamp span {
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 10px;
+}
