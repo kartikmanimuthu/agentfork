@@ -708,12 +708,12 @@ model SdkWidget {
 
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Restrict)
   sessions        SdkSession[]
   csatResponses   CsatResponse[]
 
   @@index([tenantId])
-  @@index([sdkId])
+  @@index([tenantId, status])
   @@index([agentId])
   @@map("sdk_widgets")
 }
@@ -734,8 +734,8 @@ model SdkSession {
   inferenceSession    InferenceSession  @relation(fields: [inferenceSessionId], references: [id], onDelete: Cascade)
 
   @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
   @@index([visitorId])
-  @@index([inferenceSessionId])
   @@map("sdk_sessions")
 }
 
@@ -750,7 +750,6 @@ model MessageFeedback {
   message    InferenceSessionMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   session    InferenceSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([messageId, sessionId])
   @@index([sessionId])
   @@map("message_feedbacks")
 }
@@ -767,5 +766,6 @@ model CsatResponse {
   sdkWidget   SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
 
   @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
   @@map("csat_responses")
 }
