@@ -58,6 +58,30 @@ node apps/web-ui/.next/standalone/server.js
 node --env-file=.env apps/workers/dist/index.js
 ```
 
+## Docker Deployment
+
+```bash
+# Build the images
+docker build -t chatbot-web -f apps/web-ui/Dockerfile .
+docker build -t chatbot-workers -f apps/workers/Dockerfile .
+
+# Run with docker compose
+docker compose up -d
+```
+
+## Pulumi Deployment
+
+The `infra/` directory contains Pulumi stacks for AWS deployment:
+
+- `infra/networking/` — VPC, subnets, security groups
+- `infra/compute/` — ECS Fargate services, ALB, CloudFront
+- `infra/cicd/` — CodePipeline for automated deployments
+
+```bash
+cd infra/compute
+pulumi up
+```
+
 ## Environment Variables
 
-See [Configuration](/docs/configuration) for the full list of environment variables.
+See [Configuration](/docs/dev-guide/configuration) for the full list of environment variables.

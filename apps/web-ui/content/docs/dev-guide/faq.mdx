@@ -1,0 +1,72 @@
+---
+title: FAQ
+description: Frequently asked questions about the Chatbot platform.
+---
+
+## Is this really free?
+
+Yes. Chatbot is MIT licensed and free to self-host. You pay only for your own AWS infrastructure (Bedrock API calls, RDS, ECS).
+
+## Which AI models are supported?
+
+Any model available through AWS Bedrock. The default is Claude Sonnet (`anthropic.claude-sonnet-4-20250514`). You can configure the model per conversation.
+
+## Do I need pgvector?
+
+Yes, if you want RAG (retrieval-augmented generation) support. The embedding pipeline stores vectors in PostgreSQL using the pgvector extension. Without it, basic chat still works but semantic search is disabled.
+
+## Can I use this without AWS?
+
+The AI layer is built on the Vercel AI SDK, which supports multiple providers. However, the current implementation is configured for AWS Bedrock. Swapping providers would require modifying `libs/ai/src/bedrock-client.ts`.
+
+## How does multi-tenancy work?
+
+Each organization is a tenant. A Prisma client extension automatically scopes all database queries to the current tenant's ID. Users belong to tenants via roles (Owner, Admin, Member, Viewer).
+
+## How do I add SSO?
+
+Configure AWS Cognito environment variables (`COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, `COGNITO_ISSUER`). See [Configuration](/docs/dev-guide/configuration#cognito-sso).
+
+## What is the Agent Studio?
+
+The Agent Studio is a visual interface for building, testing, and publishing AI agents. You define a system prompt, choose a model, test in a live playground with streaming and metrics, save versions, and publish the agent with a public inference API.
+
+## What are Knowledge Bases?
+
+Knowledge Bases let you upload documents (PDF, Word, Excel) or sync web sources. Documents are parsed, chunked, and embedded into pgvector for semantic search. Agents can be attached to a knowledge base for RAG-powered responses.
+
+## What is MCP?
+
+MCP (Model Context Protocol) is a standard for connecting AI agents to external tools and APIs. You can register MCP servers in the platform, attach them to agents, and the agent can invoke tools during inference.
+
+## How do I scale workers?
+
+Workers run as a separate app (`apps/workers`) using pg-boss. You can scale horizontally by running multiple worker instances. Set `WORKER_ARCH=horizontal` for multi-process execution, or run multiple `vertical` worker containers.
+
+## Which LLM providers are supported?
+
+The platform is built on the Vercel AI SDK and currently supports AWS Bedrock natively. You can also add OpenAI-compatible providers via the LLM Providers UI. The default model is Claude Sonnet via Bedrock.
+
+## Can agents have multiple knowledge bases?
+
+Currently, an agent can be attached to one knowledge base at a time. You can create a single knowledge base with multiple sources (documents + web URLs) to achieve broad coverage.
+
+## How does inference tracking work?
+
+All inference calls (both public API and playground) create a Session record. Each streaming response is tracked with token counts, model used, latency, and cost estimates. Sessions can be viewed under Analytics > Sessions.
+
+## How do I add custom roles?
+
+The platform ships with 4 predefined roles (Owner, Admin, Member, Viewer). Custom roles can be created via the Settings > Roles page. Each custom role defines granular permissions for every resource type.
+
+## What happens when a worker crashes?
+
+pg-boss handles job reliability. If a worker crashes mid-job, the job is automatically retried after a configurable timeout. Failed jobs are logged with error details and can be manually retried from the dashboard.
+
+## How do I monitor production deployments?
+
+The platform uses Pino for structured logging. In production:
+- Logs are JSON-formatted for easy ingestion into CloudWatch, Datadog, or ELK
+- The Analytics dashboard shows real-time inference metrics
+- Audit logs track all user and system actions
+- Set up CloudWatch alarms on ECS task health and RDS metrics

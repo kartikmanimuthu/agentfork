@@ -5,6 +5,8 @@ description: Configure AWS Bedrock, Cognito, database, and application settings.
 
 ## Environment Variables
 
+> **Security:** Never commit `.env` files to version control. Use environment-specific secrets management (AWS Secrets Manager, Vault, etc.) in production.
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string with pgvector |
@@ -58,3 +60,11 @@ Four predefined roles control access:
 | Admin | CRUD | CRUD | CRU |
 | Member | CR | CR | R |
 | Viewer | R | R | R |
+
+## Worker Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKER_ARCH` | `vertical` | Execution strategy: `vertical` (single process) or `horizontal` (multi-process) |
+| `WORKER_CONCURRENCY` | `5` | Number of concurrent jobs per worker |
+| `WORKER_POLL_INTERVAL` | `2000` | Job polling interval in milliseconds |

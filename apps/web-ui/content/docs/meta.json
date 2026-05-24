@@ -2,13 +2,9 @@
   "title": "Documentation",
   "pages": [
     "index",
-    "getting-started",
-    "installation",
-    "configuration",
-    "api-reference",
-    "architecture",
-    "kb-worker-testing",
-    "faq",
+    "user-guide",
+    "dev-guide",
+    "api",
     "---",
     "...sdk"
   ]

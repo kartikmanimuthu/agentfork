@@ -1,0 +1,163 @@
+---
+title: Agents API
+description: Agent CRUD, versions, publishing, playground, and API keys.
+---
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/agents` | List all agents |
+| POST | `/api/agents` | Create agent |
+| GET | `/api/agents/[id]` | Get agent |
+| PUT | `/api/agents/[id]` | Update agent |
+| DELETE | `/api/agents/[id]` | Delete agent |
+| POST | `/api/agents/[id]/publish` | Publish agent |
+| GET | `/api/agents/[id]/versions` | List versions |
+| POST | `/api/agents/[id]/playground` | Run playground inference |
+| POST | `/api/agents/[id]/api-keys` | Create API key |
+
+## Agent CRUD
+
+### GET /api/agents
+
+List all agents for the current tenant.
+
+**Auth:** Session cookie required.
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "agent-id",
+      "name": "Support Bot",
+      "status": "draft",
+      "model": "anthropic.claude-sonnet-4-20250514",
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /api/agents
+
+Create a new agent.
+
+**Auth:** Session cookie required.
+
+**Request body:**
+```json
+{
+  "name": "Support Bot",
+  "systemPrompt": "You are a helpful support assistant.",
+  "model": "anthropic.claude-sonnet-4-20250514",
+  "knowledgeBaseId": null,
+  "mcpServerIds": []
+}
+```
+
+### GET /api/agents/[id]
+
+Get a single agent by ID.
+
+### PUT /api/agents/[id]
+
+Update an agent.
+
+**Request body:** Same as POST, any subset of fields.
+
+### DELETE /api/agents/[id]
+
+Delete an agent and all associated versions.
+
+## Publishing
+
+### POST /api/agents/[id]/publish
+
+Publish the current agent version.
+
+**Request body:**
+```json
+{
+  "visibility": "public"
+}
+```
+
+- `visibility`: `"public"` or `"private"`
+
+## Versions
+
+### GET /api/agents/[id]/versions
+
+List all versions of an agent.
+
+**Response:**
+```json
+{
+  "versions": [
+    {
+      "versionId": 1,
+      "note": "Initial version",
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+## Playground
+
+### POST /api/agents/[id]/playground
+
+Run an inference in the agent playground.
+
+**Auth:** Session cookie required.
+
+**Request body:**
+```json
+{
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "stream": true
+}
+```
+
+**Response:** Server-sent events stream with AI response chunks, thinking blocks, and console events.
+
+### GET /api/agents/[id]/playground/sessions
+
+List playground sessions for this agent.
+
+### GET /api/agents/[id]/playground/executions
+
+List playground executions with metrics.
+
+## API Keys
+
+### POST /api/agents/[id]/api-keys
+
+Create a new API key for a published agent.
+
+**Request body:**
+```json
+{
+  "name": "Production Key"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "key-id",
+  "name": "Production Key",
+  "key": "sk-...",
+  "createdAt": "2026-05-01T00:00:00Z"
+}
+```
+
+> The `key` field is returned only once on creation.
+
+### POST /api/agents/[id]/api-keys/[keyId]/rotate
+
+Rotate an API key (invalidates old, generates new).
+
+### POST /api/agents/[id]/api-keys/[keyId]/revoke
+
+Revoke an API key immediately.
