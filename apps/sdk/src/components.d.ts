@@ -5,57 +5,16 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { SessionConfig } from "./types/message";
-export { SessionConfig } from "./types/message";
 export namespace Components {
     interface SmcChatWidget {
-        "apiUrl": string;
-        /**
-          * @default "Bot"
-         */
-        "botName"?: string;
-        /**
-          * @default '[]'
-         */
-        "defaultOptions"?: string;
-        /**
-          * @default ""
-         */
-        "headerIcon"?: string;
-        /**
-          * @default "Chatbot Assistant"
-         */
-        "headerText"?: string;
-        /**
-          * @default "Type your message..."
-         */
-        "inputPlaceholder"?: string;
-        /**
-          * @default "right"
-         */
-        "position"?: "left" | "right";
-        /**
-          * @default "#2196f3"
-         */
-        "primaryColor"?: string;
-        /**
-          * @default "#1976d2"
-         */
-        "secondaryColor"?: string;
-        "session": SessionConfig | string;
-        /**
-          * @default "https://cdn-icons-png.flaticon.com/512/4712/4712027.png"
-         */
-        "startChatLogo"?: string;
-        /**
-          * @default "light"
-         */
-        "theme"?: "light" | "dark";
-        "userName"?: string;
-        /**
-          * @default "Welcome to chat assistant"
-         */
-        "welcomeMessage"?: string;
+        "apiUrl"?: string;
+        "sdkId": string;
+    }
+    interface SmcChatWindow {
+    }
+    interface SmcHeader {
+    }
+    interface SmcLauncher {
     }
 }
 declare global {
@@ -65,82 +24,55 @@ declare global {
         prototype: HTMLSmcChatWidgetElement;
         new (): HTMLSmcChatWidgetElement;
     };
+    interface HTMLSmcChatWindowElement extends Components.SmcChatWindow, HTMLStencilElement {
+    }
+    var HTMLSmcChatWindowElement: {
+        prototype: HTMLSmcChatWindowElement;
+        new (): HTMLSmcChatWindowElement;
+    };
+    interface HTMLSmcHeaderElement extends Components.SmcHeader, HTMLStencilElement {
+    }
+    var HTMLSmcHeaderElement: {
+        prototype: HTMLSmcHeaderElement;
+        new (): HTMLSmcHeaderElement;
+    };
+    interface HTMLSmcLauncherElement extends Components.SmcLauncher, HTMLStencilElement {
+    }
+    var HTMLSmcLauncherElement: {
+        prototype: HTMLSmcLauncherElement;
+        new (): HTMLSmcLauncherElement;
+    };
     interface HTMLElementTagNameMap {
         "smc-chat-widget": HTMLSmcChatWidgetElement;
+        "smc-chat-window": HTMLSmcChatWindowElement;
+        "smc-header": HTMLSmcHeaderElement;
+        "smc-launcher": HTMLSmcLauncherElement;
     }
 }
 declare namespace LocalJSX {
     type OneOf<K extends string, PropT, AttrT = PropT> = { [P in K]: PropT } & { [P in `attr:${K}` | `prop:${K}`]?: never } | { [P in `attr:${K}`]: AttrT } & { [P in K | `prop:${K}`]?: never } | { [P in `prop:${K}`]: PropT } & { [P in K | `attr:${K}`]?: never };
 
     interface SmcChatWidget {
-        "apiUrl": string;
-        /**
-          * @default "Bot"
-         */
-        "botName"?: string;
-        /**
-          * @default '[]'
-         */
-        "defaultOptions"?: string;
-        /**
-          * @default ""
-         */
-        "headerIcon"?: string;
-        /**
-          * @default "Chatbot Assistant"
-         */
-        "headerText"?: string;
-        /**
-          * @default "Type your message..."
-         */
-        "inputPlaceholder"?: string;
-        /**
-          * @default "right"
-         */
-        "position"?: "left" | "right";
-        /**
-          * @default "#2196f3"
-         */
-        "primaryColor"?: string;
-        /**
-          * @default "#1976d2"
-         */
-        "secondaryColor"?: string;
-        "session": SessionConfig | string;
-        /**
-          * @default "https://cdn-icons-png.flaticon.com/512/4712/4712027.png"
-         */
-        "startChatLogo"?: string;
-        /**
-          * @default "light"
-         */
-        "theme"?: "light" | "dark";
-        "userName"?: string;
-        /**
-          * @default "Welcome to chat assistant"
-         */
-        "welcomeMessage"?: string;
+        "apiUrl"?: string;
+        "sdkId": string;
+    }
+    interface SmcChatWindow {
+    }
+    interface SmcHeader {
+    }
+    interface SmcLauncher {
     }
 
     interface SmcChatWidgetAttributes {
-        "userName": string;
-        "theme": "light" | "dark";
-        "position": "left" | "right";
-        "headerText": string;
-        "welcomeMessage": string;
-        "botName": string;
-        "headerIcon": string;
-        "startChatLogo": string;
-        "primaryColor": string;
-        "secondaryColor": string;
-        "inputPlaceholder": string;
+        "sdkId": string;
         "apiUrl": string;
-        "session": SessionConfig | string;
-        "defaultOptions": string;
     }
 
     interface IntrinsicElements {
-        "smc-chat-widget": Omit<SmcChatWidget, keyof SmcChatWidgetAttributes> & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes]?: SmcChatWidget[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `attr:${K}`]?: SmcChatWidgetAttributes[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `prop:${K}`]?: SmcChatWidget[K] } & OneOf<"apiUrl", SmcChatWidget["apiUrl"], SmcChatWidgetAttributes["apiUrl"]> & OneOf<"session", SmcChatWidget["session"], SmcChatWidgetAttributes["session"]>;
+        "smc-chat-widget": Omit<SmcChatWidget, keyof SmcChatWidgetAttributes> & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes]?: SmcChatWidget[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `attr:${K}`]?: SmcChatWidgetAttributes[K] } & { [K in keyof SmcChatWidget & keyof SmcChatWidgetAttributes as `prop:${K}`]?: SmcChatWidget[K] } & OneOf<"sdkId", SmcChatWidget["sdkId"], SmcChatWidgetAttributes["sdkId"]>;
+        "smc-chat-window": SmcChatWindow;
+        "smc-header": SmcHeader;
+        "smc-launcher": SmcLauncher;
     }
 }
 export { LocalJSX as JSX };
@@ -148,6 +80,9 @@ declare module "@stencil/core" {
     export namespace JSX {
         interface IntrinsicElements {
             "smc-chat-widget": LocalJSX.IntrinsicElements["smc-chat-widget"] & JSXBase.HTMLAttributes<HTMLSmcChatWidgetElement>;
+            "smc-chat-window": LocalJSX.IntrinsicElements["smc-chat-window"] & JSXBase.HTMLAttributes<HTMLSmcChatWindowElement>;
+            "smc-header": LocalJSX.IntrinsicElements["smc-header"] & JSXBase.HTMLAttributes<HTMLSmcHeaderElement>;
+            "smc-launcher": LocalJSX.IntrinsicElements["smc-launcher"] & JSXBase.HTMLAttributes<HTMLSmcLauncherElement>;
         }
     }
 }
