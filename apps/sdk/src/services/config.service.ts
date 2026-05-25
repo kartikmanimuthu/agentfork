@@ -8,8 +8,10 @@ export class ConfigService {
   }
 
   async fetchConfig(sdkId: string): Promise<SdkWidgetConfig> {
-    const res = await fetch(`${this.baseUrl}/api/v1/sdk/${sdkId}/config`, {
+    const cacheBust = Date.now();
+    const res = await fetch(`${this.baseUrl}/api/v1/sdk/${sdkId}/config?_t=${cacheBust}`, {
       headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
     });
 
     if (!res.ok) {

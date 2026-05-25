@@ -85,10 +85,11 @@ const DEFAULT_CONFIG: WidgetConfig = {
 function buildIframeHtml(config: WidgetConfig, sdkId: string): string {
   if (!sdkId) return '';
 
+  const ts = Date.now();
   return `<!DOCTYPE html>
 <html><head><style>body{margin:0;overflow:hidden;}</style></head>
 <body>
-<smc-chat-widget sdk-id="${sdkId}" api-url="${typeof window !== 'undefined' ? window.location.origin : ''}"></smc-chat-widget>
+<smc-chat-widget sdk-id="${sdkId}" api-url="${typeof window !== 'undefined' ? window.location.origin : ''}" cache-bust="${ts}"></smc-chat-widget>
 <script type="module" src="${SDK_SCRIPT_URL}"><\/script>
 </body></html>`;
 }
