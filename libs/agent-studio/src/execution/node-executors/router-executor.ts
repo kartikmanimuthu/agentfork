@@ -66,18 +66,19 @@ export class RouterNodeExecutor implements NodeExecutor {
     config: RouterNodeConfig,
     ctx: NodeExecutionContext,
   ): Promise<string | null> {
-    const provider = await ctx.services.llmProvider();
+    try {
+      const provider = await ctx.services.llmProvider();
 
-    const channelSummary = Object.entries(ctx.state.channels)
-      .filter(([, v]) => v !== undefined && v !== null)
-      .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-      .join('\n');
+      const channelSummary = Object.entries(ctx.state.channels)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+        .join('\n');
 
-    const conditionList = config.conditions
-      .map((c, i) => `${i}: ${c.condition}`)
-      .join('\n');
+      const conditionList = config.conditions
+        .map((c, i) => `${i}: ${c.condition}`)
+        .join('\n');
 
-    const prompt = `You are a routing classifier. Based on the current context, determine which routing condition (if any) best matches.
+      const prompt = `You are a routing classifier. Based on the current context, determine which routing condition (if any) best matches.
 
 Current context:
 ${channelSummary || '(no channel data)'}
@@ -91,29 +92,33 @@ Respond with ONLY a single integer:
 
 No explanation. Just the number.`;
 
-    const streamResult = provider.streamChat({
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0,
-      maxOutputTokens: 10,
-    });
+      const streamResult = provider.streamChat({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        maxOutputTokens: 10,
+      });
 
-    let response = '';
-    for await (const chunk of streamResult.textStream) {
-      response += chunk;
+      let response = '';
+      for await (const chunk of streamResult.textStream) {
+        response += chunk;
+      }
+
+      const index = parseInt(response.trim(), 10);
+
+      logger.info(
+        { nodeId: ctx.node.id, response: response.trim(), parsedIndex: index },
+        'NL router LLM response',
+      );
+
+      if (isNaN(index) || index < 0) {
+        return config.defaultTarget ?? null;
+      }
+
+      const matched = config.conditions[index];
+      return matched?.target ?? config.defaultTarget ?? null;
+    } catch (error) {
+      logger.error({ nodeId: ctx.node.id, error }, 'NL router LLM classification failed');
+      throw error;
     }
-
-    const index = parseInt(response.trim(), 10);
-
-    logger.info(
-      { nodeId: ctx.node.id, response: response.trim(), parsedIndex: index },
-      'NL router LLM response',
-    );
-
-    if (isNaN(index) || index < 0) {
-      return config.defaultTarget ?? null;
-    }
-
-    const matched = config.conditions[index];
-    return matched?.target ?? config.defaultTarget ?? null;
   }
 }
