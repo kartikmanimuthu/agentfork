@@ -32,11 +32,14 @@ export class SmcChatWidget {
 
   async componentWillLoad() {
     const baseUrl = this.getBaseUrl();
+    console.log('[smc-widget] Boot started', { sdkId: this.sdkId, baseUrl });
     this.storage = new StorageService(this.sdkId);
 
     try {
       const configService = new ConfigService(baseUrl);
+      console.log('[smc-widget] Fetching config...');
       const config = await configService.fetchConfig(this.sdkId);
+      console.log('[smc-widget] Config loaded', config);
       setConfig(config);
       setApiKey(config.apiKeyPrefix);
 
@@ -44,6 +47,7 @@ export class SmcChatWidget {
 
       const existingSessionId = this.storage.getSessionId();
       if (existingSessionId) {
+        console.log('[smc-widget] Resuming session', { sessionId: existingSessionId });
         const session = await this.apiService.getSession(existingSessionId);
         if (session && session.status === 'active') {
           setSession({ id: session.id, status: session.status, visitorId: this.storage.getVisitorId() });
@@ -56,7 +60,9 @@ export class SmcChatWidget {
           }));
           setMessages(messages);
           setPreChatDone(true);
+          console.log('[smc-widget] Session resumed', { messageCount: messages.length });
         } else {
+          console.log('[smc-widget] Session expired, clearing');
           this.storage.clearSession();
         }
       }
@@ -66,8 +72,10 @@ export class SmcChatWidget {
       }
 
       this.ready = true;
+      console.log('[smc-widget] Boot complete, widget ready');
     } catch (err) {
       this.bootError = err instanceof Error ? err.message : 'Failed to load widget';
+      console.error('[smc-widget] Boot failed', this.bootError, err);
     }
   }
 
