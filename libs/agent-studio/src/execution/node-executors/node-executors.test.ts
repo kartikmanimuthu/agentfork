@@ -589,4 +589,21 @@ describe('RouterNodeExecutor — natural_language mode', () => {
     const promptText = JSON.stringify(callArgs.messages);
     expect(promptText).toContain('I need a refund');
   });
+
+  it('propagates error when llmProvider rejects', async () => {
+    const mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield '0'; })(),
+    });
+    const llmProvider = vi.fn().mockRejectedValue(new Error('provider unavailable'));
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'router-nl', type: 'router', label: 'NL Router' }),
+      config: {
+        type: 'router',
+        mode: 'natural_language',
+        conditions: [{ condition: 'user is asking about billing', target: 'billing-node' }],
+      },
+      services: { llmProvider, prisma: {} },
+    });
+    await expect(executor.execute(ctx)).rejects.toThrow('provider unavailable');
+  });
 });

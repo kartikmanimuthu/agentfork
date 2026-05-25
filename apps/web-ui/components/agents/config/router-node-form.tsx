@@ -133,16 +133,21 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
                     </form.Field>
                     <form.Field name={`conditions[${i}].target`}>
                       {(targetField) => (
-                        <NodePicker
-                          nodes={allNodes}
-                          value={targetField.state.value as string}
-                          onChange={(id) => {
-                            targetField.handleChange(id);
-                            handleBlur();
-                          }}
-                          placeholder="Target node…"
-                          className="h-8 text-xs"
-                        />
+                        <>
+                          <NodePicker
+                            nodes={allNodes}
+                            value={targetField.state.value as string}
+                            onChange={(id) => {
+                              targetField.handleChange(id);
+                              handleBlur();
+                            }}
+                            placeholder="Target node…"
+                            className="h-8 text-xs"
+                          />
+                          {targetField.state.meta.errors.length > 0 && (
+                            <p className="text-xs text-destructive">{String(targetField.state.meta.errors[0])}</p>
+                          )}
+                        </>
                       )}
                     </form.Field>
                   </div>
