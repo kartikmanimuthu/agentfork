@@ -85,8 +85,21 @@ export function ProviderModelSelect({
     );
   }
 
+  // Use compound "providerId::modelId" as the Select value to ensure uniqueness
+  // across providers that may expose the same model ID.
+  const compoundValue =
+    grouped
+      .flatMap(({ provider, models }) =>
+        models.map((m) => ({ compound: `${provider.id}::${m.id}`, modelId: m.id }))
+      )
+      .find(({ modelId }) => modelId === value)?.compound ?? '';
+
   return (
-    <Select value={value ?? ''} onValueChange={onChange} disabled={disabled}>
+    <Select
+      value={compoundValue}
+      onValueChange={(v) => onChange(v.split('::').slice(1).join('::'))}
+      disabled={disabled}
+    >
       <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -97,7 +110,7 @@ export function ProviderModelSelect({
               {provider.name}
             </SelectPrimitive.Label>
             {models.map((model) => (
-              <SelectItem key={`${provider.id}::${model.id}`} value={model.id}>
+              <SelectItem key={`${provider.id}::${model.id}`} value={`${provider.id}::${model.id}`}>
                 {model.name}
               </SelectItem>
             ))}
