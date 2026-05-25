@@ -396,4 +396,60 @@ describe('LlmNodeExecutor', () => {
       }),
     );
   });
+
+  it('skips injection when listed channel does not exist in channels state', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [{ role: 'user', content: 'Hello' }],
+        channels: {},
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['nonexistent_channel'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: 'Hello' }],
+      }),
+    );
+  });
+
+  it('skips injection when channel value is whitespace only', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [{ role: 'user', content: 'Hello' }],
+        channels: { kb_results: '   ' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['kb_results'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: 'Hello' }],
+      }),
+    );
+  });
 });
