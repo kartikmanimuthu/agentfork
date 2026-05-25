@@ -452,4 +452,44 @@ describe('LlmNodeExecutor', () => {
       }),
     );
   });
+
+  it('injects context into last user message in a multi-turn conversation', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [
+          { role: 'user', content: 'First message.' },
+          { role: 'assistant', content: 'First reply.' },
+          { role: 'user', content: 'Second message.' },
+        ],
+        channels: { kb_results: 'KB context.' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['kb_results'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'First message.' },
+          { role: 'assistant', content: 'First reply.' },
+          {
+            role: 'user',
+            content:
+              '<documents>\n<document index="1">\nKB context.\n</document>\n</documents>\n\nSecond message.',
+          },
+        ],
+      }),
+    );
+  });
 });

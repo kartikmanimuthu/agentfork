@@ -158,7 +158,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
                 </p>
               ) : (
                 channels.map((ch, idx) => (
-                  <div key={`${ch}-${idx}`} className="flex gap-1.5">
+                  <div key={idx} className="flex gap-1.5">
                     <Input
                       value={ch}
                       onChange={(e) => {
