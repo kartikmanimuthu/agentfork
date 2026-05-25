@@ -16,10 +16,6 @@ export class OutputNodeExecutor implements NodeExecutor {
       ? channelValue
       : JSON.stringify(channelValue ?? '');
 
-    if (config.format === 'text' || config.format === 'stream') {
-      ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: content });
-    }
-
     return {
       stateUpdates: { __output: content },
       next: null,
