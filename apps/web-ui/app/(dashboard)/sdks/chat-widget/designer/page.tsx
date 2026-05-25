@@ -210,31 +210,47 @@ export default function DesignerPage() {
         kbEnabled: config.kbEnabled,
       };
 
+      console.log('[designer] Publishing widget', { widgetId, sdkId, payload });
+
       if (widgetId) {
         const res = await fetch(`/api/v1/sdk-widgets/${widgetId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        console.log('[designer] PATCH response', { status: res.status, ok: res.ok });
         if (res.ok) {
+          const updated = await res.json();
+          console.log('[designer] Widget updated', updated);
           setSaved(true);
           setTimeout(() => setSaved(false), 2000);
           setIframeHtml(buildIframeHtml(config, sdkId) + `<!-- refresh:${Date.now()} -->`);
+        } else {
+          const err = await res.text();
+          console.error('[designer] PATCH failed', { status: res.status, body: err });
         }
       } else {
+        console.log('[designer] Creating new widget (no widgetId yet)');
         const res = await fetch('/api/v1/sdk-widgets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        console.log('[designer] POST response', { status: res.status, ok: res.ok });
         if (res.ok) {
           const w = await res.json() as Record<string, unknown>;
+          console.log('[designer] Widget created', w);
           setWidgetId(w.id as string);
           setSdkId(w.sdkId as string ?? '');
           setSaved(true);
           setTimeout(() => setSaved(false), 2000);
+        } else {
+          const err = await res.text();
+          console.error('[designer] POST failed', { status: res.status, body: err });
         }
       }
+    } catch (err) {
+      console.error('[designer] Publish error', err);
     } finally {
       setSaving(false);
     }
