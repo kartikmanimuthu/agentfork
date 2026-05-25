@@ -155,6 +155,10 @@ export default function DesignerPage() {
           const w = data[0] as Record<string, unknown>;
           setWidgetId(w.id as string);
           setSdkId(w.sdkId as string ?? '');
+
+          const proactiveRulesArr = Array.isArray(w.proactiveRules) ? w.proactiveRules as Array<Record<string, unknown>> : [];
+          const preChatFormArr = Array.isArray(w.preChatForm) ? w.preChatForm as Array<Record<string, unknown>> : [];
+
           setConfig(prev => ({
             ...prev,
             primaryColor: (w.primaryColor as string) ?? prev.primaryColor,
@@ -167,12 +171,16 @@ export default function DesignerPage() {
             inputPlaceholder: (w.inputPlaceholder as string) ?? prev.inputPlaceholder,
             agentId: (w.agentId as string) ?? prev.agentId,
             apiKeyId: (w.apiKeyId as string) ?? prev.apiKeyId,
-            fileUpload: typeof w.fileUpload === 'boolean' ? w.fileUpload : prev.fileUpload,
+            fileUploadEnabled: typeof w.fileUpload === 'boolean' ? w.fileUpload : prev.fileUploadEnabled,
             csatEnabled: typeof w.csatEnabled === 'boolean' ? w.csatEnabled : prev.csatEnabled,
             csatType: (w.csatType as string) ?? prev.csatType,
-            kbEnabled: typeof w.kbEnabled === 'boolean' ? w.kbEnabled : prev.kbEnabled,
+            knowledgeBaseEnabled: typeof w.kbEnabled === 'boolean' ? w.kbEnabled : prev.knowledgeBaseEnabled,
             quickReplies: Array.isArray(w.quickReplies) ? (w.quickReplies as string[]).join(', ') : prev.quickReplies,
             allowedOrigins: Array.isArray(w.allowedOrigins) ? (w.allowedOrigins as string[]).join(', ') : prev.allowedOrigins,
+            preChatEnabled: preChatFormArr.length > 0,
+            proactiveEnabled: proactiveRulesArr.length > 0,
+            proactiveMessage: proactiveRulesArr.length > 0 ? (proactiveRulesArr[0].message as string ?? prev.proactiveMessage) : prev.proactiveMessage,
+            proactiveDelay: proactiveRulesArr.length > 0 ? String(Math.round(((proactiveRulesArr[0].delay as number) ?? 5000) / 1000)) : prev.proactiveDelay,
           }));
         }
       })
@@ -191,6 +199,23 @@ export default function DesignerPage() {
   const handlePublish = async () => {
     setSaving(true);
     try {
+      const preChatForm = config.preChatEnabled
+        ? [
+            { field: 'name', type: 'text', label: 'Name', required: true },
+            { field: 'email', type: 'email', label: 'Email', required: true },
+          ]
+        : null;
+
+      const proactiveRules = config.proactiveEnabled
+        ? [
+            {
+              trigger: 'time',
+              delay: parseInt(config.proactiveDelay, 10) * 1000,
+              message: config.proactiveMessage,
+            },
+          ]
+        : null;
+
       const payload: Record<string, unknown> = {
         agentId: config.agentId || undefined,
         apiKeyId: config.apiKeyId || undefined,
@@ -203,12 +228,14 @@ export default function DesignerPage() {
         headerText: config.headerText,
         welcomeMessage: config.welcomeMessage,
         inputPlaceholder: config.inputPlaceholder,
-        fileUpload: config.fileUpload,
+        fileUpload: config.fileUploadEnabled,
         csatEnabled: config.csatEnabled,
         csatType: config.csatType,
         allowedOrigins: config.allowedOrigins ? config.allowedOrigins.split(',').map(s => s.trim()).filter(Boolean) : [],
         quickReplies: config.quickReplies ? config.quickReplies.split(',').map(s => s.trim()).filter(Boolean) : null,
-        kbEnabled: config.kbEnabled,
+        kbEnabled: config.knowledgeBaseEnabled,
+        preChatForm,
+        proactiveRules,
       };
 
       console.log('[designer] Publishing widget', { widgetId, sdkId, payload });
