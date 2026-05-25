@@ -72,7 +72,21 @@ export class SmcChatWidget {
   }
 
   render() {
-    if (this.bootError || !this.ready) return null;
+    if (this.bootError) {
+      return (
+        <div class="smc-root smc-error">
+          <div class="error-badge" title={this.bootError}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
+    if (!this.ready) return null;
 
     const config = state.config;
     if (!config) return null;

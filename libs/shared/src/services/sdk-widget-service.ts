@@ -25,6 +25,16 @@ export interface CreateSdkWidgetInput {
   botName?: string;
   welcomeMessage?: string;
   inputPlaceholder?: string;
+  customCss?: string;
+  preChatForm?: unknown;
+  quickReplies?: unknown;
+  proactiveRules?: unknown;
+  kbEnabled?: boolean;
+  fileUpload?: boolean;
+  csatEnabled?: boolean;
+  csatType?: string;
+  allowedOrigins?: string[];
+  rateLimitRpm?: number;
 }
 
 export class SdkWidgetService {

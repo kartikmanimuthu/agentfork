@@ -33,3 +33,22 @@
     left: 0;
   }
 }
+
+.smc-error {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}
+
+.error-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}

@@ -166,6 +166,12 @@ export default function DesignerPage() {
             inputPlaceholder: (w.inputPlaceholder as string) ?? prev.inputPlaceholder,
             agentId: (w.agentId as string) ?? prev.agentId,
             apiKeyId: (w.apiKeyId as string) ?? prev.apiKeyId,
+            fileUpload: typeof w.fileUpload === 'boolean' ? w.fileUpload : prev.fileUpload,
+            csatEnabled: typeof w.csatEnabled === 'boolean' ? w.csatEnabled : prev.csatEnabled,
+            csatType: (w.csatType as string) ?? prev.csatType,
+            kbEnabled: typeof w.kbEnabled === 'boolean' ? w.kbEnabled : prev.kbEnabled,
+            quickReplies: Array.isArray(w.quickReplies) ? (w.quickReplies as string[]).join(', ') : prev.quickReplies,
+            allowedOrigins: Array.isArray(w.allowedOrigins) ? (w.allowedOrigins as string[]).join(', ') : prev.allowedOrigins,
           }));
         }
       })
