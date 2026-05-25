@@ -108,22 +108,27 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
                   <div className="flex-1 grid gap-1">
                     <form.Field name={`conditions[${i}].condition`}>
                       {(condField) => (
-                        <form.Subscribe selector={(s) => s.values.mode}>
-                          {(mode) => (
-                            <Input
-                              value={condField.state.value as string}
-                              onChange={(e) => condField.handleChange(e.target.value)}
-                              onBlur={() => { condField.handleBlur(); handleBlur(); }}
-                              placeholder={
-                                mode === 'natural_language'
-                                  ? 'e.g. user is asking about billing'
-                                  : 'e.g. score > 0.8'
-                              }
-                              className="h-8 text-xs"
-                              aria-label={`Condition ${i + 1}`}
-                            />
+                        <>
+                          <form.Subscribe selector={(s) => s.values.mode}>
+                            {(mode) => (
+                              <Input
+                                value={condField.state.value as string}
+                                onChange={(e) => condField.handleChange(e.target.value)}
+                                onBlur={() => { condField.handleBlur(); handleBlur(); }}
+                                placeholder={
+                                  mode === 'natural_language'
+                                    ? 'e.g. user is asking about billing'
+                                    : 'e.g. score > 0.8'
+                                }
+                                className="h-8 text-xs"
+                                aria-label={`Condition ${i + 1}`}
+                              />
+                            )}
+                          </form.Subscribe>
+                          {condField.state.meta.errors.length > 0 && (
+                            <p className="text-xs text-destructive">{String(condField.state.meta.errors[0])}</p>
                           )}
-                        </form.Subscribe>
+                        </>
                       )}
                     </form.Field>
                     <form.Field name={`conditions[${i}].target`}>
@@ -159,6 +164,9 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
               ))}
               {(field.state.value as RouterFormValues['conditions']).length === 0 && (
                 <p className="text-xs text-muted-foreground italic">No conditions yet.</p>
+              )}
+              {field.state.meta.errors.length > 0 && (
+                <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
               )}
             </div>
           )}
