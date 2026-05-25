@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
 import { NodePicker } from './node-picker';
 import type { NodeOption } from './node-picker';
@@ -16,6 +17,7 @@ const conditionSchema = z.object({
 });
 
 const schema = z.object({
+  mode: z.enum(['expression', 'natural_language']),
   conditions: z.array(conditionSchema).min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
 });
@@ -31,6 +33,7 @@ interface RouterNodeFormProps {
 export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormProps) {
   const form = useForm({
     defaultValues: {
+      mode: config.mode ?? 'expression',
       conditions: config.conditions ?? [],
       defaultTarget: config.defaultTarget ?? '',
     } as RouterFormValues,
@@ -38,6 +41,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
     onSubmit: ({ value }) => {
       onChange({
         type: 'router',
+        mode: value.mode,
         conditions: value.conditions,
         defaultTarget: value.defaultTarget || undefined,
       });
@@ -54,6 +58,30 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
       }}
       className="space-y-4"
     >
+      {/* Mode toggle */}
+      <form.Field name="mode">
+        {(field) => (
+          <div className="flex items-center justify-between">
+            <div className="grid gap-0.5">
+              <Label>Natural Language Mode</Label>
+              <p className="text-xs text-muted-foreground">
+                {field.state.value === 'natural_language'
+                  ? 'Write conditions in plain English — LLM classifies at runtime'
+                  : 'Write conditions as JS expressions (e.g. score > 0.8)'}
+              </p>
+            </div>
+            <Switch
+              checked={field.state.value === 'natural_language'}
+              onCheckedChange={(checked) => {
+                field.handleChange(checked ? 'natural_language' : 'expression');
+                handleBlur();
+              }}
+            />
+          </div>
+        )}
+      </form.Field>
+
+      {/* Conditions */}
       <div className="grid gap-2">
         <div className="flex items-center justify-between">
           <Label>Conditions</Label>
@@ -80,14 +108,22 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
                   <div className="flex-1 grid gap-1">
                     <form.Field name={`conditions[${i}].condition`}>
                       {(condField) => (
-                        <Input
-                          value={condField.state.value as string}
-                          onChange={(e) => condField.handleChange(e.target.value)}
-                          onBlur={() => { condField.handleBlur(); handleBlur(); }}
-                          placeholder="x > 0"
-                          className="h-8 text-xs"
-                          aria-label={`Condition ${i + 1}`}
-                        />
+                        <form.Subscribe selector={(s) => s.values.mode}>
+                          {(mode) => (
+                            <Input
+                              value={condField.state.value as string}
+                              onChange={(e) => condField.handleChange(e.target.value)}
+                              onBlur={() => { condField.handleBlur(); handleBlur(); }}
+                              placeholder={
+                                mode === 'natural_language'
+                                  ? 'e.g. user is asking about billing'
+                                  : 'e.g. score > 0.8'
+                              }
+                              className="h-8 text-xs"
+                              aria-label={`Condition ${i + 1}`}
+                            />
+                          )}
+                        </form.Subscribe>
                       )}
                     </form.Field>
                     <form.Field name={`conditions[${i}].target`}>
@@ -129,6 +165,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
         </form.Field>
       </div>
 
+      {/* Default target */}
       <form.Field name="defaultTarget">
         {(field) => (
           <div className="grid gap-1.5">
