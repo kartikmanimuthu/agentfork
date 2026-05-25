@@ -83,25 +83,12 @@ const DEFAULT_CONFIG: WidgetConfig = {
 };
 
 function buildIframeHtml(config: WidgetConfig, sdkId: string): string {
-  const attrs: string[] = [];
-  if (sdkId) attrs.push(`sdk-id="${sdkId}"`);
-  attrs.push(`primary-color="${config.primaryColor}"`);
-  attrs.push(`secondary-color="${config.secondaryColor}"`);
-  attrs.push(`theme="${config.theme}"`);
-  attrs.push(`position="${config.position}"`);
-  attrs.push(`bot-name="${config.botName}"`);
-  attrs.push(`header-text="${config.headerText}"`);
-  attrs.push(`welcome-message="${config.welcomeMessage}"`);
-  attrs.push(`input-placeholder="${config.inputPlaceholder}"`);
-  if (config.quickReplies) {
-    const opts = config.quickReplies.split(',').map(s => s.trim()).filter(Boolean);
-    attrs.push(`default-options='${JSON.stringify(opts)}'`);
-  }
+  if (!sdkId) return '';
 
   return `<!DOCTYPE html>
 <html><head><style>body{margin:0;overflow:hidden;}</style></head>
 <body>
-<smc-chat-widget ${attrs.join(' ')}></smc-chat-widget>
+<smc-chat-widget sdk-id="${sdkId}" api-url="${typeof window !== 'undefined' ? window.location.origin : ''}"></smc-chat-widget>
 <script type="module" src="${SDK_SCRIPT_URL}"><\/script>
 </body></html>`;
 }
@@ -197,7 +184,7 @@ export default function DesignerPage() {
   const handlePublish = async () => {
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         agentId: config.agentId || undefined,
         apiKeyId: config.apiKeyId || undefined,
         name: config.headerText || 'My Widget',
@@ -209,6 +196,12 @@ export default function DesignerPage() {
         headerText: config.headerText,
         welcomeMessage: config.welcomeMessage,
         inputPlaceholder: config.inputPlaceholder,
+        fileUpload: config.fileUpload,
+        csatEnabled: config.csatEnabled,
+        csatType: config.csatType,
+        allowedOrigins: config.allowedOrigins ? config.allowedOrigins.split(',').map(s => s.trim()).filter(Boolean) : [],
+        quickReplies: config.quickReplies ? config.quickReplies.split(',').map(s => s.trim()).filter(Boolean) : null,
+        kbEnabled: config.kbEnabled,
       };
 
       if (widgetId) {
@@ -220,6 +213,7 @@ export default function DesignerPage() {
         if (res.ok) {
           setSaved(true);
           setTimeout(() => setSaved(false), 2000);
+          setIframeHtml(buildIframeHtml(config, sdkId) + `<!-- refresh:${Date.now()} -->`);
         }
       } else {
         const res = await fetch('/api/v1/sdk-widgets', {
