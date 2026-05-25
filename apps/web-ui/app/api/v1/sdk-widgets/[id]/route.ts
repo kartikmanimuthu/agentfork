@@ -10,17 +10,24 @@ export async function GET(
 ) {
   try {
     const tenantId = await getSessionTenantId(authOptions);
-    const authError = await authorize('read', 'SdkWidget', authOptions);
-    if (authError) return authError;
-
     const { id } = await params;
+    logger.info({ tenantId, widgetId: id }, 'GET /api/v1/sdk-widgets/:id');
+
+    const authError = await authorize('read', 'SdkWidget', authOptions);
+    if (authError) {
+      logger.warn({ tenantId, widgetId: id }, 'Authorization denied for SdkWidget read');
+      return authError;
+    }
+
     const db = getPrismaClient();
     const service = new SdkWidgetService(tenantId, db);
     const widget = await service.findById(id);
 
     if (!widget) {
+      logger.warn({ tenantId, widgetId: id }, 'Widget not found');
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+    logger.info({ tenantId, widgetId: id }, 'Widget fetched successfully');
     return NextResponse.json(widget);
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -40,16 +47,23 @@ export async function PATCH(
 ) {
   try {
     const tenantId = await getSessionTenantId(authOptions);
-    const authError = await authorize('update', 'SdkWidget', authOptions);
-    if (authError) return authError;
-
     const { id } = await params;
+    logger.info({ tenantId, widgetId: id }, 'PATCH /api/v1/sdk-widgets/:id — updating widget');
+
+    const authError = await authorize('update', 'SdkWidget', authOptions);
+    if (authError) {
+      logger.warn({ tenantId, widgetId: id }, 'Authorization denied for SdkWidget update');
+      return authError;
+    }
+
     const body = await req.json();
+    logger.info({ tenantId, widgetId: id, payload: body }, 'Widget update payload received');
+
     const db = getPrismaClient();
     const service = new SdkWidgetService(tenantId, db);
     const widget = await service.update(id, body);
 
-    logger.info({ tenantId, widgetId: id }, 'SDK widget updated via API');
+    logger.info({ tenantId, widgetId: id, updatedFields: Object.keys(body) }, 'SDK widget updated successfully');
     return NextResponse.json(widget);
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -58,7 +72,7 @@ export async function PATCH(
     if (error instanceof Error && error.message.includes('Unauthorized')) {
       return NextResponse.json({ error: 'Unauthorized', message: error.message }, { status: 403 });
     }
-    logger.error({ error, widgetId: (await params).id }, 'Failed to update SDK widget');
+    logger.error({ error: (error as Error).message, stack: (error as Error).stack }, 'Failed to update SDK widget');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -69,15 +83,20 @@ export async function DELETE(
 ) {
   try {
     const tenantId = await getSessionTenantId(authOptions);
-    const authError = await authorize('delete', 'SdkWidget', authOptions);
-    if (authError) return authError;
-
     const { id } = await params;
+    logger.info({ tenantId, widgetId: id }, 'DELETE /api/v1/sdk-widgets/:id');
+
+    const authError = await authorize('delete', 'SdkWidget', authOptions);
+    if (authError) {
+      logger.warn({ tenantId, widgetId: id }, 'Authorization denied for SdkWidget delete');
+      return authError;
+    }
+
     const db = getPrismaClient();
     const service = new SdkWidgetService(tenantId, db);
     await service.delete(id);
 
-    logger.info({ tenantId, widgetId: id }, 'SDK widget deleted via API');
+    logger.info({ tenantId, widgetId: id }, 'SDK widget deleted successfully');
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -86,7 +105,7 @@ export async function DELETE(
     if (error instanceof Error && error.message.includes('Unauthorized')) {
       return NextResponse.json({ error: 'Unauthorized', message: error.message }, { status: 403 });
     }
-    logger.error({ error, widgetId: (await params).id }, 'Failed to delete SDK widget');
+    logger.error({ error: (error as Error).message, stack: (error as Error).stack }, 'Failed to delete SDK widget');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
