@@ -14,10 +14,48 @@ export class LlmNodeExecutor implements NodeExecutor {
     try {
       const provider = await ctx.services.llmProvider(undefined, config.model);
 
-      const messages = ctx.state.messages.map((m) => ({
+      let messages = ctx.state.messages.map((m) => ({
         role: m.role,
         content: m.content,
       }));
+
+      const contextChannels = config.contextChannels ?? [];
+      const channelContents = contextChannels
+        .map((ch) => ({ ch, content: ctx.state.channels[ch] }))
+        .filter(
+          (e): e is { ch: string; content: string } =>
+            typeof e.content === 'string' && e.content.trim().length > 0,
+        );
+
+      if (channelContents.length > 0) {
+        const lastUserIdx = messages.reduce<number>(
+          (found, m, i) => (m.role === 'user' ? i : found),
+          -1,
+        );
+
+        if (lastUserIdx !== -1) {
+          const docBlock = channelContents
+            .map((e, i) => `<document index="${i + 1}">\n${e.content}\n</document>`)
+            .join('\n');
+          const xmlBlock = `<documents>\n${docBlock}\n</documents>`;
+
+          messages = [
+            ...messages.slice(0, lastUserIdx),
+            { ...messages[lastUserIdx], content: `${xmlBlock}\n\n${messages[lastUserIdx].content}` },
+            ...messages.slice(lastUserIdx + 1),
+          ];
+
+          logger.debug(
+            { nodeId: ctx.node.id, channels: contextChannels, docCount: channelContents.length },
+            'injected context channels into last user message',
+          );
+        } else {
+          logger.warn(
+            { nodeId: ctx.node.id, channels: contextChannels },
+            'contextChannels configured but no user message found to inject into — skipping',
+          );
+        }
+      }
 
       const streamResult = provider.streamChat({
         messages,

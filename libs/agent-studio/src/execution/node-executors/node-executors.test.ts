@@ -269,4 +269,131 @@ describe('LlmNodeExecutor', () => {
 
     await expect(executor.execute(ctx)).rejects.toThrow('provider unavailable');
   });
+
+  it('prepends context channel content to last user message as XML', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [{ role: 'user', content: 'What is the policy?' }],
+        channels: { kb_results: 'Policy document text here.' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['kb_results'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: 'user',
+            content:
+              '<documents>\n<document index="1">\nPolicy document text here.\n</document>\n</documents>\n\nWhat is the policy?',
+          },
+        ],
+        system: undefined,
+      }),
+    );
+  });
+
+  it('skips injection when listed channel value is empty', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [{ role: 'user', content: 'Hello' }],
+        channels: { kb_results: '' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['kb_results'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: 'Hello' }],
+      }),
+    );
+  });
+
+  it('skips injection when no user message exists in messages array', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [],
+        channels: { kb_results: 'some context' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', contextChannels: ['kb_results'] },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({ messages: [] }),
+    );
+  });
+
+  it('injects multiple channels as separate document blocks', async () => {
+    const chunks = ['answer'];
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { for (const c of chunks) yield c; })(),
+      }),
+    };
+
+    const ctx = createMockContext({
+      state: createMockState({
+        messages: [{ role: 'user', content: 'Summarise.' }],
+        channels: { kb_results: 'KB content.', http_data: 'HTTP content.' },
+      }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: {
+        type: 'llm',
+        model: 'claude-3',
+        contextChannels: ['kb_results', 'http_data'],
+      },
+      services: { llmProvider: vi.fn().mockResolvedValue(mockProvider), prisma: {} },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: 'user',
+            content:
+              '<documents>\n<document index="1">\nKB content.\n</document>\n<document index="2">\nHTTP content.\n</document>\n</documents>\n\nSummarise.',
+          },
+        ],
+      }),
+    );
+  });
 });
