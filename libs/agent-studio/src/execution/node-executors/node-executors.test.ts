@@ -493,3 +493,100 @@ describe('LlmNodeExecutor', () => {
     );
   });
 });
+
+describe('RouterNodeExecutor — natural_language mode', () => {
+  const executor = new RouterNodeExecutor();
+
+  function makeNlContext(conditions: Array<{ condition: string; target: string }>, llmResponse: string) {
+    const mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield llmResponse; })(),
+    });
+    return createMockContext({
+      node: createMockNode({ id: 'router-nl', type: 'router', label: 'NL Router' }),
+      config: {
+        type: 'router',
+        mode: 'natural_language' as const,
+        conditions,
+      },
+      services: {
+        llmProvider: vi.fn().mockResolvedValue({ streamChat: mockStreamChat }),
+        prisma: {},
+      },
+    });
+  }
+
+  it('calls llmProvider and routes to the matched condition', async () => {
+    const ctx = makeNlContext(
+      [
+        { condition: 'user is asking about billing', target: 'billing-node' },
+        { condition: 'user wants a refund', target: 'refund-node' },
+      ],
+      '0'
+    );
+    const result = await executor.execute(ctx);
+    expect(result.next).toEqual(['billing-node']);
+  });
+
+  it('routes to second condition when LLM returns index 1', async () => {
+    const ctx = makeNlContext(
+      [
+        { condition: 'user is asking about billing', target: 'billing-node' },
+        { condition: 'user wants a refund', target: 'refund-node' },
+      ],
+      '1'
+    );
+    const result = await executor.execute(ctx);
+    expect(result.next).toEqual(['refund-node']);
+  });
+
+  it('falls back to defaultTarget when LLM returns -1', async () => {
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'router-nl', type: 'router', label: 'NL Router' }),
+      config: {
+        type: 'router',
+        mode: 'natural_language' as const,
+        conditions: [{ condition: 'user is asking about billing', target: 'billing-node' }],
+        defaultTarget: 'fallback-node',
+      },
+      services: {
+        llmProvider: vi.fn().mockResolvedValue({
+          streamChat: vi.fn().mockReturnValue({
+            textStream: (async function* () { yield '-1'; })(),
+          }),
+        }),
+        prisma: {},
+      },
+    });
+    const result = await executor.execute(ctx);
+    expect(result.next).toEqual(['fallback-node']);
+  });
+
+  it('throws when LLM returns -1 and no defaultTarget', async () => {
+    const ctx = makeNlContext(
+      [{ condition: 'user is asking about billing', target: 'billing-node' }],
+      '-1'
+    );
+    await expect(executor.execute(ctx)).rejects.toThrow('no condition matched');
+  });
+
+  it('includes channel state in the classification prompt', async () => {
+    const mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield '0'; })(),
+    });
+    const llmProvider = vi.fn().mockResolvedValue({ streamChat: mockStreamChat });
+    const ctx = createMockContext({
+      state: createMockState({ channels: { query: 'I need a refund' } }),
+      node: createMockNode({ id: 'router-nl', type: 'router', label: 'NL Router' }),
+      config: {
+        type: 'router',
+        mode: 'natural_language' as const,
+        conditions: [{ condition: 'user wants a refund', target: 'refund-node' }],
+      },
+      services: { llmProvider, prisma: {} },
+    });
+    await executor.execute(ctx);
+    const callArgs = mockStreamChat.mock.calls[0][0];
+    const promptText = JSON.stringify(callArgs.messages);
+    expect(promptText).toContain('I need a refund');
+  });
+});
