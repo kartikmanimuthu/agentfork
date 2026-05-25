@@ -130,18 +130,30 @@ export function KnowledgeBaseNodeForm({ config, onChange }: KnowledgeBaseNodeFor
       <form.Field name="threshold">
         {(field) => (
           <div className="grid gap-1.5">
-            <Label>Threshold ({field.state.value ?? 'none'})</Label>
+            <div className="flex items-center justify-between">
+              <Label>Similarity Threshold</Label>
+              <span className="text-xs text-muted-foreground">
+                {field.state.value != null ? field.state.value.toFixed(2) : 'KB default'}
+              </span>
+            </div>
             <Slider
               min={0}
               max={1}
               step={0.05}
-              value={[field.state.value ?? 0]}
+              value={[field.state.value ?? 0.5]}
               onValueChange={(values) => {
                 const v = Array.isArray(values) ? values[0] : values;
-                field.handleChange(v > 0 ? v : undefined);
+                field.handleChange(v);
                 handleBlur();
               }}
             />
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground text-left"
+              onClick={() => { field.handleChange(undefined); handleBlur(); }}
+            >
+              {field.state.value != null ? '✕ Clear (use KB default)' : ''}
+            </button>
           </div>
         )}
       </form.Field>
