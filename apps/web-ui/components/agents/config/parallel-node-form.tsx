@@ -4,6 +4,8 @@ import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -11,10 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { NodePicker } from './node-picker';
+import type { NodeOption } from './node-picker';
 import type { ParallelNodeConfig } from '@chatbot/agent-studio';
 
 const schema = z.object({
-  branches: z.string(),
+  branches: z.array(z.string()),
   mergeStrategy: z.enum(['all', 'race', 'any']),
   outputChannel: z.string().min(1, 'Output channel is required'),
 });
@@ -24,12 +28,13 @@ type ParallelFormValues = z.infer<typeof schema>;
 interface ParallelNodeFormProps {
   config: ParallelNodeConfig;
   onChange: (config: ParallelNodeConfig) => void;
+  allNodes: NodeOption[];
 }
 
-export function ParallelNodeForm({ config, onChange }: ParallelNodeFormProps) {
+export function ParallelNodeForm({ config, onChange, allNodes }: ParallelNodeFormProps) {
   const form = useForm({
     defaultValues: {
-      branches: (config.branches ?? []).join(', '),
+      branches: config.branches ?? [],
       mergeStrategy: config.mergeStrategy ?? 'all',
       outputChannel: config.outputChannel ?? 'parallel_result',
     } as ParallelFormValues,
@@ -37,10 +42,7 @@ export function ParallelNodeForm({ config, onChange }: ParallelNodeFormProps) {
     onSubmit: ({ value }) => {
       onChange({
         type: 'parallel',
-        branches: value.branches
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        branches: value.branches.filter(Boolean),
         mergeStrategy: value.mergeStrategy,
         outputChannel: value.outputChannel,
       });
@@ -57,18 +59,59 @@ export function ParallelNodeForm({ config, onChange }: ParallelNodeFormProps) {
       }}
       className="space-y-4"
     >
-      <form.Field name="branches">
+      <form.Field name="branches" mode="array">
         {(field) => (
-          <div className="grid gap-1.5">
-            <Label htmlFor={field.name}>Branches</Label>
-            <Input
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="node_1, node_2, node_3"
-            />
-            <p className="text-[10px] text-muted-foreground">Comma-separated target node IDs</p>
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <Label>Branches</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const current = form.getFieldValue('branches') as string[];
+                  form.setFieldValue('branches', [...current, '']);
+                }}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {(field.state.value as string[]).map((_, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <form.Field name={`branches[${i}]`}>
+                    {(branchField) => (
+                      <NodePicker
+                        nodes={allNodes}
+                        value={branchField.state.value as string}
+                        onChange={(id) => { branchField.handleChange(id); handleBlur(); }}
+                        placeholder="Select branch node…"
+                        className="flex-1 h-8 text-xs"
+                      />
+                    )}
+                  </form.Field>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive shrink-0"
+                    onClick={() => {
+                      const current = form.getFieldValue('branches') as string[];
+                      form.setFieldValue('branches', current.filter((_: string, j: number) => j !== i));
+                      handleBlur();
+                    }}
+                    aria-label={`Remove branch ${i + 1}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {(field.state.value as string[]).length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No branches yet.</p>
+              )}
+            </div>
           </div>
         )}
       </form.Field>

@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { NodePicker } from './node-picker';
+import type { NodeOption } from './node-picker';
 import type { RouterNodeConfig } from '@chatbot/agent-studio';
 
 const conditionSchema = z.object({
@@ -23,9 +25,10 @@ type RouterFormValues = z.infer<typeof schema>;
 interface RouterNodeFormProps {
   config: RouterNodeConfig;
   onChange: (config: RouterNodeConfig) => void;
+  allNodes: NodeOption[];
 }
 
-export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
+export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormProps) {
   const form = useForm({
     defaultValues: {
       conditions: config.conditions ?? [],
@@ -89,13 +92,15 @@ export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
                     </form.Field>
                     <form.Field name={`conditions[${i}].target`}>
                       {(targetField) => (
-                        <Input
+                        <NodePicker
+                          nodes={allNodes}
                           value={targetField.state.value as string}
-                          onChange={(e) => targetField.handleChange(e.target.value)}
-                          onBlur={() => { targetField.handleBlur(); handleBlur(); }}
-                          placeholder="target-node-id"
+                          onChange={(id) => {
+                            targetField.handleChange(id);
+                            handleBlur();
+                          }}
+                          placeholder="Target node…"
                           className="h-8 text-xs"
-                          aria-label={`Target ${i + 1}`}
                         />
                       )}
                     </form.Field>
@@ -127,13 +132,15 @@ export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
       <form.Field name="defaultTarget">
         {(field) => (
           <div className="grid gap-1.5">
-            <Label htmlFor={field.name}>Default Target (optional)</Label>
-            <Input
-              id={field.name}
+            <Label>Default Target (optional)</Label>
+            <NodePicker
+              nodes={allNodes}
               value={field.state.value as string ?? ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="fallback-node-id"
+              onChange={(id) => {
+                field.handleChange(id);
+                handleBlur();
+              }}
+              placeholder="Fallback node…"
             />
           </div>
         )}
