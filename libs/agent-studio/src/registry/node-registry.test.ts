@@ -20,7 +20,7 @@ describe('NodeRegistry', () => {
       expect(types).toContain('parallel');
       expect(types).toContain('sub_agent');
       expect(types).toContain('delay');
-      expect(all).toHaveLength(13);
+      expect(all).toHaveLength(14);
     });
   });
 
@@ -132,8 +132,8 @@ describe('NodeRegistry', () => {
     it('each definition has a valid default config', () => {
       for (const def of NodeRegistry.getAll()) {
         const errors = def.validate(def.defaultConfig);
-        // router/state_schema/tool defaults are intentionally incomplete — user must fill them in
-        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server' || def.type === 'human' || def.type === 'sub_agent') continue;
+        // router/state_schema/tool/condition defaults are intentionally incomplete — user must fill them in
+        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server' || def.type === 'human' || def.type === 'sub_agent' || def.type === 'condition') continue;
         expect(errors, `${def.type} default config should be valid`).toHaveLength(0);
       }
     });
