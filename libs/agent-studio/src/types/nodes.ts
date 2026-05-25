@@ -39,10 +39,10 @@ export interface ToolNodeConfig {
 
 export interface RouterNodeConfig {
   type: 'router';
+  mode?: 'expression' | 'natural_language';
   conditions: Array<{
-    /** Boolean expression evaluated at runtime */
+    /** Boolean JS expression (expression mode) or plain English (natural_language mode) */
     condition: string;
-    /** Target node id */
     target: string;
   }>;
   defaultTarget?: string;
