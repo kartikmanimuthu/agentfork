@@ -61,6 +61,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!api/auth|api/health|api/v1/inference|_next/static|_next/image|favicon.ico|login|register|forgot-password|reset-password|signup|docs).*)',
+    '/((?!api/auth|api/health|api/v1/inference|api/v1/sdk|_next/static|_next/image|favicon.ico|login|register|forgot-password|reset-password|signup|docs).*)',
   ],
 };
