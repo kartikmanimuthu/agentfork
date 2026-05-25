@@ -145,7 +145,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
                   className="h-6 px-2 text-xs"
                   onClick={() => {
                     form.setFieldValue('contextChannels', [...channels, '']);
-                    handleBlur();
+                    setTimeout(handleBlur, 0);
                   }}
                 >
                   + Add
@@ -158,7 +158,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
                 </p>
               ) : (
                 channels.map((ch, idx) => (
-                  <div key={idx} className="flex gap-1.5">
+                  <div key={`${ch}-${idx}`} className="flex gap-1.5">
                     <Input
                       value={ch}
                       onChange={(e) => {
@@ -166,7 +166,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
                         next[idx] = e.target.value;
                         form.setFieldValue('contextChannels', next);
                       }}
-                      onBlur={() => handleBlur()}
+                      onBlur={() => { field.handleBlur(); handleBlur(); }}
                       placeholder="e.g. kb_results"
                       className="flex-1 font-mono text-xs"
                     />
@@ -180,7 +180,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
                           'contextChannels',
                           channels.filter((_, i) => i !== idx),
                         );
-                        handleBlur();
+                        setTimeout(handleBlur, 0);
                       }}
                     >
                       ×
