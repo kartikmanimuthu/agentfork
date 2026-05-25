@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { LlmNodeConfig } from '@chatbot/agent-studio';
 
@@ -14,6 +15,7 @@ const schema = z.object({
   systemPrompt: z.string().optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().positive().optional(),
+  contextChannels: z.array(z.string()).optional(),
 });
 
 type LlmFormValues = z.infer<typeof schema>;
@@ -30,6 +32,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
       systemPrompt: config.systemPrompt ?? '',
       temperature: config.temperature ?? 0.7,
       maxTokens: config.maxTokens,
+      contextChannels: config.contextChannels ?? [],
     } as LlmFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
@@ -39,6 +42,9 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
         systemPrompt: value.systemPrompt || undefined,
         temperature: value.temperature,
         maxTokens: value.maxTokens || undefined,
+        contextChannels: value.contextChannels?.filter(Boolean).length
+          ? value.contextChannels.filter(Boolean)
+          : undefined,
       });
     },
   });
@@ -123,6 +129,68 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
             />
           </div>
         )}
+      </form.Field>
+
+      <form.Field name="contextChannels">
+        {(field) => {
+          const channels = (field.state.value ?? []) as string[];
+          return (
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Context Channels</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    form.setFieldValue('contextChannels', [...channels, '']);
+                    handleBlur();
+                  }}
+                >
+                  + Add
+                </Button>
+              </div>
+              {channels.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Add the outputChannel name from an upstream KB, HTTP, or Code node (e.g.{' '}
+                  <span className="font-mono">kb_results</span>).
+                </p>
+              ) : (
+                channels.map((ch, idx) => (
+                  <div key={idx} className="flex gap-1.5">
+                    <Input
+                      value={ch}
+                      onChange={(e) => {
+                        const next = [...channels];
+                        next[idx] = e.target.value;
+                        form.setFieldValue('contextChannels', next);
+                      }}
+                      onBlur={() => handleBlur()}
+                      placeholder="e.g. kb_results"
+                      className="flex-1 font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 w-9 px-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        form.setFieldValue(
+                          'contextChannels',
+                          channels.filter((_, i) => i !== idx),
+                        );
+                        handleBlur();
+                      }}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        }}
       </form.Field>
     </form>
   );
