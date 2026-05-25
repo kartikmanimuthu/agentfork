@@ -26,6 +26,8 @@ export interface LlmNodeConfig {
   maxTokens?: number;
   /** Tool names wired into this node */
   tools?: string[];
+  /** Channel names whose string values are injected as RAG context into the last user message */
+  contextChannels?: string[];
 }
 
 export interface ToolNodeConfig {
