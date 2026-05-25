@@ -1189,7 +1189,7 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
-            { name: "WORKER_ARCH", value: "horizontal" },
+            { name: "WORKER_ARCH", value: "vertical" },
             { name: "ECS_CLUSTER_ARN", value: clusterArn },
             { name: "WORKER_TASK_DEFINITION_ARN", value: ephTaskDefArn },
             { name: "PRIVATE_SUBNET_IDS", value: subnetsJoined },
