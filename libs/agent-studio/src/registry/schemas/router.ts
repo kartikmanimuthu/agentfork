@@ -12,4 +12,5 @@ export const routerNodeSchema = z.object({
     )
     .min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
+  nlTemperature: z.number().min(0).max(1).default(0).optional(),
 });

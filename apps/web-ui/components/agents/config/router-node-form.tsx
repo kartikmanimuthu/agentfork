@@ -20,6 +20,7 @@ const schema = z.object({
   mode: z.enum(['expression', 'natural_language']),
   conditions: z.array(conditionSchema).min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
+  nlTemperature: z.number().min(0).max(1).default(0),
 });
 
 type RouterFormValues = z.infer<typeof schema>;
@@ -36,6 +37,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
       mode: config.mode ?? 'expression',
       conditions: config.conditions ?? [],
       defaultTarget: config.defaultTarget ?? '',
+      nlTemperature: config.nlTemperature ?? 0,
     } as RouterFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
@@ -44,6 +46,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
         mode: value.mode,
         conditions: value.conditions,
         defaultTarget: value.defaultTarget || undefined,
+        nlTemperature: value.nlTemperature,
       });
     },
   });
@@ -80,6 +83,37 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
           </div>
         )}
       </form.Field>
+
+      {/* NL Temperature — only visible in natural_language mode */}
+      <form.Subscribe selector={(s) => s.values.mode}>
+        {(mode) =>
+          mode === 'natural_language' ? (
+            <form.Field name="nlTemperature">
+              {(field) => (
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Classifier Temperature: {(field.state.value as number).toFixed(1)}</Label>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={field.state.value as number}
+                    onChange={(e) => field.handleChange(Number(e.target.value))}
+                    onMouseUp={() => handleBlur()}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0 (precise)</span>
+                    <span>1 (creative)</span>
+                  </div>
+                </div>
+              )}
+            </form.Field>
+          ) : null
+        }
+      </form.Subscribe>
 
       {/* Conditions */}
       <div className="grid gap-2">

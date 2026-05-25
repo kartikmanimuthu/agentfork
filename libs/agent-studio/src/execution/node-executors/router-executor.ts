@@ -94,7 +94,7 @@ No explanation. Just the number.`;
 
       const streamResult = provider.streamChat({
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
+        temperature: config.nlTemperature ?? 0,
         maxOutputTokens: 10,
       });
 

@@ -46,6 +46,8 @@ export interface RouterNodeConfig {
     target: string;
   }>;
   defaultTarget?: string;
+  /** Temperature for LLM classification in natural_language mode (0–1, default 0) */
+  nlTemperature?: number;
 }
 
 export interface StateSchemaNodeConfig {
