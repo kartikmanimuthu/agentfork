@@ -20,7 +20,7 @@ const schema = z.object({
   mode: z.enum(['expression', 'natural_language']),
   conditions: z.array(conditionSchema).min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
-  nlTemperature: z.number().min(0).max(1).default(0),
+  nlTemperature: z.number().min(0).max(1),
 });
 
 type RouterFormValues = z.infer<typeof schema>;
