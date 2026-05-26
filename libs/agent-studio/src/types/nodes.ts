@@ -73,6 +73,7 @@ export interface MemoryNodeConfig {
   maxMessages?: number;
   maxTokens?: number;
   messagesChannel: string;
+  keepRecent?: number;
 }
 
 export interface KnowledgeBaseNodeConfig {
