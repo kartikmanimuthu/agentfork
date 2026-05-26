@@ -1,7 +1,6 @@
 import { getPrismaClient } from './prisma-client';
 
 export const TENANT_SCOPED_MODELS = new Set([
-  'Conversation',
   'AuditLog',
   'CustomRole',
   'UserTenantRole',

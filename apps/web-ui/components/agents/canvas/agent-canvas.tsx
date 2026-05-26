@@ -19,10 +19,15 @@ import { NodeRegistry, GraphValidationService } from '@chatbot/agent-studio';
 import type { GraphNode, GraphEdge, NodeConfig, ValidationError } from '@chatbot/agent-studio';
 import { nodeTypes } from './node-types';
 import { NodePalette } from './node-palette';
+import { NodeContextMenu } from './node-context-menu';
+import { EdgeContextMenu } from './edge-context-menu';
 import { CanvasToolbar } from './canvas-toolbar';
 import { CanvasStatusBar } from './canvas-status-bar';
+import { VersionsPanel } from './versions-panel';
+import { CanvasResourcesPanel } from './canvas-resources-panel';
 import { ConfigPanel } from '../config/config-panel';
 import { useAgentCanvasStore } from '@/store/agent-canvas-store';
+import { useCanvasKeyboardShortcuts } from '@/hooks/use-canvas-keyboard-shortcuts';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
@@ -51,6 +56,7 @@ function toRfEdge(e: GraphEdge): Edge {
 interface AgentCanvasProps {
   agentId: string;
   agentName: string;
+  agentConfig: Record<string, unknown>;
   initialNodes: GraphNode[];
   initialEdges: GraphEdge[];
   onSave: (nodes: GraphNode[], edges: GraphEdge[]) => Promise<void>;
@@ -60,6 +66,7 @@ interface AgentCanvasProps {
 export function AgentCanvas({
   agentId,
   agentName,
+  agentConfig,
   initialNodes,
   initialEdges,
   onSave,
@@ -72,11 +79,15 @@ export function AgentCanvas({
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState(initialEdges.map(toRfEdge));
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{ edgeId: string; x: number; y: number } | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[] | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
 
   // Sync store on mount
   useEffect(() => {
@@ -84,6 +95,17 @@ export function AgentCanvas({
     store.setGraph(initialNodes, initialEdges);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
+
+  // Warn before navigating away with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
@@ -130,11 +152,116 @@ export function AgentCanvas({
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
+    setContextMenu(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
+    setContextMenu(null);
+    setEdgeContextMenu(null);
   }, []);
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setContextMenu({ nodeId: node.id, x: event.clientX, y: event.clientY });
+    setEdgeContextMenu(null);
+  }, []);
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setEdgeContextMenu({ edgeId: edge.id, x: event.clientX, y: event.clientY });
+    setContextMenu(null);
+  }, []);
+
+  const handleDeleteEdge = useCallback(
+    (edgeId: string) => {
+      setRfEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      setIsDirty(true);
+    },
+    [setRfEdges]
+  );
+
+  const handleAddEdgeLabel = useCallback(
+    (edgeId: string) => {
+      const label = prompt('Edge label:');
+      if (label === null) return;
+      setRfEdges((eds) =>
+        eds.map((e) => (e.id === edgeId ? { ...e, label: label || undefined } : e))
+      );
+      setIsDirty(true);
+    },
+    [setRfEdges]
+  );
+
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      setRfNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setRfEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      if (selectedNodeId === nodeId) setSelectedNodeId(null);
+      setIsDirty(true);
+    },
+    [setRfNodes, setRfEdges, selectedNodeId]
+  );
+
+  const handleDuplicateNode = useCallback(
+    (nodeId: string) => {
+      const source = rfNodes.find((n) => n.id === nodeId);
+      if (!source) return;
+      const id = `${source.type}-${Date.now()}`;
+      const newNode: Node = {
+        ...source,
+        id,
+        position: { x: source.position.x + 50, y: source.position.y + 50 },
+        selected: false,
+      };
+      setRfNodes((nds) => [...nds, newNode]);
+      setIsDirty(true);
+    },
+    [rfNodes, setRfNodes]
+  );
+
+  const getSelectedNodeIds = useCallback(() => {
+    return selectedNodeId ? [selectedNodeId] : [];
+  }, [selectedNodeId]);
+
+  const handleCopyNodes = useCallback(
+    (ids: string[]) => {
+      const nodes = rfNodes
+        .filter((n) => ids.includes(n.id))
+        .map((n) => ({
+          id: n.id,
+          type: n.type ?? 'llm',
+          label: (n.data as { label: string }).label,
+          config: (n.data as { config: NodeConfig }).config,
+          position: n.position,
+        }));
+      store.setClipboard(nodes);
+    },
+    [rfNodes, store]
+  );
+
+  const handlePasteNodes = useCallback(() => {
+    const clipboard = store.clipboard;
+    if (clipboard.length === 0) return;
+    const newNodes: Node[] = clipboard.map((n) => ({
+      id: `${n.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: n.config.type,
+      position: { x: n.position.x + 50, y: n.position.y + 50 },
+      data: { label: n.label, config: n.config },
+      selected: false,
+    }));
+    setRfNodes((nds) => [...nds, ...newNodes]);
+    setIsDirty(true);
+  }, [store, setRfNodes]);
+
+  useCanvasKeyboardShortcuts({
+    containerRef: reactFlowWrapper,
+    getSelectedNodeIds,
+    onDelete: (ids) => ids.forEach(handleDeleteNode),
+    onDuplicate: (ids) => ids.forEach(handleDuplicateNode),
+    onCopy: handleCopyNodes,
+    onPaste: handlePasteNodes,
+  });
 
   const selectedNode: GraphNode | null = selectedNodeId
     ? (() => {
@@ -237,6 +364,8 @@ export function AgentCanvas({
         onSave={handleSave}
         onValidate={handleValidate}
         onPublish={handlePublish}
+        onOpenVersions={() => setVersionsOpen(true)}
+        onOpenResources={() => setResourcesOpen(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -256,21 +385,43 @@ export function AgentCanvas({
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
             nodeTypes={nodeTypes}
             fitView
-            deleteKeyCode="Delete"
+            deleteKeyCode={null}
             className="bg-muted/20"
           >
             <Background />
             <Controls />
             <MiniMap nodeStrokeWidth={3} zoomable pannable />
           </ReactFlow>
+          {contextMenu && (
+            <NodeContextMenu
+              nodeId={contextMenu.nodeId}
+              position={{ x: contextMenu.x, y: contextMenu.y }}
+              onEdit={(id) => setSelectedNodeId(id)}
+              onDuplicate={handleDuplicateNode}
+              onDelete={handleDeleteNode}
+              onClose={() => setContextMenu(null)}
+            />
+          )}
+          {edgeContextMenu && (
+            <EdgeContextMenu
+              edgeId={edgeContextMenu.edgeId}
+              position={{ x: edgeContextMenu.x, y: edgeContextMenu.y }}
+              onAddLabel={handleAddEdgeLabel}
+              onDelete={handleDeleteEdge}
+              onClose={() => setEdgeContextMenu(null)}
+            />
+          )}
         </div>
 
         <ConfigPanel
           node={selectedNode}
           onClose={() => setSelectedNodeId(null)}
           onConfigChange={handleConfigChange}
+          onDelete={handleDeleteNode}
         />
       </div>
 
@@ -278,6 +429,31 @@ export function AgentCanvas({
         nodeCount={rfNodes.length}
         edgeCount={rfEdges.length}
         validationErrors={validationErrors}
+      />
+
+      <VersionsPanel
+        agentId={agentId}
+        open={versionsOpen}
+        onOpenChange={setVersionsOpen}
+        isDirty={isDirty}
+        onLoadVersion={(version) => {
+          const config = version.config as { nodes?: GraphNode[]; edges?: GraphEdge[] } | undefined;
+          if (config?.nodes) {
+            setRfNodes(config.nodes.map(toRfNode));
+            setRfEdges((config.edges ?? []).map(toRfEdge));
+            setIsDirty(true);
+            setSelectedNodeId(null);
+            toast.success(`Loaded version ${version.version}`);
+          }
+          setVersionsOpen(false);
+        }}
+      />
+
+      <CanvasResourcesPanel
+        agentId={agentId}
+        agentConfig={agentConfig}
+        open={resourcesOpen}
+        onOpenChange={setResourcesOpen}
       />
     </div>
   );

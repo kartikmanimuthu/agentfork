@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
+import { getSessionTenantId, authorize, createLogger, parseJson, ValidationError } from '@chatbot/shared';
 import { KnowledgeBaseService, updateKnowledgeBaseSchema } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:knowledge-bases:detail');
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,17 +11,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const authError = await authorize('read', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const { id } = await params;
+    const { id: knowledgeBaseId } = await params;
+    logger.info({ tenantId, knowledgeBaseId }, 'Get KB request');
+
     const service = new KnowledgeBaseService(tenantId);
-    const kb = await service.get(id);
+    const kb = await service.get(knowledgeBaseId);
 
     if (!kb) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    logger.info({ tenantId, knowledgeBaseId }, 'Get KB completed');
     return NextResponse.json(kb);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Get KB failed');
+
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }
 
@@ -29,20 +38,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const authError = await authorize('update', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const { id } = await params;
-    const body = await req.json();
-    const input = updateKnowledgeBaseSchema.parse(body);
+    const { id: knowledgeBaseId } = await params;
+    logger.info({ tenantId, knowledgeBaseId }, 'Update KB request');
+
+    const input = await parseJson(req, updateKnowledgeBaseSchema);
 
     const service = new KnowledgeBaseService(tenantId);
-    const kb = await service.update(id, input);
+    const kb = await service.update(knowledgeBaseId, input);
 
     if (!kb) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    logger.info({ tenantId, knowledgeBaseId }, 'KB updated');
     return NextResponse.json(kb);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Update KB failed');
+
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
+    }
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }
 
@@ -52,16 +70,23 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const authError = await authorize('delete', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const { id } = await params;
+    const { id: knowledgeBaseId } = await params;
+    logger.info({ tenantId, knowledgeBaseId }, 'Delete KB request');
+
     const service = new KnowledgeBaseService(tenantId);
-    const deleted = await service.delete(id);
+    const deleted = await service.delete(knowledgeBaseId);
 
     if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    logger.info({ tenantId, knowledgeBaseId }, 'KB deleted');
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Delete KB failed');
+
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

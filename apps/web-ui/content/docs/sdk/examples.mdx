@@ -1,0 +1,124 @@
+---
+title: Examples
+description: Integration guides for popular frameworks.
+---
+
+## Plain HTML
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My App</title>
+</head>
+<body>
+  <h1>My Application</h1>
+
+  <script type="module" src="https://your-cdn.com/sdk/smc-chat-widget.esm.js"></script>
+  <smc-chat-widget
+    api-url="https://api.example.com/chat"
+    session='{"x-api-key":"key-123","x-platform-agent":"web"}'
+    header-text="Support"
+    primary-color="#0ca750"
+  ></smc-chat-widget>
+</body>
+</html>
+```
+
+## React / Next.js
+
+```tsx
+'use client';
+
+import { useEffect } from 'react';
+
+export function ChatWidget() {
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = 'https://your-cdn.com/sdk/smc-chat-widget.esm.js';
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, []);
+
+  return (
+    <div
+      dangerouslySetInnerHTML={{
+        __html: `<smc-chat-widget
+          api-url="https://api.example.com/chat"
+          session='{"x-api-key":"key-123"}'
+          header-text="Support"
+        ></smc-chat-widget>`
+      }}
+    />
+  );
+}
+```
+
+## Angular
+
+```typescript
+// app.module.ts
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+
+@NgModule({
+  schemas: [CUSTOM_ELEMENTS_SCHEMA]
+})
+export class AppModule {}
+```
+
+```html
+<!-- index.html -->
+<script type="module" src="https://your-cdn.com/sdk/smc-chat-widget.esm.js"></script>
+```
+
+```html
+<!-- app.component.html -->
+<smc-chat-widget
+  api-url="https://api.example.com/chat"
+  [attr.session]="sessionConfig"
+  header-text="Support"
+></smc-chat-widget>
+```
+
+## Vue
+
+```vue
+<script setup>
+import { onMounted } from 'vue';
+
+onMounted(() => {
+  const script = document.createElement('script');
+  script.type = 'module';
+  script.src = 'https://your-cdn.com/sdk/smc-chat-widget.esm.js';
+  document.head.appendChild(script);
+});
+</script>
+
+<template>
+  <smc-chat-widget
+    api-url="https://api.example.com/chat"
+    :session="JSON.stringify({ 'x-api-key': 'key-123' })"
+    header-text="Support"
+  />
+</template>
+```
+
+## Dynamic Token Refresh
+
+If your auth tokens expire, update the session attribute at runtime:
+
+```js
+function refreshSession(newToken) {
+  const widget = document.querySelector('smc-chat-widget');
+  const session = {
+    'x-api-key': 'your-key',
+    'x-platform-agent': 'web',
+    'x-session-attribute': {
+      oauthToken: newToken,
+      clientCode: 'client-123'
+    }
+  };
+  widget.setAttribute('session', JSON.stringify(session));
+}
+```

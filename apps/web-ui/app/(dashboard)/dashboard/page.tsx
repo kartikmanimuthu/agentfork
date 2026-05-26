@@ -12,22 +12,27 @@ import {
   Users,
   HardDrive,
   ArrowRight,
-  Plus,
+  History,
   Settings,
   Clock,
+  Bot,
 } from 'lucide-react';
 import { ActivityChart } from '@/components/dashboard/activity-chart';
 import { formatShortDateTime, useTenantTimezone } from '@/lib/date-utils';
 
-interface Conversation {
+interface Session {
   id: string;
-  title: string;
+  name: string | null;
+  channel: string;
+  status: string;
   messageCount: number;
-  updatedAt: string;
+  startedAt: string;
+  lastActivityAt: string;
+  agent: { id: string; name: string; type: string } | null;
 }
 
 interface DashboardStats {
-  totalConversations: number;
+  totalSessions: number;
   totalMessages: number;
   activeUsers: number;
 }
@@ -49,31 +54,28 @@ const itemVariants = {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [allConversations, setAllConversations] = useState<Conversation[]>([]);
-  const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
+  const [allSessions, setAllSessions] = useState<Session[]>([]);
+  const [recentSessions, setRecentSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const timezone = useTenantTimezone();
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [convRes] = await Promise.all([fetch('/api/conversations?limit=50')]);
-        const convData = convRes.ok ? await convRes.json() : { items: [] };
-        const conversations: Conversation[] = convData.items ?? [];
+        const res = await fetch('/api/sessions?limit=50');
+        const data = res.ok ? await res.json() : { sessions: [] };
+        const sessions: Session[] = data.sessions ?? [];
 
-        const totalMessages = conversations.reduce(
-          (sum: number, c: Conversation) => sum + (c.messageCount || 0),
-          0,
-        );
+        const totalMessages = sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0);
 
         setStats({
-          totalConversations: conversations.length,
+          totalSessions: sessions.length,
           totalMessages,
           activeUsers: 1,
         });
 
-        setAllConversations(conversations);
-        setRecentConversations(conversations.slice(0, 5));
+        setAllSessions(sessions);
+        setRecentSessions(sessions.slice(0, 5));
       } catch (e) {
         console.error('Dashboard fetch error:', e);
       } finally {
@@ -91,15 +93,15 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      label: 'Total Conversations',
-      value: stats?.totalConversations ?? 0,
+      label: 'Total Sessions',
+      value: stats?.totalSessions ?? 0,
       sublabel: 'All time',
       icon: MessageSquare,
     },
     {
       label: 'Total Messages',
       value: stats?.totalMessages ?? 0,
-      sublabel: 'Across all conversations',
+      sublabel: 'Across all sessions',
       icon: MessagesSquare,
     },
     {
@@ -121,7 +123,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground mt-1">Overview of your chatbot activity and usage.</p>
+          <p className="text-muted-foreground mt-1">Overview of inference activity across your agents.</p>
         </div>
       </div>
 
@@ -160,8 +162,8 @@ export default function DashboardPage() {
         animate="visible"
       >
         {[
-          { href: '/chat', icon: Plus, label: 'New Chat', desc: 'Start a conversation' },
-          { href: '/conversations', icon: MessageSquare, label: 'View History', desc: 'Browse past chats' },
+          { href: '/agents', icon: Bot, label: 'Agents', desc: 'Manage and configure agents' },
+          { href: '/sessions', icon: History, label: 'Sessions', desc: 'Browse inference sessions' },
           { href: '/settings', icon: Settings, label: 'Settings', desc: 'Manage preferences' },
         ].map((action) => (
           <motion.div key={action.label} variants={itemVariants} whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
@@ -185,17 +187,19 @@ export default function DashboardPage() {
       {/* Activity Chart */}
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.div variants={itemVariants}>
-          <ActivityChart conversations={allConversations} />
+          <ActivityChart
+            items={allSessions.map((s) => ({ id: s.id, updatedAt: s.lastActivityAt }))}
+          />
         </motion.div>
       </motion.div>
 
-      {/* Recent Conversations */}
+      {/* Recent Sessions */}
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.div variants={itemVariants}>
           <Card>
             <CardHeader>
-              <CardTitle>Recent Conversations</CardTitle>
-              <CardDescription>Your latest chat sessions.</CardDescription>
+              <CardTitle>Recent Sessions</CardTitle>
+              <CardDescription>Your latest inference sessions.</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -204,16 +208,17 @@ export default function DashboardPage() {
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                 </div>
-              ) : recentConversations.length === 0 ? (
+              ) : recentSessions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No conversations yet. Start a new chat to see it here.
+                  No sessions yet. Sessions are created when integrators call <code>/api/v1/inference</code> with a{' '}
+                  <code>sessionId</code>.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {recentConversations.map((conv) => (
+                  {recentSessions.map((s) => (
                     <Link
-                      key={conv.id}
-                      href={`/chat?id=${conv.id}`}
+                      key={s.id}
+                      href={`/sessions/${s.id}`}
                       className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -221,14 +226,18 @@ export default function DashboardPage() {
                           <MessageSquare className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{conv.title || 'Untitled'}</p>
-                          <p className="text-xs text-muted-foreground">{conv.messageCount} messages</p>
+                          <p className="text-sm font-medium truncate">
+                            {s.name ?? s.agent?.name ?? 'Untitled session'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.messageCount} messages · {s.channel}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <Badge variant="secondary" className="text-xs font-normal">
                           <Clock className="h-3 w-3 mr-1" />
-                          {formatDateLocal(conv.updatedAt)}
+                          {formatDateLocal(s.lastActivityAt)}
                         </Badge>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </div>

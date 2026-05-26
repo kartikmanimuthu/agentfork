@@ -85,51 +85,18 @@ export default function KnowledgeBaseUploadPage() {
     );
 
     try {
-      // 1. Get pre-signed upload URL and create document record
+      const formData = new FormData();
+      formData.append('file', uploadFile.file);
+      formData.append('dataSourceId', selectedSource);
+
       const res = await fetch(`/api/knowledge-bases/${id}/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dataSourceId: selectedSource,
-          fileName: uploadFile.file.name,
-          mimeType: uploadFile.file.type || 'application/octet-stream',
-          sizeBytes: uploadFile.file.size,
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(err.error ?? 'Upload failed');
-      }
-
-      const { uploadUrl, document } = await res.json();
-
-      // 2. Upload file directly to S3
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: uploadFile.file,
-        headers: {
-          'Content-Type': uploadFile.file.type || 'application/octet-stream',
-        },
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload file to storage');
-      }
-
-      // 3. Trigger ingestion now that the file is in S3
-      const ingestRes = await fetch(`/api/knowledge-bases/${id}/ingest`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: document.id,
-          s3Key: document.sourceKey,
-          mimeType: uploadFile.file.type || 'application/octet-stream',
-        }),
-      });
-
-      if (!ingestRes.ok) {
-        throw new Error('File uploaded but failed to start processing');
+        throw new Error(err.error ?? err.detail ?? 'Upload failed');
       }
 
       setFiles((prev) =>

@@ -3,9 +3,12 @@
 import type { UIMessage } from '@ai-sdk/react';
 import { ChatBubble } from './chat-bubble';
 import { useChatScroll } from '@/lib/hooks/use-chat-scroll';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { MessageSquare, Sparkles } from 'lucide-react';
+import { MessageMetadataBar } from '@/components/agents/playground/message-metadata-bar';
+import { ThinkingBlock } from '@/components/agents/playground/thinking-block';
+import { cn } from '@/lib/utils';
+import type { MessageMetrics, ThinkingContent } from '@/lib/playground/types';
 
 function getMessageText(message: UIMessage): string {
   return message.parts
@@ -18,6 +21,11 @@ interface ChatMessagesProps {
   messages: UIMessage[];
   isLoading?: boolean;
   onRegenerate?: () => void;
+  selectedMessageId?: string | null;
+  onSelectMessage?: (messageId: string | null) => void;
+  messageMetrics?: Map<string, MessageMetrics>;
+  thinkingMap?: Map<string, ThinkingContent>;
+  showMetadata?: boolean;
 }
 
 function EmptyState() {
@@ -70,7 +78,16 @@ function TypingIndicator() {
   );
 }
 
-export function ChatMessages({ messages, isLoading, onRegenerate }: ChatMessagesProps) {
+export function ChatMessages({
+  messages,
+  isLoading,
+  onRegenerate,
+  selectedMessageId,
+  onSelectMessage,
+  messageMetrics,
+  thinkingMap,
+  showMetadata = false,
+}: ChatMessagesProps) {
   const scrollRef = useChatScroll(messages);
 
   if (messages.length === 0) {
@@ -82,18 +99,53 @@ export function ChatMessages({ messages, isLoading, onRegenerate }: ChatMessages
   }
 
   return (
-    <ScrollArea className="flex-1" ref={scrollRef}>
+    <div className="flex-1 min-h-0 overflow-y-auto" ref={scrollRef}>
       <div className="flex flex-col pb-2">
-        {messages.map((message) => (
-          <ChatBubble
-            key={message.id}
-            role={message.role as 'user' | 'assistant'}
-            content={getMessageText(message)}
-            onRegenerate={message.role === 'assistant' ? onRegenerate : undefined}
-          />
-        ))}
+        {messages.map((message) => {
+          const isAssistant = message.role === 'assistant';
+          const isSelected = selectedMessageId === message.id;
+          const metrics = messageMetrics?.get(message.id);
+          const thinking = thinkingMap?.get(message.id);
+
+          return (
+            <div
+              key={message.id}
+              className={cn(
+                'transition-colors',
+                isAssistant && onSelectMessage && 'cursor-pointer',
+                isSelected && 'border-l-2 border-l-primary bg-primary/5'
+              )}
+              onClick={() => {
+                if (isAssistant && onSelectMessage) {
+                  onSelectMessage(isSelected ? null : message.id);
+                }
+              }}
+            >
+              {isAssistant && thinking && (
+                <div className="px-4 md:px-6 pt-3">
+                  <ThinkingBlock thinking={thinking} />
+                </div>
+              )}
+              <ChatBubble
+                role={message.role as 'user' | 'assistant'}
+                content={getMessageText(message)}
+                onRegenerate={isAssistant ? onRegenerate : undefined}
+              />
+              {showMetadata && isAssistant && (
+                <div className="px-4 md:px-6 -mt-3 ml-11">
+                  <MessageMetadataBar
+                    metrics={metrics}
+                    isStreaming={
+                      isLoading && message.id === messages[messages.length - 1]?.id
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
         {isLoading && messages[messages.length - 1]?.role === 'user' && <TypingIndicator />}
       </div>
-    </ScrollArea>
+    </div>
   );
 }

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Pencil } from 'lucide-react';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -42,6 +42,8 @@ export function AliasManager({ agentId }: { agentId: string }) {
 
   const [open, setOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<{ id: string; name: string; versionId: string } | null>(null);
+  const [editVersionId, setEditVersionId] = useState('');
 
   const form = useForm({
     defaultValues: {
@@ -67,12 +69,10 @@ export function AliasManager({ agentId }: { agentId: string }) {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Aliases</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger>
-            <Button size="sm" variant="outline">
-              <Plus className="h-3 w-3 mr-1" />
-              New Alias
-            </Button>
-          </DialogTrigger>
+          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+            <Plus className="h-3 w-3 mr-1" />
+            New Alias
+          </Button>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Alias</DialogTitle>
@@ -176,6 +176,17 @@ export function AliasManager({ agentId }: { agentId: string }) {
             <Button
               size="icon"
               variant="ghost"
+              className="h-7 w-7"
+              onClick={() => {
+                setEditTarget({ id: alias.id, name: alias.name, versionId: alias.versionId });
+                setEditVersionId(alias.versionId);
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
               className="h-7 w-7 text-destructive"
               onClick={() => setDeleteTarget(alias.id)}
             >
@@ -208,6 +219,49 @@ export function AliasManager({ agentId }: { agentId: string }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Alias — {editTarget?.name}</DialogTitle>
+          <DialogDescription>Point this alias to a different version.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5 py-2">
+          <Label>Version</Label>
+          <Select value={editVersionId} onValueChange={setEditVersionId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select version" />
+            </SelectTrigger>
+            <SelectContent>
+              {versions?.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  Version {v.version} ({v.status})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setEditTarget(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={update.isPending || editVersionId === editTarget?.versionId}
+            onClick={() => {
+              if (editTarget) {
+                update.mutateAsync({ aliasId: editTarget.id, input: { versionId: editVersionId } })
+                  .then(() => { toast.success('Alias updated'); setEditTarget(null); })
+                  .catch(() => toast.error('Failed to update alias'));
+              }
+            }}
+          >
+            {update.isPending ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </div>
   );
 }

@@ -9,18 +9,17 @@ describe('ROLE_PERMISSIONS', () => {
 
   it('Owner has full CRUD on all modules', () => {
     const owner = ROLE_PERMISSIONS.Owner;
-    expect(owner.Conversations).toEqual(['create', 'read', 'update', 'delete']);
-    expect(owner.Messages).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Settings).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Users).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Tenants).toEqual(['create', 'read', 'update', 'delete']);
     expect(owner.Agents).toEqual(['create', 'read', 'update', 'delete']);
+    expect(owner.KnowledgeBases).toEqual(['create', 'read', 'update', 'delete']);
+    expect(owner.McpServers).toEqual(['create', 'read', 'update', 'delete']);
+    expect(owner.LlmProviders).toEqual(['create', 'read', 'update', 'delete']);
   });
 
   it('Viewer has read-only on all modules', () => {
     const viewer = ROLE_PERMISSIONS.Viewer;
-    expect(viewer.Conversations).toEqual(['read']);
-    expect(viewer.Messages).toEqual(['read']);
     expect(viewer.Settings).toEqual(['read']);
     expect(viewer.Users).toEqual(['read']);
     expect(viewer.Tenants).toEqual(['read']);
@@ -31,8 +30,8 @@ describe('ROLE_PERMISSIONS', () => {
     expect(ROLE_PERMISSIONS.Admin.Settings).not.toContain('delete');
   });
 
-  it('Member can create and read Conversations but not delete', () => {
-    expect(ROLE_PERMISSIONS.Member.Conversations).toEqual(['create', 'read', 'update']);
+  it('Member can create and read Agents but not delete', () => {
+    expect(ROLE_PERMISSIONS.Member.Agents).toEqual(['create', 'read', 'update']);
   });
 });
 
@@ -58,11 +57,11 @@ describe('hasPermission', () => {
   });
 
   it('returns false when role lacks the action', () => {
-    expect(hasPermission('Viewer', 'create', 'Conversations')).toBe(false);
+    expect(hasPermission('Viewer', 'create', 'Agents')).toBe(false);
   });
 
   it('returns false for an unknown role', () => {
-    expect(hasPermission('Unknown' as any, 'read', 'Conversations')).toBe(false);
+    expect(hasPermission('Unknown' as any, 'read', 'Agents')).toBe(false);
   });
 
   it('Member can read Settings but not update', () => {
@@ -72,18 +71,28 @@ describe('hasPermission', () => {
 });
 
 describe('hasCustomPermission', () => {
+  const emptySet = (): PermissionSet => ({
+    Settings: [],
+    Users: [],
+    Tenants: [],
+    Agents: [],
+    KnowledgeBases: [],
+    McpServers: [],
+    LlmProviders: [],
+  });
+
   it('returns true when custom set includes the action', () => {
-    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
-    expect(hasCustomPermission(custom, 'read', 'Conversations')).toBe(true);
+    const custom: PermissionSet = { ...emptySet(), Agents: ['read'] };
+    expect(hasCustomPermission(custom, 'read', 'Agents')).toBe(true);
   });
 
   it('returns false when custom set lacks the action', () => {
-    const custom: PermissionSet = { Conversations: ['read'], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
-    expect(hasCustomPermission(custom, 'create', 'Conversations')).toBe(false);
+    const custom: PermissionSet = { ...emptySet(), Agents: ['read'] };
+    expect(hasCustomPermission(custom, 'create', 'Agents')).toBe(false);
   });
 
   it('returns false for empty module actions', () => {
-    const custom: PermissionSet = { Conversations: [], Messages: [], Settings: [], Users: [], Tenants: [], Agents: [] };
-    expect(hasCustomPermission(custom, 'read', 'Conversations')).toBe(false);
+    const custom: PermissionSet = emptySet();
+    expect(hasCustomPermission(custom, 'read', 'Agents')).toBe(false);
   });
 });

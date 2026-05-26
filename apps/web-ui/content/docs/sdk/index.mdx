@@ -1,0 +1,34 @@
+---
+title: Chat Widget SDK
+description: Drop-in embeddable chat widget for any website.
+---
+
+## Overview
+
+The SMC Chat Widget is a Web Component that adds a fully-featured chat interface to any website with a single script tag. It works with any backend that implements the expected API contract.
+
+### Features
+
+- Zero dependencies — single script tag integration
+- Shadow DOM encapsulation — no CSS conflicts with host page
+- Fully configurable — colors, position, branding, messages
+- Light and dark theme support
+- Chat history persistence
+- Session management
+- Quick reply options
+- Message feedback (thumbs up/down)
+- Responsive design (mobile-friendly)
+
+### Quick Example
+
+```html
+<script type="module" src="https://your-cdn.com/sdk/smc-chat-widget.esm.js"></script>
+<smc-chat-widget
+  api-url="https://your-api.com/chat"
+  session='{"x-api-key":"your-key"}'
+  header-text="Support Chat"
+  primary-color="#6366f1"
+></smc-chat-widget>
+```
+
+[Try it in the Playground →](/playground)

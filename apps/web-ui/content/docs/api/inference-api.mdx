@@ -1,0 +1,133 @@
+---
+title: Inference API
+description: Public inference API, sessions, and usage tracking.
+---
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/inference` | Run inference |
+| GET | `/api/v1/inference/sessions` | List sessions |
+| POST | `/api/v1/inference/sessions` | Create session |
+| GET | `/api/v1/inference/sessions/[id]` | Get session |
+| POST | `/api/v1/inference/sessions/[id]/close` | Close session |
+| GET | `/api/v1/inference/usage` | Usage stats |
+
+## Run Inference
+
+### POST /api/v1/inference
+
+Run a chat inference against a published agent using an API key.
+
+**Auth:** API Key (`Authorization: Bearer <api-key>`).
+
+**Request body:**
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Hello, what can you do?" }
+  ],
+  "sessionId": "optional-session-id",
+  "stream": true
+}
+```
+
+- `messages`: Array of `{ role, content }` objects
+- `sessionId`: Optional. Tie inference to an existing session
+- `stream`: Whether to stream the response via SSE
+
+**Response (streamed):**
+```
+event: message
+data: { "role": "assistant", "content": "Hello! I can help with..." }
+
+event: metrics
+data: { "inputTokens": 12, "outputTokens": 45, "cost": 0.0012 }
+
+event: done
+data: { "sessionId": "sess_123" }
+```
+
+## Sessions
+
+### GET /api/v1/inference/sessions
+
+List inference sessions for the current tenant.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `agentId`: Filter by agent
+- `status`: `active` or `closed`
+- `limit`: Default 20
+- `offset`: Default 0
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "sess_123",
+      "agentId": "agent-id",
+      "status": "active",
+      "model": "anthropic.claude-sonnet-4-20250514",
+      "inputTokens": 120,
+      "outputTokens": 450,
+      "cost": 0.012,
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ],
+  "total": 42
+}
+```
+
+### POST /api/v1/inference/sessions
+
+Create a new inference session.
+
+**Auth:** Session cookie required.
+
+**Request body:**
+```json
+{
+  "agentId": "agent-id",
+  "metadata": { "source": "widget" }
+}
+```
+
+### GET /api/v1/inference/sessions/[id]
+
+Get session details including messages and metadata.
+
+### POST /api/v1/inference/sessions/[id]/close
+
+Close a session and finalize usage stats.
+
+## Usage
+
+### GET /api/v1/inference/usage
+
+Get aggregated inference usage stats.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `startDate`: ISO date string
+- `endDate`: ISO date string
+- `agentId`: Optional filter
+
+**Response:**
+```json
+{
+  "totalInferences": 1523,
+  "totalInputTokens": 45000,
+  "totalOutputTokens": 120000,
+  "totalCost": 3.24,
+  "breakdown": [
+    {
+      "date": "2026-05-01",
+      "inferences": 120,
+      "cost": 0.42
+    }
+  ]
+}
+```

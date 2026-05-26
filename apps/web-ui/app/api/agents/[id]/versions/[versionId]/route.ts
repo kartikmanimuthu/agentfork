@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger } from '@chatbot/shared';
 import { AgentVersionService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:agents[id]:versions[versionId]');
 
 export async function GET(
   _req: NextRequest,
@@ -25,6 +27,7 @@ export async function GET(
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, versionId: (await params).versionId }, 'Failed to get agent version');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

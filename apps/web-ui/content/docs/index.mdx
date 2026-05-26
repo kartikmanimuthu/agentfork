@@ -1,28 +1,46 @@
 ---
 title: Chatbot Documentation
-description: Open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. Self-hosted, MIT licensed.
+description: Open-source, multi-tenant AI agent platform. Self-hosted, MIT licensed.
 ---
 
-Chatbot is an open-source AI chatbot platform with multi-tenant isolation, RBAC, audit logging, and RAG support. Built on Next.js 15, AWS Bedrock, and PostgreSQL with pgvector.
+import { Cards, Card } from 'fumadocs-ui/components/card';
 
-## Features
+Chatbot is an open-source AI agent and chatbot platform with multi-tenant isolation, RBAC, audit logging, RAG support, and an Agent Studio. Built on Next.js 15, AWS Bedrock, and PostgreSQL with pgvector.
 
-| Feature | Description |
-|---------|-------------|
-| Multi-Tenant | Isolated organizations with tenant-scoped data |
-| AWS Bedrock | Claude models via Vercel AI SDK |
-| RAG Pipeline | pgvector embeddings for retrieval-augmented generation |
-| RBAC | Role-based access control (Owner, Admin, Member, Viewer) |
-| Audit Logs | Complete activity trail with filtering |
-| Background Jobs | pg-boss workers for embeddings and summaries |
-| Auth | NextAuth with Cognito SSO support |
-| Conversations | Persistent chat history with search |
+## Get Started
 
-## Quick Links
+<Cards>
+  <Card title="Quick Start" href="/docs/user-guide/getting-started" description="Deploy your first agent in 5 minutes" />
+  <Card title="Installation" href="/docs/dev-guide/installation" description="Docker, Pulumi, and manual setup" />
+  <Card title="Architecture" href="/docs/dev-guide/architecture" description="System design and data flow" />
+</Cards>
 
-- [Getting Started](/docs/getting-started) — Set up your first instance in 5 minutes
-- [Installation](/docs/installation) — Deploy with Docker or Pulumi
-- [Configuration](/docs/configuration) — Configure Bedrock, Cognito, and pgvector
-- [API Reference](/docs/api-reference) — REST API endpoints
-- [Architecture](/docs/architecture) — System design and data flow
-- [FAQ](/docs/faq) — Frequently asked questions
+## User Guide
+
+<Cards>
+  <Card title="Agents" href="/docs/user-guide/agents" description="Build, test, version, and publish AI agents" />
+  <Card title="Knowledge Bases" href="/docs/user-guide/knowledge-bases" description="Upload documents and enable semantic search" />
+  <Card title="MCP Servers" href="/docs/user-guide/mcp-servers" description="Connect external tools via Model Context Protocol" />
+  <Card title="LLM Providers" href="/docs/user-guide/llm-providers" description="Manage AI model providers and defaults" />
+  <Card title="Sessions" href="/docs/user-guide/sessions" description="Unified inference tracking and history" />
+  <Card title="Analytics" href="/docs/user-guide/analytics" description="Track usage, costs, and audit activity" />
+</Cards>
+
+## Developer Guide
+
+<Cards>
+  <Card title="Configuration" href="/docs/dev-guide/configuration" description="Environment variables and service setup" />
+  <Card title="FAQ" href="/docs/dev-guide/faq" description="Common questions and troubleshooting" />
+</Cards>
+
+## API Reference
+
+<Cards>
+  <Card title="Overview" href="/docs/api" description="Authentication, base URL, and error format" />
+  <Card title="Agents API" href="/docs/api/agents-api" description="Agent CRUD, versions, publishing, playground" />
+  <Card title="Knowledge Base API" href="/docs/api/knowledge-base-api" description="Documents, sources, upload, search" />
+  <Card title="MCP API" href="/docs/api/mcp-api" description="MCP server management and testing" />
+  <Card title="Inference API" href="/docs/api/inference-api" description="Public inference, sessions, usage" />
+  <Card title="Analytics API" href="/docs/api/analytics-api" description="Dashboard, audit logs, inferences" />
+  <Card title="User API" href="/docs/api/user-api" description="Tenants, members, roles, auth" />
+</Cards>

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createLogger } from '@chatbot/shared';
 import { McpServerService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:mcp-servers[id]:test');
 
 export async function POST(
   _req: NextRequest,
@@ -23,6 +25,7 @@ export async function POST(
 
     const connected = server.status === 'active';
 
+    logger.info({ tenantId, mcpServerId: id, connected, transport: server.transport }, 'MCP server test executed');
     return NextResponse.json({
       connected,
       serverId: id,
@@ -33,6 +36,7 @@ export async function POST(
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, mcpServerId: (await params).id }, 'MCP server test failed');
     return NextResponse.json(
       { connected: false, error: 'Test failed' },
       { status: 200 }

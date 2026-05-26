@@ -56,6 +56,11 @@ const dbPasswordRandom = new random.RandomPassword("db-password-random", {
     keepers: { version: "1" },
 });
 
+const encryptionKeyBytes = new random.RandomId("encryption-key-bytes", {
+    byteLength: 32,
+    keepers: { version: "1" },
+});
+
 const nextauthSecretSm = new aws.secretsmanager.Secret("nextauth-secret", {
     name: `${appName}/nextauth-secret`,
     description: "NextAuth.js secret for JWT signing",
@@ -65,6 +70,17 @@ const nextauthSecretSm = new aws.secretsmanager.Secret("nextauth-secret", {
 new aws.secretsmanager.SecretVersion("nextauth-secret-version", {
     secretId: nextauthSecretSm.id,
     secretString: nextauthSecretRandom.result,
+});
+
+const encryptionKeySm = new aws.secretsmanager.Secret("encryption-key", {
+    name: `${appName}/encryption-key`,
+    description: "AES-256-GCM encryption key for data at rest (64-char hex)",
+    recoveryWindowInDays: 0,
+});
+
+new aws.secretsmanager.SecretVersion("encryption-key-version", {
+    secretId: encryptionKeySm.id,
+    secretString: encryptionKeyBytes.hex,
 });
 
 const databaseUrlSm = new aws.secretsmanager.Secret("database-url", {
@@ -411,14 +427,17 @@ const ecrPublicLogin = new command.local.Command("ecr-public-login", {
     },
 });
 
-// Explicit source hash — combines apps/web-ui/ + prisma/ + libs/ so any change produces a new imageTag
+// Explicit source hash — combines apps/web-ui/ + prisma/ + libs/ so any change to either
+// produces a new imageTag, forcing a Docker rebuild + new ECS task definition revision.
 const webUiSrcHash = crypto.createHash("sha256")
     .update(hashDirectory(path.join(repoRoot, "apps/web-ui")))
+    .update(hashDirectory(path.join(repoRoot, "apps/sdk")))
     .update(hashDirectory(path.join(repoRoot, "prisma")))
     .update(hashDirectory(path.join(repoRoot, "libs")))
     .digest("hex")
     .substring(0, 12);
 
+// Build and push WebUI Docker image automatically on source change
 const webUiImage = new awsx.ecr.Image("web-ui-image", {
     repositoryUrl: ecrRepository.repositoryUrl,
     context: repoRoot,
@@ -428,6 +447,7 @@ const webUiImage = new awsx.ecr.Image("web-ui-image", {
     args: {
         BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
     },
+    cacheFrom: [pulumi.interpolate`${ecrRepository.repositoryUrl}:latest`],
 }, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
 
 // ECS Cluster
@@ -462,14 +482,14 @@ new aws.iam.RolePolicyAttachment("ecs-task-execution-role-policy", {
 
 new aws.iam.RolePolicy("ecs-execution-role-secrets-policy", {
     role: ecsTaskExecutionRole.id,
-    policy: pulumi.all([nextauthSecretSm.arn, databaseUrlSm.arn]).apply(
-        ([nextauthArn, dbArn]) =>
+    policy: pulumi.all([nextauthSecretSm.arn, databaseUrlSm.arn, encryptionKeySm.arn]).apply(
+        ([nextauthArn, dbArn, encArn]) =>
             JSON.stringify({
                 Version: "2012-10-17",
                 Statement: [{
                     Effect: "Allow",
                     Action: ["secretsmanager:GetSecretValue"],
-                    Resource: [nextauthArn, dbArn],
+                    Resource: [nextauthArn, dbArn, encArn],
                 }],
             })
     ),
@@ -560,12 +580,12 @@ new aws.iam.RolePolicy("ecs-task-logs-policy", {
     ),
 });
 
-// WebUI Task Definition — ARM64, FARGATE, 2048 CPU / 4096 MiB
+// WebUI Task Definition — ARM64, FARGATE, 1024 CPU / 2048 MiB
 // retainOnDelete: true — Pulumi must NOT deactivate old task definition revisions on replace.
 const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
     family: `${appName}-web-ui-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -584,11 +604,12 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         webUiImage.imageUri,
         nextauthSecretSm.arn,
         databaseUrlSm.arn,
+        encryptionKeySm.arn,
     ]).apply(([
         cognitoPoolId, cognitoClientId, cognitoClientSecret,
         appBucketN,
         webUiLogGroupN, acctId, imageUri,
-        nextauthSecretArn, databaseUrlArn,
+        nextauthSecretArn, databaseUrlArn, encryptionKeyArn,
     ]) => JSON.stringify([{
         name: "WebUIContainer",
         image: imageUri,
@@ -605,6 +626,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         secrets: [
             { name: "NEXTAUTH_SECRET", valueFrom: nextauthSecretArn },
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
+            { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
         ],
         environment: [
             { name: "NODE_ENV", value: "production" },
@@ -617,6 +639,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "COGNITO_ISSUER", value: `https://cognito-idp.${region}.amazonaws.com/${cognitoPoolId}` },
             { name: "NEXTAUTH_URL", value: appUrl },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "DATA_DIR", value: "/tmp" },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
@@ -689,7 +712,6 @@ const alb = new aws.lb.LoadBalancer("web-ui-alb", {
 
 // Target Group — IP target type, port 3005, /api/health health check
 const webUiTargetGroup = new aws.lb.TargetGroup("web-ui-tg", {
-    name: `${appName}-web-ui-tg`,
     port: 3005,
     protocol: "HTTP",
     targetType: "ip",
@@ -903,7 +925,7 @@ const workersEcrRepo = new aws.ecr.Repository("workers-ecr-repo", {
     forceDelete: false,
 });
 
-// Explicit source hash — combines apps/workers/ + prisma/ + libs/
+// Explicit source hash — combines apps/workers/ + prisma/ + libs/ so any change forces a rebuild.
 const workersSrcHash = crypto.createHash("sha256")
     .update(hashDirectory(path.join(repoRoot, "apps/workers")))
     .update(hashDirectory(path.join(repoRoot, "prisma")))
@@ -911,7 +933,7 @@ const workersSrcHash = crypto.createHash("sha256")
     .digest("hex")
     .substring(0, 12);
 
-// Workers Docker image — auto-built and pushed to ECR on source change
+// Build and push Workers Docker image automatically on source change
 const workersImage = new awsx.ecr.Image("workers-image", {
     repositoryUrl: workersEcrRepo.repositoryUrl,
     context: repoRoot,
@@ -921,6 +943,7 @@ const workersImage = new awsx.ecr.Image("workers-image", {
     args: {
         BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
     },
+    cacheFrom: [pulumi.interpolate`${workersEcrRepo.repositoryUrl}:latest`],
 }, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
 
 const workersLogGroup = new aws.cloudwatch.LogGroup("workers-log-group", {
@@ -1024,8 +1047,8 @@ new aws.iam.RolePolicy("workers-rds-connect-policy", {
 // Ephemeral worker task definition — lightweight tasks for horizontal dispatch
 const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task-def", {
     family: `${appName}-ephemeral-worker-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1040,9 +1063,10 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         snsTopic.arn,
         workersImage.imageUri,
         databaseUrlSm.arn,
+        encryptionKeySm.arn,
     ]).apply(([
         appBucketN,
-        ephLogGroupN, snsTopicArn, imageUri, databaseUrlArn,
+        ephLogGroupN, snsTopicArn, imageUri, databaseUrlArn, encryptionKeyArn,
     ]) => JSON.stringify([{
         name: "WorkersContainer",
         image: imageUri,
@@ -1057,10 +1081,12 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         },
         secrets: [
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
+            { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
         ],
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
@@ -1116,8 +1142,8 @@ const workersSecurityGroup = new aws.ec2.SecurityGroup("workers-sg", {
 
 const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
     family: `${appName}-workers-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1136,10 +1162,11 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         workersSecurityGroup.id,
         privateSubnetIds.apply(ids => ids.join(",")),
         databaseUrlSm.arn,
+        encryptionKeySm.arn,
     ]).apply(([
         appBucketN,
         workersLogGroupN, snsTopicArn, imageUri,
-        clusterArn, ephTaskDefArn, workersSgId, subnetsJoined, databaseUrlArn,
+        clusterArn, ephTaskDefArn, workersSgId, subnetsJoined, databaseUrlArn, encryptionKeyArn,
     ]) => JSON.stringify([{
         name: "WorkersContainer",
         image: imageUri,
@@ -1154,19 +1181,21 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         },
         secrets: [
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
+            { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
         ],
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
-            { name: "WORKER_ARCH", value: "horizontal" },
-            { name: "HORIZONTAL_CLUSTER_ARN", value: clusterArn },
-            { name: "HORIZONTAL_TASK_DEF_ARN", value: ephTaskDefArn },
-            { name: "HORIZONTAL_SUBNETS", value: subnetsJoined },
-            { name: "HORIZONTAL_SECURITY_GROUP", value: workersSgId },
-            { name: "HORIZONTAL_TASK_TIMEOUT_MS", value: "900000" },
+            { name: "WORKER_ARCH", value: "vertical" },
+            { name: "ECS_CLUSTER_ARN", value: clusterArn },
+            { name: "WORKER_TASK_DEFINITION_ARN", value: ephTaskDefArn },
+            { name: "PRIVATE_SUBNET_IDS", value: subnetsJoined },
+            { name: "SECURITY_GROUP_IDS", value: workersSgId },
+            { name: "TASK_TIMEOUT_MS", value: "900000" },
         ],
     }])),
 }, { retainOnDelete: true });

@@ -43,3 +43,23 @@ export function usePublishAgent(agentId: string) {
     },
   });
 }
+
+async function createVersion(agentId: string, config: Record<string, unknown>): Promise<AgentVersion> {
+  const res = await fetch(`/api/agents/${agentId}/versions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config }),
+  });
+  if (!res.ok) throw new Error('Failed to create version');
+  return res.json();
+}
+
+export function useCreateAgentVersion(agentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (config: Record<string, unknown>) => createVersion(agentId, config),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: versionKeys.all(agentId) });
+    },
+  });
+}

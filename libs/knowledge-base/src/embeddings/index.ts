@@ -3,7 +3,10 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createCohere } from '@ai-sdk/cohere';
 import { getBedrockProvider } from '@chatbot/ai';
+import { createLogger } from '@chatbot/shared/workers';
 import type { EmbeddingProvider } from '../types';
+
+const embeddingLogger = createLogger('kb:embeddings');
 
 // ─── Credentials helper ───────────────────────────────────────────────────────
 
@@ -46,19 +49,33 @@ export class BedrockTitanEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const { embedding } = await embed({
-      model: this.client.textEmbeddingModel(this.model),
-      value: text,
-    });
-    return embedding;
+    try {
+      const { embedding } = await embed({
+        model: this.client.textEmbeddingModel(this.model),
+        value: text,
+      });
+      embeddingLogger.debug({ provider: this.provider, model: this.model, textLength: text.length }, 'Generated embedding');
+      return embedding;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding');
+      throw error;
+    }
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const { embeddings } = await embedMany({
-      model: this.client.textEmbeddingModel(this.model),
-      values: texts,
-    });
-    return embeddings;
+    try {
+      const { embeddings } = await embedMany({
+        model: this.client.textEmbeddingModel(this.model),
+        values: texts,
+      });
+      embeddingLogger.debug({ provider: this.provider, model: this.model, batchSize: texts.length }, 'Generated embedding batch');
+      return embeddings;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, batchSize: texts.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding batch');
+      throw error;
+    }
   }
 }
 
@@ -84,19 +101,35 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const [result] = await this.embedBatch([text]);
-    return result;
+    try {
+      const [result] = await this.embedBatch([text]);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding');
+      throw error;
+    }
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    if (!this.apiKey) throw new Error('OpenAI API key is required');
+    if (!this.apiKey) {
+      embeddingLogger.error({ provider: this.provider, model: this.model }, 'OpenAI API key is required');
+      throw new Error('OpenAI API key is required');
+    }
 
-    const openai = createOpenAI({ apiKey: this.apiKey, baseURL: this.baseUrl });
-    const { embeddings } = await embedMany({
-      model: openai.textEmbeddingModel(this.model),
-      values: texts,
-    });
-    return embeddings;
+    try {
+      const openai = createOpenAI({ apiKey: this.apiKey, baseURL: this.baseUrl });
+      const { embeddings } = await embedMany({
+        model: openai.textEmbeddingModel(this.model),
+        values: texts,
+      });
+      embeddingLogger.debug({ provider: this.provider, model: this.model, batchSize: texts.length }, 'Generated embedding batch');
+      return embeddings;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, batchSize: texts.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding batch');
+      throw error;
+    }
   }
 }
 
@@ -114,20 +147,36 @@ export class CohereEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const [result] = await this.embedBatch([text]);
-    return result;
+    try {
+      const [result] = await this.embedBatch([text]);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding');
+      throw error;
+    }
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     const apiKey = process.env['COHERE_API_KEY'];
-    if (!apiKey) throw new Error('COHERE_API_KEY environment variable is required');
+    if (!apiKey) {
+      embeddingLogger.error({ provider: this.provider, model: this.model }, 'COHERE_API_KEY environment variable is required');
+      throw new Error('COHERE_API_KEY environment variable is required');
+    }
 
-    const cohere = createCohere({ apiKey });
-    const { embeddings } = await embedMany({
-      model: cohere.textEmbeddingModel(this.model),
-      values: texts,
-    });
-    return embeddings;
+    try {
+      const cohere = createCohere({ apiKey });
+      const { embeddings } = await embedMany({
+        model: cohere.textEmbeddingModel(this.model),
+        values: texts,
+      });
+      embeddingLogger.debug({ provider: this.provider, model: this.model, batchSize: texts.length }, 'Generated embedding batch');
+      return embeddings;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, batchSize: texts.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding batch');
+      throw error;
+    }
   }
 }
 
@@ -151,27 +200,40 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const [result] = await this.embedBatch([text]);
-    return result;
+    try {
+      const [result] = await this.embedBatch([text]);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, textLength: text.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding');
+      throw error;
+    }
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     const results: number[][] = [];
 
-    for (const text of texts) {
-      const res = await fetch(`${this.baseUrl}/api/embeddings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.model, prompt: text }),
-      });
-      if (!res.ok) {
-        throw new Error(`Ollama embedding failed: ${res.status} ${res.statusText}`);
+    try {
+      for (const text of texts) {
+        const res = await fetch(`${this.baseUrl}/api/embeddings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: this.model, prompt: text }),
+        });
+        if (!res.ok) {
+          throw new Error(`Ollama embedding failed: ${res.status} ${res.statusText}`);
+        }
+        const data = (await res.json()) as { embedding: number[] };
+        results.push(data.embedding);
       }
-      const data = (await res.json()) as { embedding: number[] };
-      results.push(data.embedding);
-    }
 
-    return results;
+      embeddingLogger.debug({ provider: this.provider, model: this.model, batchSize: texts.length }, 'Generated embedding batch');
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      embeddingLogger.error({ provider: this.provider, model: this.model, batchSize: texts.length, errorMessage: error.message, errorStack: error.stack }, 'Failed to generate embedding batch');
+      throw error;
+    }
   }
 }
 

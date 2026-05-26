@@ -1,0 +1,23 @@
+.quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px;
+}
+
+.chip {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--smc-secondary, #3b82f6);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.chip:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: var(--smc-secondary, #3b82f6);
+}

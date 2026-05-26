@@ -1,4 +1,4 @@
-export type Module = 'Conversations' | 'Messages' | 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders';
+export type Module = 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -9,9 +9,6 @@ export type RoleLevel = 1 | 2 | 3 | 4;
 export type PermissionSet = Record<Module, Action[]>;
 
 export const SUBJECT_TO_MODULE: Record<string, Module> = {
-  Conversation: 'Conversations',
-  Conversations: 'Conversations',
-  Message: 'Messages',
   User: 'Users',
   Role: 'Users',
   Tenant: 'Tenants',
@@ -24,6 +21,8 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   AgentVersion: 'Agents',
   AgentExecution: 'Agents',
   PlaygroundSession: 'Agents',
+  InferenceSession: 'Agents',
+  SdkWidget: 'Agents',
   McpServer: 'McpServers',
   McpServers: 'McpServers',
   LlmProvider: 'LlmProviders',

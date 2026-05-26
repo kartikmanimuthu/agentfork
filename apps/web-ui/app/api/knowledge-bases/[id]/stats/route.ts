@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize } from '@chatbot/shared';
+import { getSessionTenantId, authorize, createLogger } from '@chatbot/shared';
 import { KnowledgeBaseService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:knowledge-bases:stats');
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,12 +11,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const authError = await authorize('read', 'KnowledgeBase', authOptions);
     if (authError) return authError;
 
-    const { id } = await params;
+    const { id: knowledgeBaseId } = await params;
+    logger.info({ tenantId, knowledgeBaseId }, 'Get KB stats request');
+
     const service = new KnowledgeBaseService(tenantId);
-    const kb = await service.get(id);
+    const kb = await service.get(knowledgeBaseId);
 
     if (!kb) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+    logger.info({ tenantId, knowledgeBaseId }, 'Get KB stats completed');
     return NextResponse.json({
       id: kb.id,
       name: kb.name,
@@ -31,9 +36,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       updatedAt: kb.updatedAt,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ errorMessage: err.message, errorStack: err.stack }, 'Get KB stats failed');
+
+    if (err.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

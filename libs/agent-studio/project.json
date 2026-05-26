@@ -10,7 +10,8 @@
       "options": {
         "outputPath": "dist/libs/agent-studio",
         "tsConfig": "libs/agent-studio/tsconfig.lib.json",
-        "main": "libs/agent-studio/src/index.ts"
+        "main": "libs/agent-studio/src/index.ts",
+        "rootDir": "."
       }
     },
     "test": {

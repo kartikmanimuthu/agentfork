@@ -1,0 +1,70 @@
+# Multi-stage: install fresh deps in Stage 1 (avoids bun hoisting issues),
+# then package pre-built Next.js standalone output in Stage 2 (avoids OOM).
+# Build context: project root
+
+# ── Stage 1: Production dependencies (bun install + prisma generate) ──
+FROM oven/bun:1-slim AS deps
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+COPY package.json bun.lock ./
+COPY apps/web-ui/package.json apps/web-ui/
+COPY apps/workers/package.json apps/workers/
+COPY libs ./libs/
+COPY infra/package.json infra/
+COPY prisma/ prisma/
+COPY tsconfig.base.json ./
+COPY nx.json ./
+
+RUN bun install --frozen-lockfile --ignore-scripts
+
+# Resolve bun-hoisted transitive deps into root node_modules so Node.js runtime resolution works
+RUN for d in node_modules/.bun/*/node_modules/*; do \
+      pkg="$$(basename "$$d")"; \
+      if [ -d "$$d" ] && [ ! -e "node_modules/$$pkg" ]; then \
+        cp -rL "$$d" "node_modules/$$pkg"; \
+      fi; \
+    done 2>/dev/null || true
+
+RUN bunx prisma generate --schema=./prisma/schema.prisma
+
+# ── Stage 2: Production runner (pre-built Next.js standalone) ──
+FROM node:20-slim AS runner
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y curl openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+    -o /etc/ssl/certs/rds-combined-ca-bundle.pem
+
+ENV PORT=3005 \
+    HOSTNAME="0.0.0.0" \
+    NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+RUN mkdir -p /tmp/cache
+
+# Copy pre-built Next.js standalone server code (built on host to avoid OOM)
+COPY apps/web-ui/.next/standalone/apps/web-ui ./apps/web-ui
+COPY apps/web-ui/.next/standalone/libs ./libs
+COPY apps/web-ui/.next/standalone/package.json ./package.json
+COPY apps/web-ui/.next/static ./apps/web-ui/.next/static
+COPY apps/web-ui/public ./apps/web-ui/public
+
+# Copy fresh node_modules (including prisma client) from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/prisma ./prisma
+
+RUN mkdir -p ./apps/web-ui/.next/cache && ln -sf /tmp/cache ./apps/web-ui/.next/cache
+
+WORKDIR /app/apps/web-ui
+
+RUN chown -R node:node /app /tmp/cache
+USER node
+
+EXPOSE 3005
+
+CMD ["node", "server.js"]

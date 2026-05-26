@@ -62,6 +62,7 @@ export function VersionsTab({ agentId }: { agentId: string }) {
                 <Button
                   variant="outline"
                   size="sm"
+                  nativeButton={false}
                   render={
                     <Link href={`/agents/${agentId}/playground?version=version:${v.id}`}>
                       <Play className="h-3 w-3 mr-1" />

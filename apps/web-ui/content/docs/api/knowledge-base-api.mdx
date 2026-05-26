@@ -1,0 +1,157 @@
+---
+title: Knowledge Base API
+description: Knowledge base, document, source, upload, sync, and search endpoints.
+---
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/knowledge-bases` | List knowledge bases |
+| POST | `/api/knowledge-bases` | Create knowledge base |
+| GET | `/api/knowledge-bases/[id]` | Get knowledge base |
+| DELETE | `/api/knowledge-bases/[id]` | Delete knowledge base |
+| POST | `/api/knowledge-bases/[id]/upload` | Get upload URL |
+| POST | `/api/knowledge-bases/[id]/ingest` | Enqueue ingestion |
+| GET | `/api/knowledge-bases/[id]/sources` | List sources |
+| POST | `/api/knowledge-bases/[id]/sources` | Create source |
+| POST | `/api/knowledge-bases/[id]/sources/[sourceId]/sync` | Sync source |
+| GET | `/api/knowledge-bases/[id]/search` | Search |
+
+## Knowledge Bases
+
+### GET /api/knowledge-bases
+
+List all knowledge bases for the current tenant.
+
+**Auth:** Session cookie required.
+
+### POST /api/knowledge-bases
+
+Create a new knowledge base.
+
+**Request body:**
+```json
+{
+  "name": "Product Docs",
+  "description": "Documentation for our product",
+  "embeddingModel": "amazon.titan-embed-text-v2:0"
+}
+```
+
+### GET /api/knowledge-bases/[id]
+
+Get a knowledge base by ID.
+
+### DELETE /api/knowledge-bases/[id]
+
+Delete a knowledge base and all associated documents.
+
+## Documents
+
+### GET /api/knowledge-bases/[id]/documents
+
+List documents in a knowledge base.
+
+### POST /api/knowledge-bases/[id]/upload
+
+Request a pre-signed S3 URL for file upload.
+
+**Request body:**
+```json
+{
+  "filename": "manual.pdf",
+  "contentType": "application/pdf"
+}
+```
+
+**Response:**
+```json
+{
+  "documentId": "doc-id",
+  "uploadUrl": "https://s3.amazonaws.com/...",
+  "fields": { ... }
+}
+```
+
+After uploading to S3, call the ingest endpoint.
+
+### POST /api/knowledge-bases/[id]/ingest
+
+Enqueue a document ingestion job after S3 upload.
+
+**Request body:**
+```json
+{
+  "documentId": "doc-id"
+}
+```
+
+## Sources
+
+### GET /api/knowledge-bases/[id]/sources
+
+List web sources for a knowledge base.
+
+### POST /api/knowledge-bases/[id]/sources
+
+Create a new web source.
+
+**Request body:**
+```json
+{
+  "url": "https://example.com/docs",
+  "crawlDepth": 1,
+  "maxPages": 20,
+  "excludePatterns": ["/admin/*"]
+}
+```
+
+### POST /api/knowledge-bases/[id]/sources/[sourceId]/sync
+
+Trigger a manual sync of a web source.
+
+## Search
+
+### GET /api/knowledge-bases/[id]/search
+
+Search within a knowledge base.
+
+**Query params:**
+- `q` — search query (required)
+- `limit` — max results (default: 10)
+- `type` — `semantic` or `keyword` (default: semantic)
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "chunkId": "chunk-id",
+      "documentId": "doc-id",
+      "text": "...",
+      "score": 0.92
+    }
+  ]
+}
+```
+
+### GET /api/knowledge-bases/search
+
+Cross-knowledge-base search.
+
+**Query params:** Same as above.
+
+## Stats
+
+### GET /api/knowledge-bases/[id]/stats
+
+Get knowledge base statistics.
+
+**Response:**
+```json
+{
+  "documentCount": 42,
+  "chunkCount": 1250,
+  "sourceCount": 3,
+  "lastSyncedAt": "2026-05-20T10:00:00Z"
+}
+```

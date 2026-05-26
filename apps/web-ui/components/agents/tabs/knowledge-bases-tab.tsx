@@ -2,6 +2,7 @@
 
 import { useAgentKnowledgeBases, useAttachKnowledgeBase, useDetachKnowledgeBase } from '@/hooks/use-agent-knowledge-bases';
 import { useKnowledgeBases } from '@/hooks/use-knowledge-bases';
+import { useCreateAgentVersion } from '@/hooks/use-agent-versions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +21,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
 
-export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
+export function KnowledgeBasesTab({ agentId, agentConfig }: { agentId: string; agentConfig: Record<string, unknown> }) {
   const { data: attached, isLoading: attachedLoading } = useAgentKnowledgeBases(agentId);
   const { data: allKBs, isLoading: allLoading } = useKnowledgeBases();
   const attach = useAttachKnowledgeBase(agentId);
   const detach = useDetachKnowledgeBase(agentId);
+  const createVersion = useCreateAgentVersion(agentId);
 
   const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() => attach.mutateAsync(kb.id).then(() => toast.success('Attached')).catch(() => toast.error('Failed'))}
+                    onClick={() => attach.mutateAsync(kb.id).then(() => createVersion.mutateAsync(agentConfig)).then(() => toast.success('Knowledge base attached')).catch(() => toast.error('Failed to attach knowledge base'))}
                     disabled={attach.isPending}
                   >
                     <Link2 className="h-3 w-3 mr-1" />
@@ -103,7 +105,7 @@ export function KnowledgeBasesTab({ agentId }: { agentId: string }) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (detachTarget) {
-                  detach.mutateAsync(detachTarget).then(() => toast.success('Detached')).catch(() => toast.error('Failed'));
+                  detach.mutateAsync(detachTarget).then(() => createVersion.mutateAsync(agentConfig)).then(() => toast.success('Knowledge base detached')).catch(() => toast.error('Failed to detach knowledge base'));
                 }
                 setDetachTarget(null);
               }}

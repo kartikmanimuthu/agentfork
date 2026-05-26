@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema, createLogger } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:agents[id]');
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,6 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         { status: 403 },
       );
     }
+    logger.error({ error }, 'Failed to get agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -52,6 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const service = new AgentService(tenantId, db as any);
     const agent = await service.update(id, validatedBody);
 
+    logger.info({ tenantId, agentId: id }, 'Agent updated via API');
     return NextResponse.json(agent);
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -63,6 +67,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         { status: 403 },
       );
     }
+    logger.error({ error, agentId: (await params).id }, 'Failed to update agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -78,6 +83,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const service = new AgentService(tenantId, db as any);
     await service.delete(id);
 
+    logger.info({ tenantId, agentId: id }, 'Agent deleted via API');
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -89,6 +95,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
         { status: 403 },
       );
     }
+    logger.error({ error, agentId: (await params).id }, 'Failed to delete agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

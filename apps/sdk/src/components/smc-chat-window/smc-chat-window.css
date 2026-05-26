@@ -1,0 +1,38 @@
+.chat-window {
+  width: 380px;
+  height: 600px;
+  background: var(--smc-bg, #ffffff);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: windowSlideUp 0.3s ease-out;
+  margin-bottom: 12px;
+}
+
+.chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@keyframes windowSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 480px) {
+  .chat-window {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-bottom: 0;
+  }
+}

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, createAliasSchema } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createAliasSchema, createLogger } from '@chatbot/shared';
 import { AgentAliasService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:agents[id]:aliases');
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,6 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
+    logger.error({ error, agentId: (await params).id }, 'Failed to list aliases');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const service = new AgentAliasService(tenantId, db as any);
 
     const alias = await service.createAlias(id, name, versionId, isDefault);
+    logger.info({ tenantId, agentId: id, aliasName: name }, 'Alias created');
     return NextResponse.json(alias, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -51,6 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof Error && error.message.includes('Unique constraint')) {
       return NextResponse.json({ error: 'Alias name already exists for this agent' }, { status: 409 });
     }
+    logger.error({ error, agentId: (await params).id }, 'Failed to create alias');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,7 +1,10 @@
+import { createLogger } from '@chatbot/shared/workers';
 import type { CrawlOptions, CrawledPage, WebCrawler } from './types';
 import { WebPageFetcher } from './fetcher';
 import { WebPageExtractor } from './extractor';
 import { isSameDomain, matchesPatterns, normalizeUrl } from './url-filter';
+
+const crawlLogger = createLogger('kb:web-crawler');
 
 interface QueueItem {
   url: string;
@@ -24,11 +27,12 @@ export class BreadthFirstCrawler implements WebCrawler {
       delayMs,
     } = options;
 
+    crawlLogger.info({ seedUrls, crawlDepth, maxPages }, 'Starting web crawl');
+
     const results: CrawledPage[] = [];
     const visited = new Set<string>();
     const queue: QueueItem[] = seedUrls.map((url) => ({ url, depth: 0 }));
 
-    // Seed domains for same-domain restriction
     const seedDomains = new Set(
       seedUrls
         .map((u) => {
@@ -64,7 +68,6 @@ export class BreadthFirstCrawler implements WebCrawler {
         visited.add(url);
         results.push({ url, title, text, links, fetchedAt });
 
-        // Enqueue same-domain links
         for (const rawLink of links) {
           const normalized = normalizeUrl(rawLink, url);
           if (!normalized || visited.has(normalized)) {
@@ -86,12 +89,14 @@ export class BreadthFirstCrawler implements WebCrawler {
 
           queue.push({ url: normalized, depth: depth + 1 });
         }
-      } catch {
-        // Silently skip unreachable pages so crawling continues
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        crawlLogger.warn({ url, errorMessage: error.message }, 'Skipped unreachable page during crawl');
         visited.add(url);
       }
     }
 
+    crawlLogger.info({ crawledCount: results.length, visitedCount: visited.size }, 'Web crawl completed');
     return results;
   }
 }

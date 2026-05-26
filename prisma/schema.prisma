@@ -19,7 +19,6 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   configs           TenantConfig[]
-  conversations     Conversation[]
   auditLogs         AuditLog[]
   customRoles       CustomRole[]
   invitations       Invitation[]
@@ -32,6 +31,7 @@ model Tenant {
   llmProviders      LlmProvider[]
   apiKeys           ApiKey[]
   whatsappAccounts  WhatsAppAccount[]
+  sdkWidgets        SdkWidget[]
 
   @@index([status])
   @@map("tenants")
@@ -203,85 +203,6 @@ model Invitation {
   @@map("invitations")
 }
 
-model Conversation {
-  id              String   @id @default(cuid())
-  tenantId        String
-  userId          String
-  title           String   @default("New Conversation")
-  model           String   @default("anthropic.claude-sonnet-4-20250514")
-  status          String   @default("active")
-  messageCount    Int      @default(0)
-  feedbackRating  Int?
-  feedbackComment String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages  Message[]
-  summaries ConversationSummary[]
-  analytics ConversationAnalytics?
-
-  @@index([tenantId])
-  @@index([tenantId, userId])
-  @@index([tenantId, updatedAt])
-  @@index([tenantId, status])
-  @@map("conversations")
-}
-
-model Message {
-  id             String                       @id @default(cuid())
-  conversationId String
-  role           String
-  content        String
-  tokenCount     Int?
-  embedding      Unsupported("vector(1024)")?
-  createdAt      DateTime                     @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@index([conversationId, createdAt])
-  @@map("messages")
-}
-
-model ConversationSummary {
-  id             String   @id @default(cuid())
-  conversationId String
-  summary        String
-  messageRange   Json
-  createdAt      DateTime @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@map("conversation_summaries")
-}
-
-model ConversationAnalytics {
-  id              String   @id @default(cuid())
-  conversationId  String   @unique
-  tenantId        String
-  sentiment       String?
-  sentimentScores Json?
-  isResolved      Boolean?
-  confidenceScore Float?
-  emotionalTone   Json?
-  summary         String?
-  firstUserQuery  String?
-  language        String?
-  messageCount    Int?
-  createdAt       DateTime
-  analyzedAt      DateTime @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([tenantId, sentiment])
-  @@index([tenantId, isResolved])
-  @@index([tenantId, createdAt])
-  @@map("conversation_analytics")
-}
-
 model AuditLog {
   id        String   @id @default(cuid())
   tenantId  String
@@ -324,6 +245,8 @@ model Agent {
   inferenceSessions  InferenceSession[]
   knowledgeBases     AgentKnowledgeBase[]
   aliases            AgentAlias[]
+  apiKeyExecutions   ApiKeyExecution[]
+  sdkWidgets         SdkWidget[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -345,6 +268,8 @@ model AgentVersion {
   executions         AgentExecution[]
   playgroundSessions PlaygroundSession[]
   aliases            AgentAlias[]
+  inferenceSessions  InferenceSession[]
+  apiKeyExecutions   ApiKeyExecution[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -512,6 +437,7 @@ model ApiKey {
   executions   ApiKeyExecution[]
   usages       ApiKeyUsage[]
   sessions     InferenceSession[]
+  sdkWidgets   SdkWidget[]
 
   @@index([keyHash])
   @@index([tenantId, agentId, status])
@@ -542,6 +468,7 @@ model ApiKeyExecution {
   tenantId       String
   agentId        String
   agentVersionId String?
+  sessionId      String?
   status         String    @default("pending")
   input          Json
   output         Json?
@@ -556,33 +483,91 @@ model ApiKeyExecution {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKey  ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  session InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent   Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion? @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
+  @@index([sessionId])
   @@index([status])
   @@map("api_key_executions")
 }
 
 model InferenceSession {
-  id        String   @id @default(cuid())
-  apiKeyId  String
-  tenantId  String
-  agentId   String
-  name      String?
-  messages  Json
-  metadata  Json?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  apiKeyId        String
+  tenantId        String
+  agentId         String
+  agentVersionId  String?
+  name            String?
+  channel         String    @default("API")
+  channelMetadata Json?
+  status          String    @default("active")
+  idleExpiresAt   DateTime
+  endedAt         DateTime?
+  endReason       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey                     @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  agent        Agent                      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion?              @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  messages     InferenceSessionMessage[]
+  executions   ApiKeyExecution[]
+  analytics    SessionAnalytics?
+  sdkSession   SdkSession?
+  feedbacks    MessageFeedback[]
+  csatResponse CsatResponse?
 
   @@index([apiKeyId])
   @@index([tenantId, agentId])
-  @@index([expiresAt])
+  @@index([tenantId, status])
+  @@index([tenantId, channel, status])
+  @@index([idleExpiresAt])
   @@map("inference_sessions")
+}
+
+model InferenceSessionMessage {
+  id         String                       @id @default(cuid())
+  sessionId  String
+  role       String
+  content    String                       @db.Text
+  tokenCount Int?
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+
+  session InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  feedback MessageFeedback?
+
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+  @@map("inference_session_messages")
+}
+
+model SessionAnalytics {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  tenantId        String
+  sentiment       String?
+  sentimentScores Json?
+  isResolved      Boolean?
+  confidenceScore Float?
+  emotionalTone   Json?
+  summary         String?
+  firstUserQuery  String?
+  language        String?
+  messageCount    Int?
+  analyzedAt      DateTime @default(now())
+
+  session InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, sentiment])
+  @@index([tenantId, isResolved])
+  @@index([tenantId, analyzedAt])
+  @@map("session_analytics")
 }
 
 model KnowledgeBase {
@@ -803,4 +788,103 @@ model LlmResponseCache {
   @@index([cacheKey])
   @@index([expiresAt])
   @@map("llm_response_cache")
+}
+
+model SdkWidget {
+  id              String   @id @default(cuid())
+  tenantId        String
+  agentId         String
+  apiKeyId        String
+  name            String
+  sdkId           String   @unique
+
+  primaryColor    String   @default("#1a1a2e")
+  secondaryColor  String   @default("#3b82f6")
+  theme           String   @default("auto")
+  position        String   @default("right")
+  headerText      String   @default("Hey there!")
+  headerIcon      String?
+  botName         String   @default("AI Assistant")
+  botAvatar       String?
+  welcomeMessage  String   @default("How can I help you today?")
+  inputPlaceholder String  @default("Write a message...")
+  customCss       String?
+
+  preChatForm     Json?
+  quickReplies    Json?
+  proactiveRules  Json?
+  kbEnabled       Boolean  @default(false)
+  fileUpload      Boolean  @default(false)
+  csatEnabled     Boolean  @default(false)
+  csatType        String   @default("thumbs")
+
+  allowedOrigins  String[]
+  rateLimitRpm    Int      @default(60)
+
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  sessions        SdkSession[]
+  csatResponses   CsatResponse[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([agentId])
+  @@map("sdk_widgets")
+}
+
+model SdkSession {
+  id                  String   @id @default(cuid())
+  sdkWidgetId         String
+  inferenceSessionId  String   @unique
+  visitorId           String
+  visitorName         String?
+  visitorEmail        String?
+  metadata            Json?
+  status              String   @default("active")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sdkWidget           SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+  inferenceSession    InferenceSession  @relation(fields: [inferenceSessionId], references: [id], onDelete: Cascade)
+
+  @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
+  @@index([visitorId])
+  @@map("sdk_sessions")
+}
+
+model MessageFeedback {
+  id         String   @id @default(cuid())
+  messageId  String   @unique
+  sessionId  String
+  rating     String
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  message    InferenceSessionMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  session    InferenceSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("message_feedbacks")
+}
+
+model CsatResponse {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  sdkWidgetId String
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  session     InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sdkWidget   SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+
+  @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
+  @@map("csat_responses")
 }

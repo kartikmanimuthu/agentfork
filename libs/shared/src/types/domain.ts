@@ -1,4 +1,3 @@
-export type ConversationStatus = 'active' | 'archived';
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type AuditSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';

@@ -87,6 +87,24 @@ export class S3Service {
     }
   }
 
+  async getDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
+    const bucket = this.getBucket();
+    logger.info({ bucket, key, expiresIn }, 'Generating S3 pre-signed download URL');
+    try {
+      const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+      const url = await getSignedUrl(this.client, command, { expiresIn });
+      logger.info({ bucket, key }, 'S3 pre-signed download URL generated');
+      return url;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error(
+        { bucket, key, errorMessage: error.message, errorStack: error.stack },
+        'Failed to generate S3 pre-signed download URL'
+      );
+      throw error;
+    }
+  }
+
   async uploadBuffer(
     key: string,
     body: Buffer,

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, createAgentSchema } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createAgentSchema, createLogger } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
+
+const logger = createLogger('api:agents');
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,6 +33,7 @@ export async function GET(req: NextRequest) {
         { status: 403 },
       );
     }
+    logger.error({ error }, 'Failed to list agents');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -53,6 +56,7 @@ export async function POST(req: NextRequest) {
     const service = new AgentService(tenantId, db as any);
     const agent = await service.create({ ...parsed.data, tenantId });
 
+    logger.info({ tenantId, agentId: (agent as { id: string }).id }, 'Agent created via API');
     return NextResponse.json(agent, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
@@ -64,6 +68,7 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
+    logger.error({ error }, 'Failed to create agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
