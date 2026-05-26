@@ -752,6 +752,12 @@ describe('OutputNodeExecutor', () => {
         expect.objectContaining({ type: 'text_delta' }),
       );
     });
+
+    it('returns empty string for null/undefined channel value', async () => {
+      const { ctx } = makeCtx('text', undefined);
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('');
+    });
   });
 
   describe('json format', () => {
@@ -777,7 +783,7 @@ describe('OutputNodeExecutor', () => {
       const circular: Record<string, unknown> = {};
       circular['self'] = circular;
       const { ctx } = makeCtx('json', circular);
-      await expect(executor.execute(ctx)).rejects.toThrow();
+      await expect(executor.execute(ctx)).rejects.toThrow(TypeError);
     });
   });
 

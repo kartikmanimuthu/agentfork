@@ -55,7 +55,7 @@ export class OutputNodeExecutor implements NodeExecutor {
       case 'stream': {
         const content = typeof channelValue === 'string'
           ? channelValue
-          : JSON.stringify(channelValue ?? '');
+          : channelValue == null ? '' : JSON.stringify(channelValue);
         ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: content });
         return content;
       }
@@ -64,7 +64,7 @@ export class OutputNodeExecutor implements NodeExecutor {
       default:
         return typeof channelValue === 'string'
           ? channelValue
-          : JSON.stringify(channelValue ?? '');
+          : channelValue == null ? '' : JSON.stringify(channelValue);
     }
   }
 }
