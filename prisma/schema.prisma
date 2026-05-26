@@ -436,7 +436,7 @@ model ApiKey {
   executions   ApiKeyExecution[]
   usages       ApiKeyUsage[]
   sessions     InferenceSession[]
-  sdkWidget    SdkWidget?
+  sdkWidgets   SdkWidget[]
 
   @@index([keyHash])
   @@index([tenantId, agentId, status])
@@ -675,7 +675,7 @@ model SdkWidget {
   id              String   @id @default(cuid())
   tenantId        String
   agentId         String
-  apiKeyId        String   @unique
+  apiKeyId        String
   name            String
   sdkId           String   @unique
 
@@ -708,7 +708,7 @@ model SdkWidget {
 
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Restrict)
+  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
   sessions        SdkSession[]
   csatResponses   CsatResponse[]
 
