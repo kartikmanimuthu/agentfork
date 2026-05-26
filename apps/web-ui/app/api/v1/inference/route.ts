@@ -447,74 +447,102 @@ export async function POST(req: NextRequest) {
 
     // ─── Graph Agent Execution ────────────────────────────────────────────
     if (agent.type === 'graph') {
-      const graphConfig = config as {
-        nodes?: Array<{ id: string; type: string; label: string }>;
-        edges?: Array<{ id: string; source: string; target: string }>;
-      };
-      const nodes = graphConfig.nodes ?? [];
-      const edges = graphConfig.edges ?? [];
+      const graphConfig = config as { nodes?: any[]; edges?: any[] };
+      const graph = { nodes: graphConfig.nodes ?? [], edges: graphConfig.edges ?? [] };
 
-      const traceSteps = nodes.map((node) => ({
-        nodeId: node.id,
-        nodeType: node.type,
-        nodeLabel: node.label,
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-      }));
-
-      const text = `[Graph agent execution]\n\nNodes executed: ${nodes.length}\nEdges traversed: ${edges.length}\n\nGraph execution is simulated. Full graph runtime is planned for a future release.`;
-
-      const completedAt = new Date();
-      const latencyMs = completedAt.getTime() - startedAt.getTime();
-
-      // Persist the assistant turn into the session for stateful graph calls so
-      // session history stays consistent across simple + graph agents.
-      if (sessionId) {
-        try {
-          await sessionService.appendMessage(sessionId, {
-            role: 'assistant',
-            content: text,
-          });
-        } catch (err) {
-          logger.warn({ err, sessionId }, 'Failed to append graph assistant turn');
-        }
+      if (graph.nodes.length === 0) {
+        return new Response(
+          JSON.stringify({ error: { type: 'agent_not_configured', message: 'Graph has no nodes' } }),
+          { status: 400 }
+        );
       }
 
-      await db.apiKeyExecution.update({
-        where: { id: executionId },
-        data: {
-          status: 'completed',
-          output: { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } },
-          cacheHit: false,
-          latencyMs,
-          completedAt,
+      const { GraphExecutor, createNodeExecutors } = await import('@chatbot/agent-studio/server');
+      const { PausedExecutionService } = await import('@chatbot/shared');
+      const pausedExecService = new PausedExecutionService(db);
+
+      const llmProviderFn = async (providerId?: string, modelId?: string) => {
+        const llmProviderService = new LlmProviderService(tenantId);
+        const providerCfg = providerId
+          ? await llmProviderService.getConfigById(providerId)
+          : modelId
+            ? await resolveProviderForModel(tenantId, modelId)
+            : null;
+        const cfg = providerCfg ?? (await llmProviderService.getDefaultConfig());
+        return createLLMProvider(cfg);
+      };
+
+      const graphExecutor = new GraphExecutor({ llmProvider: llmProviderFn, prisma: db });
+      for (const exec of createNodeExecutors()) graphExecutor.register(exec);
+
+      const inboxMessages = sessionId ? [...priorMessages, ...messages] : messages;
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const enc = (data: unknown) =>
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
+
+          try {
+            let paused = false;
+
+            const finalState = await graphExecutor.execute(
+              graph,
+              { messages: inboxMessages.map((m) => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content ?? '' })) },
+              { executionId, agentId, tenantId, userId: '' },
+              {
+                onEvent: (event) => enc(event),
+                onPause: async (pauseInfo) => {
+                  paused = true;
+                  await pausedExecService.create({
+                    tenantId, agentId, executionId,
+                    graphState: pauseInfo.state,
+                    prompt: pauseInfo.prompt,
+                    outputChannel: pauseInfo.outputChannel,
+                    nextNodeId: pauseInfo.nextNodeId,
+                  });
+                  await db.apiKeyExecution.update({
+                    where: { id: executionId },
+                    data: { status: 'paused' },
+                  });
+                },
+              }
+            );
+
+            if (!paused) {
+              const text = String((finalState.channels.__output as string) ?? '');
+              const completedAt = new Date();
+              await db.apiKeyExecution.update({
+                where: { id: executionId },
+                data: { status: 'completed', output: { text }, completedAt, latencyMs: completedAt.getTime() - startedAt.getTime() },
+              });
+              if (sessionId) {
+                await sessionService.appendMessage(sessionId, { role: 'assistant', content: text });
+              }
+              enc({ type: 'done', text });
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error({ executionId, agentId, tenantId, err: msg }, 'graph agent execution failed');
+            await db.apiKeyExecution.update({
+              where: { id: executionId },
+              data: { status: 'failed', error: msg, completedAt: new Date() },
+            });
+            enc({ type: 'error', message: msg });
+          } finally {
+            controller.close();
+          }
         },
       });
 
-      await quotaService.incrementUsage(0);
-      await deliverWebhook(
-        'completed',
-        { text, trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length } },
-        undefined,
-        undefined,
-        latencyMs
-      );
-
-      return new Response(
-        JSON.stringify({
-          id: executionId,
-          content: text,
-          trace: { steps: traceSteps, nodeCount: nodes.length, edgeCount: edges.length },
-          cacheHit: false,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-execution-id': executionId,
-            ...(sessionId ? { 'x-session-id': sessionId } : {}),
-          },
-        }
-      );
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+          'x-execution-id': executionId,
+          ...(sessionId ? { 'x-session-id': sessionId } : {}),
+        },
+      });
     }
 
     return new Response(JSON.stringify({ error: 'Unsupported agent type' }), { status: 400 });
