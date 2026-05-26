@@ -5,6 +5,7 @@ import { StateSchemaNodeExecutor } from './state-schema-executor';
 import { RouterNodeExecutor } from './router-executor';
 import { ToolNodeExecutor } from './tool-executor';
 import { LlmNodeExecutor } from './llm-executor';
+import { MemoryNodeExecutor } from './memory-executor';
 
 function createMockState(overrides: Partial<GraphState> = {}): GraphState {
   return {
@@ -605,5 +606,109 @@ describe('RouterNodeExecutor — natural_language mode', () => {
       services: { llmProvider, prisma: {} },
     });
     await expect(executor.execute(ctx)).rejects.toThrow('provider unavailable');
+  });
+});
+
+describe('MemoryNodeExecutor — summary strategy', () => {
+  const executor = new MemoryNodeExecutor();
+
+  const baseMessages = [
+    { role: 'user' as const, content: 'Hello' },
+    { role: 'assistant' as const, content: 'Hi there' },
+    { role: 'user' as const, content: 'What is 2+2?' },
+    { role: 'assistant' as const, content: '4' },
+    { role: 'user' as const, content: 'Tell me about Paris' },
+    { role: 'assistant' as const, content: 'Paris is the capital of France' },
+    { role: 'user' as const, content: 'What about London?' },
+    { role: 'assistant' as const, content: 'London is the capital of the UK' },
+  ];
+
+  function makeCtx(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    keepRecent: number,
+    llmResponse: string,
+  ) {
+    const mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield llmResponse; })(),
+    });
+    return createMockContext({
+      node: createMockNode({ id: 'memory-1', type: 'memory', label: 'Memory' }),
+      config: {
+        type: 'memory',
+        strategy: 'summary',
+        messagesChannel: 'messages',
+        keepRecent,
+      },
+      state: createMockState({ channels: { messages } }),
+      services: {
+        llmProvider: vi.fn().mockResolvedValue({ streamChat: mockStreamChat }),
+        prisma: {},
+      },
+    });
+  }
+
+  it('returns messages unchanged when count <= keepRecent (no LLM call)', async () => {
+    const messages = baseMessages.slice(0, 4); // 4 messages
+    const mockStreamChat = vi.fn();
+    const llmProvider = vi.fn().mockResolvedValue({ streamChat: mockStreamChat });
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'memory-1', type: 'memory', label: 'Memory' }),
+      config: { type: 'memory', strategy: 'summary', messagesChannel: 'messages', keepRecent: 6 },
+      state: createMockState({ channels: { messages } }),
+      services: { llmProvider, prisma: {} },
+    });
+    const result = await executor.execute(ctx);
+    expect(result.stateUpdates.messages).toEqual(messages);
+    expect(llmProvider).not.toHaveBeenCalled();
+  });
+
+  it('calls llmProvider and prepends summary when count > keepRecent', async () => {
+    const ctx = makeCtx(baseMessages, 4, 'User asked about math and cities.');
+    const result = await executor.execute(ctx);
+    const updated = result.stateUpdates.messages as Array<{ role: string; content: string }>;
+    // First message should be the summary
+    expect(updated[0].role).toBe('system');
+    expect(updated[0].content).toContain('User asked about math and cities.');
+    // Last 4 messages preserved verbatim
+    expect(updated.slice(1)).toEqual(baseMessages.slice(-4));
+  });
+
+  it('summary system message contains the correct prefix', async () => {
+    const ctx = makeCtx(baseMessages, 4, 'A summary of the chat.');
+    const result = await executor.execute(ctx);
+    const updated = result.stateUpdates.messages as Array<{ role: string; content: string }>;
+    expect(updated[0].content).toBe('Summary of earlier conversation:\nA summary of the chat.');
+  });
+
+  it('includes older messages in the LLM summarization prompt', async () => {
+    const mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield 'summary'; })(),
+    });
+    const llmProvider = vi.fn().mockResolvedValue({ streamChat: mockStreamChat });
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'memory-1', type: 'memory', label: 'Memory' }),
+      config: { type: 'memory', strategy: 'summary', messagesChannel: 'messages', keepRecent: 4 },
+      state: createMockState({ channels: { messages: baseMessages } }),
+      services: { llmProvider, prisma: {} },
+    });
+    await executor.execute(ctx);
+    const callArgs = mockStreamChat.mock.calls[0][0];
+    const promptText = JSON.stringify(callArgs.messages);
+    // Older messages (first 4) should be in the prompt
+    expect(promptText).toContain('Hello');
+    expect(promptText).toContain('What is 2+2?');
+    // Recent messages (last 4) should NOT be in the prompt
+    expect(promptText).not.toContain('What about London?');
+  });
+
+  it('propagates error when llmProvider rejects', async () => {
+    const llmProvider = vi.fn().mockRejectedValue(new Error('provider down'));
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'memory-1', type: 'memory', label: 'Memory' }),
+      config: { type: 'memory', strategy: 'summary', messagesChannel: 'messages', keepRecent: 2 },
+      state: createMockState({ channels: { messages: baseMessages } }),
+      services: { llmProvider, prisma: {} },
+    });
+    await expect(executor.execute(ctx)).rejects.toThrow('provider down');
   });
 });
