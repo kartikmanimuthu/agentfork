@@ -19,7 +19,15 @@ export class MemoryNodeExecutor implements NodeExecutor {
     const raw = ctx.state.channels[config.messagesChannel] ?? ctx.state.messages;
     const messages: Message[] = Array.isArray(raw) ? (raw as Message[]) : [];
 
-    const processed = this.applyStrategy(messages, config);
+    const processed =
+      config.strategy === 'summary'
+        ? await this.applySummaryStrategy(messages, config, ctx)
+        : this.applyStrategy(messages, config);
+
+    logger.info(
+      { nodeId: ctx.node.id, strategy: config.strategy, input: messages.length, output: processed.length },
+      'memory strategy applied',
+    );
 
     return {
       stateUpdates: { [config.messagesChannel]: processed },
@@ -60,11 +68,60 @@ export class MemoryNodeExecutor implements NodeExecutor {
         return result;
       }
 
-      case 'summary':
-        return messages;
-
       default:
         return messages;
+    }
+  }
+
+  private async applySummaryStrategy(
+    messages: Message[],
+    config: MemoryNodeConfig,
+    ctx: NodeExecutionContext,
+  ): Promise<Message[]> {
+    const keepRecent = config.keepRecent ?? 6;
+
+    if (messages.length <= keepRecent) {
+      return messages;
+    }
+
+    const old = messages.slice(0, messages.length - keepRecent);
+    const recent = messages.slice(-keepRecent);
+
+    try {
+      const provider = await ctx.services.llmProvider();
+
+      const conversationText = old
+        .map((m) => `${m.role}: ${m.content}`)
+        .join('\n');
+
+      const streamResult = provider.streamChat({
+        messages: [
+          {
+            role: 'user',
+            content: `Summarize the following conversation concisely, preserving key facts and context:\n\n${conversationText}`,
+          },
+        ],
+        temperature: 0,
+        maxOutputTokens: 512,
+      });
+
+      let summary = '';
+      for await (const chunk of streamResult.textStream) {
+        summary += chunk;
+      }
+
+      logger.info(
+        { nodeId: ctx.node.id, oldCount: old.length, keepRecent, summaryLength: summary.length },
+        'memory summary generated',
+      );
+
+      return [
+        { role: 'system', content: `Summary of earlier conversation:\n${summary}` },
+        ...recent,
+      ];
+    } catch (error) {
+      logger.error({ nodeId: ctx.node.id, error }, 'memory summary LLM call failed');
+      throw error;
     }
   }
 }
