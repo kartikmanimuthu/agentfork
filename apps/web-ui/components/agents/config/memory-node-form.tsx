@@ -101,6 +101,9 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
                     onBlur={() => { field.handleBlur(); handleBlur(); }}
                     placeholder="20"
                   />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                  )}
                 </div>
               )}
             </form.Field>
@@ -118,6 +121,9 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
                     onBlur={() => { field.handleBlur(); handleBlur(); }}
                     placeholder="4000"
                   />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                  )}
                 </div>
               )}
             </form.Field>
@@ -135,6 +141,9 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
                     onBlur={() => { field.handleBlur(); handleBlur(); }}
                     placeholder="6"
                   />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Messages beyond this count will be summarized by the LLM.
                   </p>

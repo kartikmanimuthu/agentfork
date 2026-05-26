@@ -6,5 +6,5 @@ export const memoryNodeSchema = z.object({
   maxMessages: z.number().int().positive().optional(),
   maxTokens: z.number().int().positive().optional(),
   messagesChannel: z.string().min(1, 'Messages channel is required'),
-  keepRecent: z.number().int().min(1).default(6).optional(),
+  keepRecent: z.number().int().min(1).optional(),
 });

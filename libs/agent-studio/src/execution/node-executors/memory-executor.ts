@@ -15,34 +15,38 @@ export class MemoryNodeExecutor implements NodeExecutor {
   async execute(ctx: NodeExecutionContext): Promise<NodeExecutionResult> {
     const config = ctx.config as MemoryNodeConfig;
     const startedAt = new Date().toISOString();
+    try {
+      const raw = ctx.state.channels[config.messagesChannel] ?? ctx.state.messages;
+      const messages: Message[] = Array.isArray(raw) ? (raw as Message[]) : [];
 
-    const raw = ctx.state.channels[config.messagesChannel] ?? ctx.state.messages;
-    const messages: Message[] = Array.isArray(raw) ? (raw as Message[]) : [];
+      const processed =
+        config.strategy === 'summary'
+          ? await this.applySummaryStrategy(messages, config, ctx)
+          : this.applyStrategy(messages, config);
 
-    const processed =
-      config.strategy === 'summary'
-        ? await this.applySummaryStrategy(messages, config, ctx)
-        : this.applyStrategy(messages, config);
+      logger.info(
+        { nodeId: ctx.node.id, strategy: config.strategy, input: messages.length, output: processed.length },
+        'memory strategy applied',
+      );
 
-    logger.info(
-      { nodeId: ctx.node.id, strategy: config.strategy, input: messages.length, output: processed.length },
-      'memory strategy applied',
-    );
-
-    return {
-      stateUpdates: { [config.messagesChannel]: processed },
-      next: null,
-      trace: {
-        nodeId: ctx.node.id,
-        nodeType: 'memory',
-        nodeLabel: ctx.node.label,
-        status: 'completed',
-        startedAt,
-        completedAt: new Date().toISOString(),
-        input: { strategy: config.strategy, originalCount: messages.length },
-        output: { resultCount: processed.length },
-      },
-    };
+      return {
+        stateUpdates: { [config.messagesChannel]: processed },
+        next: null,
+        trace: {
+          nodeId: ctx.node.id,
+          nodeType: 'memory',
+          nodeLabel: ctx.node.label,
+          status: 'completed',
+          startedAt,
+          completedAt: new Date().toISOString(),
+          input: { strategy: config.strategy, originalCount: messages.length },
+          output: { resultCount: processed.length },
+        },
+      };
+    } catch (error) {
+      logger.error({ nodeId: ctx.node.id, error }, 'memory execution failed');
+      throw error;
+    }
   }
 
   private applyStrategy(messages: Message[], config: MemoryNodeConfig): Message[] {
