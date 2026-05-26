@@ -580,12 +580,12 @@ new aws.iam.RolePolicy("ecs-task-logs-policy", {
     ),
 });
 
-// WebUI Task Definition — ARM64, FARGATE, 2048 CPU / 4096 MiB
+// WebUI Task Definition — ARM64, FARGATE, 1024 CPU / 2048 MiB
 // retainOnDelete: true — Pulumi must NOT deactivate old task definition revisions on replace.
 const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
     family: `${appName}-web-ui-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1047,8 +1047,8 @@ new aws.iam.RolePolicy("workers-rds-connect-policy", {
 // Ephemeral worker task definition — lightweight tasks for horizontal dispatch
 const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task-def", {
     family: `${appName}-ephemeral-worker-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1142,8 +1142,8 @@ const workersSecurityGroup = new aws.ec2.SecurityGroup("workers-sg", {
 
 const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
     family: `${appName}-workers-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1190,7 +1190,7 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
-            { name: "WORKER_ARCH", value: "horizontal" },
+            { name: "WORKER_ARCH", value: "vertical" },
             { name: "ECS_CLUSTER_ARN", value: clusterArn },
             { name: "WORKER_TASK_DEFINITION_ARN", value: ephTaskDefArn },
             { name: "PRIVATE_SUBNET_IDS", value: subnetsJoined },
