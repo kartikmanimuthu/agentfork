@@ -7,6 +7,7 @@ import {
   createLogger,
   TenantConfigService,
   LlmProviderService,
+  PausedExecutionService,
   playgroundRequestSchema,
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
@@ -250,6 +251,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       executor.register(new DelayNodeExecutor());
 
       let fullText = '';
+      let paused = false;
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -258,6 +260,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const sendEvent = (event: string, data: unknown) => {
             controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
           };
+
+          const pausedExecService = new PausedExecutionService(db);
 
           try {
             await executor.execute(
@@ -268,20 +272,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 onEvent: (event) => {
                   sendEvent(event.type, event);
                   if (event.type === 'text_delta') {
-                    fullText += event.delta;
+                    fullText += (event as any).delta;
                   }
+                },
+                onPause: async (pauseInfo) => {
+                  paused = true;
+                  await pausedExecService.create({
+                    tenantId,
+                    agentId: id,
+                    executionId: execution.id,
+                    graphState: pauseInfo.state,
+                    prompt: pauseInfo.prompt,
+                    outputChannel: pauseInfo.outputChannel,
+                    nextNodeId: pauseInfo.nextNodeId,
+                    resumeToken: pauseInfo.resumeToken,
+                  });
+                  await db.agentExecution.update({
+                    where: { id: execution.id },
+                    data: { status: 'paused' },
+                  });
+                  logger.info({ executionId: execution.id, resumeToken: pauseInfo.resumeToken }, 'Playground execution paused at human node');
                 },
               }
             );
 
-            await db.agentExecution.update({
-              where: { id: execution.id },
-              data: {
-                status: 'completed',
-                output: { text: fullText },
-                completedAt: new Date(),
-              },
-            });
+            if (!paused) {
+              await db.agentExecution.update({
+                where: { id: execution.id },
+                data: {
+                  status: 'completed',
+                  output: { text: fullText },
+                  completedAt: new Date(),
+                },
+              });
+            }
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             sendEvent('execution_error', { error: errorMessage });

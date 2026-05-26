@@ -33,6 +33,7 @@ import {
   Clock,
   Plus,
   Settings,
+  UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -127,11 +128,13 @@ export default function PlaygroundPage() {
   const {
     messages,
     isLoading,
+    pauseInfo,
     overrides,
     setOverrides,
     executions,
     refreshExecutions,
     handleSend,
+    handleResume,
     handleRegenerate,
     setMessages,
   } = usePlayground({
@@ -357,7 +360,21 @@ export default function PlaygroundPage() {
             isLoading={isLoading}
             onRegenerate={handleRegenerate}
           />
-          <ChatInput onSend={handleSend} isLoading={isLoading} />
+          {pauseInfo && (
+            <div className="mx-4 mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+              <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="min-w-0">
+                <p className="font-medium text-amber-900 dark:text-amber-200">Agent waiting for your input</p>
+                {pauseInfo.prompt && (
+                  <p className="mt-0.5 text-amber-700 dark:text-amber-300">{pauseInfo.prompt}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <ChatInput
+            onSend={pauseInfo ? handleResume : handleSend}
+            isLoading={isLoading}
+          />
         </div>
 
         {/* Config / Trace Sidebar */}
