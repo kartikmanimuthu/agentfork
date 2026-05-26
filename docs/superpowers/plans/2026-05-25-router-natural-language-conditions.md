@@ -10,6 +10,20 @@
 
 ---
 
+## Bug Fix + Extension (2026-05-26)
+
+After the initial implementation, two bugs were found and fixed, plus a model-selector feature was added:
+
+1. **NLP prompt bug**: The classifier prompt buried the user's message as a JSON array in the channels dump (`messages: [{"role":"user","content":"..."}]`). At low temperature, the LLM often returned -1 (no match). Fixed by explicitly extracting the last user message and presenting it as `User's message: "..."`.
+
+2. **Default provider bug**: The router called `llmProvider()` with no model argument, hitting the tenant's default Bedrock provider. If that model is legacy/deprecated, the call returns an empty response → `NaN` → silent fallback to default target every time. Confirmed in logs: `"Access denied. This Model is marked by provider as Legacy"`.
+
+3. **Classifier model dropdown**: Added `classifierModel?: string` to `RouterNodeConfig` and the Zod schema. The executor now calls `llmProvider(undefined, config.classifierModel)` when set. The UI shows a `ProviderModelSelect` dropdown (same component as LLM nodes) instead of a text input — only models from configured providers can be selected.
+
+See `docs/dev/changes/2026-05-26-router-nlp-classifier-fix.md` for full details.
+
+---
+
 ## Files
 
 | Action | Path |
