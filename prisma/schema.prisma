@@ -299,6 +299,27 @@ model AgentExecution {
   @@map("agent_executions")
 }
 
+model PausedExecution {
+  id            String    @id @default(cuid())
+  resumeToken   String    @unique @default(uuid())
+  tenantId      String
+  agentId       String
+  executionId   String    // references ApiKeyExecution.id (loose coupling — no FK)
+  graphState    Json      // full GraphState at pause point
+  prompt        String    // HumanNodeConfig.prompt — shown to user
+  outputChannel String    // HumanNodeConfig.outputChannel — where to write reply
+  nextNodeId    String?   // first node after human node (null if terminal)
+  expiresAt     DateTime
+  resumedAt     DateTime? // null until claimed; single-use enforcement
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([resumeToken])
+  @@index([expiresAt])
+  @@index([executionId])
+  @@map("paused_executions")
+}
+
 model PlaygroundSession {
   id              String   @id @default(cuid())
   tenantId        String
