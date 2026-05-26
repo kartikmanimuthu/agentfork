@@ -33,6 +33,7 @@ export interface CreatePausedExecutionInput {
   prompt: string;
   outputChannel: string;
   nextNodeId: string | null;
+  resumeToken?: string;
 }
 
 const EXPIRY_HOURS = 24;
@@ -53,6 +54,7 @@ export class PausedExecutionService {
           outputChannel: input.outputChannel,
           nextNodeId: input.nextNodeId,
           expiresAt,
+          ...(input.resumeToken !== undefined ? { resumeToken: input.resumeToken } : {}),
         },
       });
     } catch (error) {

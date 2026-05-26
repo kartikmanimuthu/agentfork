@@ -63,6 +63,7 @@ export class GraphExecutor {
 
     let state = initialState;
     let steps = 0;
+    let wasPaused = false;
 
     logger.info({ executionId: metadata.executionId, startNodeId: state.currentNodeId }, 'starting graph loop');
 
@@ -118,14 +119,13 @@ export class GraphExecutor {
               state,
             };
 
-            emit({ type: 'execution_paused', reason: pauseInfo.prompt, resumeToken });
-
             if (options.onPause) {
               await options.onPause(pauseInfo);
             }
 
             const trace: NodeTraceEntry = { ...result.trace, durationMs: Date.now() - startedAt };
             traces.push(trace);
+            wasPaused = true;
             state = { ...state, currentNodeId: null };
             steps++;
             continue;
@@ -159,7 +159,9 @@ export class GraphExecutor {
       throw error;
     }
 
-    emit({ type: 'execution_complete', finalState: state, trace: traces });
+    if (!wasPaused) {
+      emit({ type: 'execution_complete', finalState: state, trace: traces });
+    }
     logger.info({ executionId: metadata.executionId, steps, traceCount: traces.length }, 'graph execution complete');
 
     return state;

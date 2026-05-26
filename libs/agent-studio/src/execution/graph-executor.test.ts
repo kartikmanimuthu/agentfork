@@ -363,11 +363,14 @@ describe('GraphExecutor — human node pause', () => {
 
     graphExec.register({
       type: 'human',
-      execute: async (ctx) => ({
-        stateUpdates: { __paused: true, __resumeToken: 'tok-789' },
-        next: null,
-        trace: { nodeId: ctx.node.id, nodeType: 'human', status: 'paused' as const, startedAt: new Date().toISOString() },
-      }),
+      execute: async (ctx) => {
+        ctx.emit({ type: 'execution_paused', reason: 'test prompt', resumeToken: 'tok-789' });
+        return {
+          stateUpdates: { __paused: true, __resumeToken: 'tok-789' },
+          next: null,
+          trace: { nodeId: ctx.node.id, nodeType: 'human', status: 'paused' as const, startedAt: new Date().toISOString() },
+        };
+      },
     });
 
     const graph: GraphDefinition = {

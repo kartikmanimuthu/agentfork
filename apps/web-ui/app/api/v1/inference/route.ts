@@ -499,6 +499,7 @@ export async function POST(req: NextRequest) {
                     prompt: pauseInfo.prompt,
                     outputChannel: pauseInfo.outputChannel,
                     nextNodeId: pauseInfo.nextNodeId,
+                    resumeToken: pauseInfo.resumeToken,
                   });
                   await db.apiKeyExecution.update({
                     where: { id: executionId },
@@ -518,6 +519,8 @@ export async function POST(req: NextRequest) {
               if (sessionId) {
                 await sessionService.appendMessage(sessionId, { role: 'assistant', content: text });
               }
+              await quotaService.incrementUsage(0);
+              await deliverWebhook('completed', { text });
               enc({ type: 'done', text });
             }
           } catch (err) {
@@ -527,6 +530,7 @@ export async function POST(req: NextRequest) {
               where: { id: executionId },
               data: { status: 'failed', error: msg, completedAt: new Date() },
             });
+            await deliverWebhook('failed', undefined, msg);
             enc({ type: 'error', message: msg });
           } finally {
             controller.close();
