@@ -6,6 +6,7 @@ import { RouterNodeExecutor } from './router-executor';
 import { ToolNodeExecutor } from './tool-executor';
 import { LlmNodeExecutor } from './llm-executor';
 import { MemoryNodeExecutor } from './memory-executor';
+import { OutputNodeExecutor } from './output-executor';
 
 function createMockState(overrides: Partial<GraphState> = {}): GraphState {
   return {
@@ -710,5 +711,116 @@ describe('MemoryNodeExecutor — summary strategy', () => {
       services: { llmProvider, prisma: {} },
     });
     await expect(executor.execute(ctx)).rejects.toThrow('provider down');
+  });
+});
+
+describe('OutputNodeExecutor', () => {
+  const executor = new OutputNodeExecutor();
+
+  function makeCtx(
+    format: 'text' | 'json' | 'stream',
+    channelValue: unknown,
+  ) {
+    const emit = vi.fn();
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'out-1', type: 'output', label: 'Output' }),
+      config: { type: 'output', responseChannel: 'response', format },
+      state: createMockState({ channels: { response: channelValue } }),
+      emit,
+    });
+    return { ctx, emit };
+  }
+
+  describe('text format', () => {
+    it('returns string channel value as-is', async () => {
+      const { ctx } = makeCtx('text', 'hello world');
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('hello world');
+      expect(result.stateUpdates.__output).toBe('hello world');
+    });
+
+    it('coerces object channel value to JSON string', async () => {
+      const { ctx } = makeCtx('text', { foo: 'bar' });
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('{"foo":"bar"}');
+    });
+
+    it('does not emit text_delta events', async () => {
+      const { ctx, emit } = makeCtx('text', 'hello');
+      await executor.execute(ctx);
+      expect(emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'text_delta' }),
+      );
+    });
+  });
+
+  describe('json format', () => {
+    it('serializes object channel value as JSON string', async () => {
+      const { ctx } = makeCtx('json', { score: 0.9, label: 'positive' });
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe(JSON.stringify({ score: 0.9, label: 'positive' }));
+    });
+
+    it('serializes a string channel value as JSON (quoted)', async () => {
+      const { ctx } = makeCtx('json', 'hello');
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('"hello"');
+    });
+
+    it('serializes null/undefined channel value as JSON null', async () => {
+      const { ctx } = makeCtx('json', undefined);
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('null');
+    });
+
+    it('throws when channel value is not JSON-serializable (circular ref)', async () => {
+      const circular: Record<string, unknown> = {};
+      circular['self'] = circular;
+      const { ctx } = makeCtx('json', circular);
+      await expect(executor.execute(ctx)).rejects.toThrow();
+    });
+  });
+
+  describe('stream format', () => {
+    it('returns the string content as output', async () => {
+      const { ctx } = makeCtx('stream', 'streamed content');
+      const result = await executor.execute(ctx);
+      expect(result.output).toBe('streamed content');
+      expect(result.stateUpdates.__output).toBe('streamed content');
+    });
+
+    it('emits a text_delta event with the full content', async () => {
+      const { ctx, emit } = makeCtx('stream', 'streamed content');
+      await executor.execute(ctx);
+      expect(emit).toHaveBeenCalledWith({
+        type: 'text_delta',
+        nodeId: 'out-1',
+        delta: 'streamed content',
+      });
+    });
+
+    it('coerces non-string channel value to string before emitting', async () => {
+      const { ctx, emit } = makeCtx('stream', { answer: 42 });
+      await executor.execute(ctx);
+      expect(emit).toHaveBeenCalledWith({
+        type: 'text_delta',
+        nodeId: 'out-1',
+        delta: '{"answer":42}',
+      });
+    });
+  });
+
+  describe('trace', () => {
+    it('includes format and responseChannel in trace input', async () => {
+      const { ctx } = makeCtx('text', 'hi');
+      const result = await executor.execute(ctx);
+      expect(result.trace.input).toEqual({ responseChannel: 'response', format: 'text' });
+    });
+
+    it('includes contentLength in trace output', async () => {
+      const { ctx } = makeCtx('text', 'hi');
+      const result = await executor.execute(ctx);
+      expect(result.trace.output).toEqual({ contentLength: 2 });
+    });
   });
 });
