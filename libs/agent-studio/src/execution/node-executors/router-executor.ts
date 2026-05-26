@@ -67,10 +67,16 @@ export class RouterNodeExecutor implements NodeExecutor {
     ctx: NodeExecutionContext,
   ): Promise<string | null> {
     try {
-      const provider = await ctx.services.llmProvider();
+      const provider = await ctx.services.llmProvider(undefined, config.classifierModel);
 
-      const channelSummary = Object.entries(ctx.state.channels)
-        .filter(([, v]) => v !== undefined && v !== null)
+      // Extract the user's latest message explicitly — this is what the classifier needs
+      const messages = ctx.state.messages ?? [];
+      const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+      const userQuery = lastUserMessage?.content ?? '';
+
+      // Include non-message channels as additional context (skip the messages array itself)
+      const extraChannels = Object.entries(ctx.state.channels)
+        .filter(([k, v]) => k !== 'messages' && v !== undefined && v !== null)
         .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
         .join('\n');
 
@@ -78,10 +84,10 @@ export class RouterNodeExecutor implements NodeExecutor {
         .map((c, i) => `${i}: ${c.condition}`)
         .join('\n');
 
-      const prompt = `You are a routing classifier. Based on the current context, determine which routing condition (if any) best matches.
+      const prompt = `You are a routing classifier. Read the user's message and pick the best matching condition.
 
-Current context:
-${channelSummary || '(no channel data)'}
+User's message: "${userQuery}"
+${extraChannels ? `\nAdditional context:\n${extraChannels}` : ''}
 
 Routing conditions:
 ${conditionList}

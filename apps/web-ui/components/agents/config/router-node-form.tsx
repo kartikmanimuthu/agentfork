@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
 import { NodePicker } from './node-picker';
 import type { NodeOption } from './node-picker';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { RouterNodeConfig } from '@chatbot/agent-studio';
 
 const conditionSchema = z.object({
@@ -21,6 +22,7 @@ const schema = z.object({
   conditions: z.array(conditionSchema).min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
   nlTemperature: z.number().min(0).max(1),
+  classifierModel: z.string().optional(),
 });
 
 type RouterFormValues = z.infer<typeof schema>;
@@ -38,6 +40,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
       conditions: config.conditions ?? [],
       defaultTarget: config.defaultTarget ?? '',
       nlTemperature: config.nlTemperature ?? 0,
+      classifierModel: config.classifierModel ?? '',
     } as RouterFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
@@ -47,6 +50,7 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
         conditions: value.conditions,
         defaultTarget: value.defaultTarget || undefined,
         nlTemperature: value.nlTemperature,
+        classifierModel: value.classifierModel || undefined,
       });
     },
   });
@@ -84,33 +88,51 @@ export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormPro
         )}
       </form.Field>
 
-      {/* NL Temperature — only visible in natural_language mode */}
+      {/* NL Temperature + Classifier Model — only visible in natural_language mode */}
       <form.Subscribe selector={(s) => s.values.mode}>
         {(mode) =>
           mode === 'natural_language' ? (
-            <form.Field name="nlTemperature">
-              {(field) => (
-                <div className="grid gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label>Classifier Temperature: {(field.state.value as number).toFixed(1)}</Label>
+            <>
+              <form.Field name="classifierModel">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <Label>Classifier Model</Label>
+                    <ProviderModelSelect
+                      capability="chat"
+                      value={(field.state.value as string) || undefined}
+                      onChange={(v) => { field.handleChange(v); handleBlur(); }}
+                      placeholder="Select classifier model…"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Model used for NLP routing classification.
+                    </p>
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    value={field.state.value as number}
-                    onChange={(e) => field.handleChange(Number(e.target.value))}
-                    onMouseUp={() => handleBlur()}
-                    className="w-full accent-primary"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0 (precise)</span>
-                    <span>1 (creative)</span>
+                )}
+              </form.Field>
+              <form.Field name="nlTemperature">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label>Classifier Temperature: {(field.state.value as number).toFixed(1)}</Label>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={field.state.value as number}
+                      onChange={(e) => field.handleChange(Number(e.target.value))}
+                      onMouseUp={() => handleBlur()}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0 (precise)</span>
+                      <span>1 (creative)</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </form.Field>
+                )}
+              </form.Field>
+            </>
           ) : null
         }
       </form.Subscribe>

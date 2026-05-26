@@ -48,6 +48,8 @@ export interface RouterNodeConfig {
   defaultTarget?: string;
   /** Temperature for LLM classification in natural_language mode (0–1, default 0) */
   nlTemperature?: number;
+  /** Model ID to use for NLP classification — must match a model in your LLM Providers */
+  classifierModel?: string;
 }
 
 export interface StateSchemaNodeConfig {
