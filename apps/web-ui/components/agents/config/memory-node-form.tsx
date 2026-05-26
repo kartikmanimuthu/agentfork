@@ -18,6 +18,7 @@ const schema = z.object({
   maxMessages: z.number().int().positive().optional(),
   maxTokens: z.number().int().positive().optional(),
   messagesChannel: z.string().min(1, 'Messages channel is required'),
+  keepRecent: z.number().int().min(1).optional(),
 });
 
 type MemoryFormValues = z.infer<typeof schema>;
@@ -34,6 +35,7 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
       maxMessages: config.maxMessages,
       maxTokens: config.maxTokens,
       messagesChannel: config.messagesChannel ?? 'messages',
+      keepRecent: config.keepRecent ?? 6,
     } as MemoryFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
@@ -43,6 +45,7 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
         maxMessages: value.strategy === 'sliding_window' ? value.maxMessages : undefined,
         maxTokens: value.strategy === 'token_limit' ? value.maxTokens : undefined,
         messagesChannel: value.messagesChannel,
+        keepRecent: value.strategy === 'summary' ? (value.keepRecent ?? 6) : undefined,
       });
     },
   });
@@ -74,7 +77,7 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
               <SelectContent>
                 <SelectItem value="full">Full</SelectItem>
                 <SelectItem value="sliding_window">Sliding Window</SelectItem>
-                <SelectItem value="summary">Summary</SelectItem>
+                <SelectItem value="summary">Summary (LLM)</SelectItem>
                 <SelectItem value="token_limit">Token Limit</SelectItem>
               </SelectContent>
             </Select>
@@ -115,6 +118,26 @@ export function MemoryNodeForm({ config, onChange }: MemoryNodeFormProps) {
                     onBlur={() => { field.handleBlur(); handleBlur(); }}
                     placeholder="4000"
                   />
+                </div>
+              )}
+            </form.Field>
+          ) : strategyField.state.value === 'summary' ? (
+            <form.Field name="keepRecent">
+              {(field) => (
+                <div className="grid gap-1.5">
+                  <Label htmlFor={field.name}>Keep Recent Messages</Label>
+                  <Input
+                    id={field.name}
+                    type="number"
+                    min={1}
+                    value={field.state.value ?? ''}
+                    onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : undefined)}
+                    onBlur={() => { field.handleBlur(); handleBlur(); }}
+                    placeholder="6"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Messages beyond this count will be summarized by the LLM.
+                  </p>
                 </div>
               )}
             </form.Field>
