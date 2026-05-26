@@ -314,7 +314,6 @@ model PausedExecution {
   createdAt     DateTime  @default(now())
 
   @@index([tenantId])
-  @@index([resumeToken])
   @@index([expiresAt])
   @@index([executionId])
   @@map("paused_executions")
