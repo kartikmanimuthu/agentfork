@@ -56,6 +56,7 @@ import {
   Sparkles,
   BarChart3,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -85,6 +86,7 @@ const settingsNav = [
   { name: 'Overview', href: '/settings', icon: Settings },
   { name: 'Members', href: '/settings/members', icon: Users },
   { name: 'Roles & Permissions', href: '/settings/roles', icon: Shield },
+  { name: 'WhatsApp', href: '/settings/channels/whatsapp', icon: WhatsAppIcon },
 ];
 
 export function AppSidebar() {
