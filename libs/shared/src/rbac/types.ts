@@ -12,6 +12,7 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   User: 'Users',
   Role: 'Users',
   Tenant: 'Tenants',
+  TenantConfig: 'Settings',
   Settings: 'Settings',
   KnowledgeBases: 'KnowledgeBases',
   KnowledgeBase: 'KnowledgeBases',
