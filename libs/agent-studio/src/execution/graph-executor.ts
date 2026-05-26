@@ -7,6 +7,7 @@ import type {
   ExecutionOptions,
   NodeTraceEntry,
   NodeExecutionContext,
+  PauseInfo,
 } from './types';
 import type { GraphDefinition, GraphNode } from '../types/agent';
 import { createInitialState, applyStateUpdates } from './state';
@@ -30,27 +31,40 @@ export class GraphExecutor {
     metadata: { executionId: string; agentId: string; tenantId: string; userId: string },
     options: ExecutionOptions = {}
   ): Promise<GraphState> {
-    const { onEvent, signal, maxSteps = DEFAULT_MAX_STEPS } = options;
-    const traces: NodeTraceEntry[] = [];
-
-    const emit = (event: ExecutionEvent): void => {
-      onEvent?.(event);
-    };
-
-    let state = createInitialState({
+    const initialState = createInitialState({
       executionId: metadata.executionId,
       agentId: metadata.agentId,
       tenantId: metadata.tenantId,
       userId: metadata.userId,
       messages: input.messages,
     });
-
     const entryNode = this.findEntryNode(graph);
-    state = { ...state, currentNodeId: entryNode.id };
+    return this.runLoop({ ...initialState, currentNodeId: entryNode.id }, graph, metadata, options);
+  }
 
-    logger.info({ executionId: metadata.executionId, entryNodeId: entryNode.id }, 'starting graph execution');
+  async executeFromState(
+    graph: GraphDefinition,
+    state: GraphState,
+    metadata: { executionId: string; agentId: string; tenantId: string; userId: string },
+    options: ExecutionOptions = {}
+  ): Promise<GraphState> {
+    return this.runLoop(state, graph, metadata, options);
+  }
 
+  private async runLoop(
+    initialState: GraphState,
+    graph: GraphDefinition,
+    metadata: { executionId: string; agentId: string; tenantId: string; userId: string },
+    options: ExecutionOptions
+  ): Promise<GraphState> {
+    const { onEvent, signal, maxSteps = DEFAULT_MAX_STEPS } = options;
+    const traces: NodeTraceEntry[] = [];
+    const emit = (event: ExecutionEvent): void => { onEvent?.(event); };
+
+    let state = initialState;
     let steps = 0;
+
+    logger.info({ executionId: metadata.executionId, startNodeId: state.currentNodeId }, 'starting graph loop');
 
     try {
       while (state.currentNodeId) {
@@ -80,27 +94,45 @@ export class GraphExecutor {
         }
 
         emit({ type: 'node_start', nodeId: node.id, nodeType: node.type });
-
         const startedAt = Date.now();
 
         try {
-          const ctx: NodeExecutionContext = {
-            state,
-            node,
-            config: node.config,
-            services: this.services,
-            emit,
-          };
-
+          const ctx: NodeExecutionContext = { state, node, config: node.config, services: this.services, emit };
           const result = await executor.execute(ctx);
 
           state = applyStateUpdates(state, result.stateUpdates);
           emit({ type: 'state_update', channels: state.channels });
 
-          const trace: NodeTraceEntry = {
-            ...result.trace,
-            durationMs: Date.now() - startedAt,
-          };
+          // ── Pause detection ──────────────────────────────────────────────
+          if (state.channels.__paused === true) {
+            const resumeToken = state.channels.__resumeToken as string;
+            const humanConfig = node.config as { prompt?: string; outputChannel?: string };
+            const nextEdge = graph.edges.find((e) => e.source === node.id);
+            const nextNodeId = nextEdge?.target ?? null;
+
+            const pauseInfo: PauseInfo = {
+              resumeToken,
+              nextNodeId,
+              prompt: humanConfig.prompt ?? '',
+              outputChannel: humanConfig.outputChannel ?? '',
+              state,
+            };
+
+            emit({ type: 'execution_paused', reason: pauseInfo.prompt, resumeToken });
+
+            if (options.onPause) {
+              await options.onPause(pauseInfo);
+            }
+
+            const trace: NodeTraceEntry = { ...result.trace, durationMs: Date.now() - startedAt };
+            traces.push(trace);
+            state = { ...state, currentNodeId: null };
+            steps++;
+            continue;
+          }
+          // ── Normal completion ────────────────────────────────────────────
+
+          const trace: NodeTraceEntry = { ...result.trace, durationMs: Date.now() - startedAt };
           traces.push(trace);
           emit({ type: 'node_complete', nodeId: node.id, trace });
 
@@ -109,13 +141,9 @@ export class GraphExecutor {
         } catch (nodeError) {
           const errorMessage = nodeError instanceof Error ? nodeError.message : String(nodeError);
           const failedTrace: NodeTraceEntry = {
-            nodeId: node.id,
-            nodeType: node.type,
-            nodeLabel: node.label,
-            status: 'failed',
-            startedAt: new Date(startedAt).toISOString(),
-            completedAt: new Date().toISOString(),
-            error: errorMessage,
+            nodeId: node.id, nodeType: node.type, nodeLabel: node.label,
+            status: 'failed', startedAt: new Date(startedAt).toISOString(),
+            completedAt: new Date().toISOString(), error: errorMessage,
             durationMs: Date.now() - startedAt,
           };
           traces.push(failedTrace);
@@ -140,28 +168,14 @@ export class GraphExecutor {
   private findEntryNode(graph: GraphDefinition): GraphNode {
     const targetIds = new Set(graph.edges.map((e) => e.target));
     const entryNodes = graph.nodes.filter((n) => !targetIds.has(n.id));
-
-    if (entryNodes.length === 0) {
-      throw new Error('no entry node found: all nodes have incoming edges');
-    }
-
+    if (entryNodes.length === 0) throw new Error('no entry node found: all nodes have incoming edges');
     return entryNodes[0];
   }
 
-  private resolveNextNode(
-    currentNode: GraphNode,
-    resultNext: string[] | null,
-    graph: GraphDefinition
-  ): string | null {
-    if (resultNext && resultNext.length > 0) {
-      return resultNext[0];
-    }
-
+  private resolveNextNode(currentNode: GraphNode, resultNext: string[] | null, graph: GraphDefinition): string | null {
+    if (resultNext && resultNext.length > 0) return resultNext[0];
     const outgoingEdges = graph.edges.filter((e) => e.source === currentNode.id);
-    if (outgoingEdges.length === 0) {
-      return null;
-    }
-
+    if (outgoingEdges.length === 0) return null;
     return outgoingEdges[0].target;
   }
 }
