@@ -431,6 +431,7 @@ const ecrPublicLogin = new command.local.Command("ecr-public-login", {
 // produces a new imageTag, forcing a Docker rebuild + new ECS task definition revision.
 const webUiSrcHash = crypto.createHash("sha256")
     .update(hashDirectory(path.join(repoRoot, "apps/web-ui")))
+    .update(hashDirectory(path.join(repoRoot, "apps/sdk")))
     .update(hashDirectory(path.join(repoRoot, "prisma")))
     .update(hashDirectory(path.join(repoRoot, "libs")))
     .digest("hex")

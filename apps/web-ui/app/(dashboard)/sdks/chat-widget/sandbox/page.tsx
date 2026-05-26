@@ -1,64 +1,75 @@
 'use client';
 
 import { useState, useRef, type ChangeEvent } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Play } from 'lucide-react';
+import { Play, RotateCcw } from 'lucide-react';
 
 const SDK_SCRIPT_URL = '/sdk-assets/smc-chat-widget.esm.js';
 
-export default function SandboxPage() {
-  const [sandboxConfig, setSandboxConfig] = useState({ apiUrl: '', session: '' });
-  const [sandboxActive, setSandboxActive] = useState(false);
-  const sandboxRef = useRef<HTMLIFrameElement>(null);
+interface SandboxConfig {
+  apiUrl: string;
+  session: string;
+}
 
-  const handleSandboxConnect = () => {
-    setSandboxActive(true);
-    setTimeout(() => {
-      const iframe = sandboxRef.current;
-      if (!iframe) return;
+const DEFAULT_SESSION = JSON.stringify(
+  {
+    'x-platform-agent': 'web',
+    'x-api-key': 'your-api-key',
+  },
+  null,
+  2
+);
 
-      const config = {
-        apiUrl: sandboxConfig.apiUrl,
-        session: sandboxConfig.session.replace(/\n/g, '').replace(/\s{2,}/g, ''),
-        userName: 'You',
-        botName: 'Bot',
-        headerText: 'Chat Assistant',
-        welcomeMessage: 'Welcome! How can I help you today?',
-        startChatLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png',
-        theme: 'light',
-        position: 'right',
-        primaryColor: '#2196f3',
-        secondaryColor: '#1976d2',
-        inputPlaceholder: 'Type your message...',
-      };
-
-      const attrs = [
-        `api-url="${config.apiUrl}"`,
-        `session='${config.session}'`,
-        `user-name="${config.userName}"`,
-        `bot-name="${config.botName}"`,
-        `header-text="${config.headerText}"`,
-        `welcome-message="${config.welcomeMessage}"`,
-        `start-chat-logo="${config.startChatLogo}"`,
-        `theme="${config.theme}"`,
-        `position="${config.position}"`,
-        `primary-color="${config.primaryColor}"`,
-        `secondary-color="${config.secondaryColor}"`,
-        `input-placeholder="${config.inputPlaceholder}"`,
-      ].join(' ');
-
-      iframe.srcdoc = `<!DOCTYPE html>
+function buildSandboxHtml(apiUrl: string, session: string): string {
+  const sessionCompact = session.replace(/\n/g, '').replace(/\s{2,}/g, '');
+  return `<!DOCTYPE html>
 <html><head><style>body{margin:0;overflow:hidden;}</style></head>
 <body>
-<smc-chat-widget ${attrs}></smc-chat-widget>
+<smc-chat-widget
+  api-url="${apiUrl}"
+  session='${sessionCompact}'
+  user-name="You"
+  bot-name="Bot"
+  header-text="Chat Assistant"
+  welcome-message="Welcome! How can I help you today?"
+  theme="light"
+  position="right"
+  primary-color="#2196f3"
+  secondary-color="#1976d2"
+  input-placeholder="Type your message..."
+></smc-chat-widget>
 <script type="module" src="${SDK_SCRIPT_URL}"><\/script>
 </body></html>`;
-    }, 100);
+}
+
+export default function SandboxPage() {
+  const [config, setConfig] = useState<SandboxConfig>({ apiUrl: '', session: DEFAULT_SESSION });
+  const [connected, setConnected] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleConnect = () => {
+    if (!config.apiUrl.trim() || !config.session.trim()) return;
+    setConnected(true);
+    // Give the iframe a moment to mount before setting srcdoc
+    setTimeout(() => {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      iframe.srcdoc = buildSandboxHtml(config.apiUrl, config.session);
+    }, 50);
   };
+
+  const handleReset = () => {
+    setConnected(false);
+    if (iframeRef.current) {
+      iframeRef.current.srcdoc = '';
+    }
+  };
+
+  const isReady = config.apiUrl.trim().length > 0 && config.session.trim().length > 0;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -81,8 +92,10 @@ export default function SandboxPage() {
               <Input
                 id="sandboxApiUrl"
                 placeholder="https://your-api.example.com/chat"
-                value={sandboxConfig.apiUrl}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setSandboxConfig(prev => ({ ...prev, apiUrl: e.target.value }))}
+                value={config.apiUrl}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setConfig(prev => ({ ...prev, apiUrl: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-2">
@@ -90,37 +103,44 @@ export default function SandboxPage() {
               <Textarea
                 id="sandboxSession"
                 rows={8}
-                placeholder={`{
-  "x-platform-agent": "web",
-  "x-prompt-session-attribute": {
-    "oauthToken": "your-token",
-    "clientCode": "your-client-code"
-  },
-  "x-session-attribute": {
-    "oauthToken": "your-token",
-    "clientCode": "your-client-code"
-  },
-  "x-api-key": "your-api-key"
-}`}
-                value={sandboxConfig.session}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setSandboxConfig(prev => ({ ...prev, session: e.target.value }))}
+                placeholder={DEFAULT_SESSION}
+                value={config.session}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                  setConfig(prev => ({ ...prev, session: e.target.value }))
+                }
                 className="font-mono text-sm"
               />
             </div>
-            <Button onClick={handleSandboxConnect} disabled={!sandboxConfig.apiUrl || !sandboxConfig.session}>
-              <Play className="h-4 w-4 mr-2" /> Connect
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleConnect} disabled={!isReady}>
+                <Play className="h-4 w-4 mr-2" />
+                Connect
+              </Button>
+              {connected && (
+                <Button variant="outline" onClick={handleReset}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {sandboxActive && (
+      {connected && (
         <Card>
           <CardHeader>
             <CardTitle>Live Widget</CardTitle>
           </CardHeader>
           <CardContent>
-            <iframe ref={sandboxRef} className="w-full h-[500px] border rounded-lg" sandbox="allow-scripts allow-same-origin" title="Widget Sandbox" />
+            <div className="bg-muted/40 rounded-lg p-4 min-h-[520px] relative">
+              <iframe
+                ref={iframeRef}
+                className="w-full h-[500px] border-0 rounded"
+                sandbox="allow-scripts allow-same-origin"
+                title="Widget Sandbox"
+              />
+            </div>
           </CardContent>
         </Card>
       )}

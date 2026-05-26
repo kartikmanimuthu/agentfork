@@ -1,0 +1,30 @@
+.feedback {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.fb-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.fb-btn:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.fb-btn.active {
+  color: var(--smc-secondary, #3b82f6);
+  background: rgba(59, 130, 246, 0.08);
+}

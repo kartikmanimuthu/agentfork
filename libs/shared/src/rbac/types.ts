@@ -21,6 +21,7 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   AgentExecution: 'Agents',
   PlaygroundSession: 'Agents',
   InferenceSession: 'Agents',
+  SdkWidget: 'Agents',
   McpServer: 'McpServers',
   McpServers: 'McpServers',
   LlmProvider: 'LlmProviders',
