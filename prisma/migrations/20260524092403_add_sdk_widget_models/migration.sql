@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE "document_chunks" ADD COLUMN     "embedding" vector(1024);
-
 -- CreateTable
 CREATE TABLE "sdk_widgets" (
     "id" TEXT NOT NULL,

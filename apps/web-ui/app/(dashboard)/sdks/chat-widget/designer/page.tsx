@@ -512,10 +512,8 @@ export default function DesignerPage() {
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-sidebar-foreground/70">Widgets</h2>
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger>
-                  <Button size="icon" variant="ghost" className="h-7 w-7">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <DialogTrigger render={<Button size="icon" variant="ghost" className="h-7 w-7" />}>
+                  <Plus className="h-4 w-4" />
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
@@ -689,19 +687,15 @@ export default function DesignerPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={creating}>
+                      <TooltipTrigger render={<Button variant="outline" size="sm" onClick={handleDuplicate} disabled={creating} />}>
                           {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </TooltipTrigger>
+                        </TooltipTrigger>
                       <TooltipContent>Duplicate widget</TooltipContent>
                     </Tooltip>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
+                      <TooltipTrigger render={<Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} />}>
                           <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TooltipTrigger>
+                        </TooltipTrigger>
                       <TooltipContent>Delete widget</TooltipContent>
                     </Tooltip>
                     <Button size="sm" onClick={handlePublish} disabled={saving}>
