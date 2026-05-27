@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { NodeExecutionContext, GraphState } from '../types';
 import type { GraphNode } from '../../types/agent';
 import { StateSchemaNodeExecutor } from './state-schema-executor';
@@ -7,6 +7,9 @@ import { ToolNodeExecutor } from './tool-executor';
 import { LlmNodeExecutor } from './llm-executor';
 import { MemoryNodeExecutor } from './memory-executor';
 import { OutputNodeExecutor } from './output-executor';
+import { McpClientService } from '../../services/mcp-client.service';
+
+vi.mock('../../services/mcp-client.service');
 
 function createMockState(overrides: Partial<GraphState> = {}): GraphState {
   return {
@@ -828,5 +831,155 @@ describe('OutputNodeExecutor', () => {
       const result = await executor.execute(ctx);
       expect(result.trace.output).toEqual({ contentLength: 2 });
     });
+  });
+});
+
+// ── LlmNodeExecutor — MCP tool integration ────────────────────────────────────
+
+const MOCK_MCP_SERVER = {
+  id: 'srv-1',
+  name: 'test-server',
+  status: 'active',
+  config: { transport: 'sse', transportConfig: { transport: 'sse', endpoint: 'http://localhost:4000' } },
+};
+
+const TWO_MCP_TOOLS = [
+  { name: 'tool_a', description: 'Tool A', inputSchema: { type: 'object', properties: {} } },
+  { name: 'tool_b', description: 'Tool B', inputSchema: { type: 'object', properties: {} } },
+];
+
+describe('LlmNodeExecutor — MCP tool integration', () => {
+  const executor = new LlmNodeExecutor();
+
+  let mockConnect: ReturnType<typeof vi.fn>;
+  let mockDiscoverTools: ReturnType<typeof vi.fn>;
+  let mockExecuteTool: ReturnType<typeof vi.fn>;
+  let mockDisconnect: ReturnType<typeof vi.fn>;
+  let mockStreamChat: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockConnect = vi.fn().mockResolvedValue(undefined);
+    mockDiscoverTools = vi.fn().mockResolvedValue(TWO_MCP_TOOLS);
+    mockExecuteTool = vi.fn().mockResolvedValue('tool result');
+    mockDisconnect = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(McpClientService).mockImplementation(() => ({
+      connect: mockConnect,
+      discoverTools: mockDiscoverTools,
+      executeTool: mockExecuteTool,
+      disconnect: mockDisconnect,
+    } as any));
+
+    mockStreamChat = vi.fn().mockReturnValue({
+      textStream: (async function* () { yield 'answer'; })(),
+    });
+  });
+
+  afterEach(() => vi.clearAllMocks());
+
+  function makeLlmCtx(mcpServerIds: string[], prismaServer: object | null = MOCK_MCP_SERVER) {
+    return createMockContext({
+      state: createMockState({ messages: [{ role: 'user', content: 'Hello' }] }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', mcpServerIds },
+      services: {
+        llmProvider: vi.fn().mockResolvedValue({ streamChat: mockStreamChat }),
+        prisma: { mcpServer: { findFirst: vi.fn().mockResolvedValue(prismaServer) } },
+      },
+      emit: vi.fn(),
+    });
+  }
+
+  it('passes tools and maxSteps:10 to streamChat when mcpServerIds is set', async () => {
+    const ctx = makeLlmCtx(['srv-1']);
+
+    await executor.execute(ctx);
+
+    expect(mockConnect).toHaveBeenCalledOnce();
+    expect(mockDiscoverTools).toHaveBeenCalledOnce();
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.objectContaining({
+          'test-server__tool_a': expect.objectContaining({ description: 'Tool A' }),
+          'test-server__tool_b': expect.objectContaining({ description: 'Tool B' }),
+        }),
+        maxSteps: 10,
+      }),
+    );
+  });
+
+  it('does not include tools or maxSteps when mcpServerIds is empty', async () => {
+    const ctx = makeLlmCtx([]);
+
+    await executor.execute(ctx);
+
+    expect(mockDiscoverTools).not.toHaveBeenCalled();
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({ tools: expect.anything() }),
+    );
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({ maxSteps: expect.anything() }),
+    );
+  });
+
+  it('does not include tools or maxSteps when mcpServerIds is absent', async () => {
+    const ctx = createMockContext({
+      state: createMockState({ messages: [{ role: 'user', content: 'Hello' }] }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3' },
+      services: {
+        llmProvider: vi.fn().mockResolvedValue({ streamChat: mockStreamChat }),
+        prisma: {},
+      },
+      emit: vi.fn(),
+    });
+
+    await executor.execute(ctx);
+
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({ tools: expect.anything() }),
+    );
+  });
+
+  it('disconnects all MCP clients in finally even when streamChat throws', async () => {
+    mockStreamChat.mockImplementation(() => { throw new Error('LLM unavailable'); });
+    const ctx = makeLlmCtx(['srv-1']);
+
+    await expect(executor.execute(ctx)).rejects.toThrow('LLM unavailable');
+
+    expect(mockDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it('skips a server that is not active', async () => {
+    const ctx = makeLlmCtx(['srv-1'], { ...MOCK_MCP_SERVER, status: 'inactive' });
+
+    await executor.execute(ctx);
+
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(mockDiscoverTools).not.toHaveBeenCalled();
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({ tools: expect.anything() }),
+    );
+  });
+
+  it('skips a server that is not found in the database', async () => {
+    const ctx = makeLlmCtx(['unknown-srv'], null);
+
+    await executor.execute(ctx);
+
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({ tools: expect.anything() }),
+    );
+  });
+
+  it('tool execute functions call mcpClient.executeTool with the original tool name', async () => {
+    const ctx = makeLlmCtx(['srv-1']);
+    await executor.execute(ctx);
+
+    const callArgs = mockStreamChat.mock.calls[0][0];
+    const toolFn = callArgs.tools['test-server__tool_a'].execute;
+    await toolFn({ key: 'val' });
+
+    expect(mockExecuteTool).toHaveBeenCalledWith('tool_a', { key: 'val' });
   });
 });
