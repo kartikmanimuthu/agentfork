@@ -6,6 +6,6 @@ export const llmNodeSchema = z.object({
   systemPrompt: z.string().optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().positive().optional(),
-  tools: z.array(z.string()).optional(),
+  mcpServerIds: z.array(z.string()).optional(),
   contextChannels: z.array(z.string()).optional(),
 });

@@ -40,9 +40,9 @@ export const LlmNode = memo(function LlmNode({ data, selected }: NodeProps) {
             temp: {config.temperature}
           </p>
         )}
-        {config.tools && config.tools.length > 0 && (
+        {config.mcpServerIds && config.mcpServerIds.length > 0 && (
           <p className="text-[11px] text-muted-foreground">
-            {config.tools.length} tool{config.tools.length !== 1 ? 's' : ''}
+            {config.mcpServerIds.length} MCP server{config.mcpServerIds.length !== 1 ? 's' : ''}
           </p>
         )}
       </div>

@@ -24,8 +24,8 @@ export interface LlmNodeConfig {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
-  /** Tool names wired into this node */
-  tools?: string[];
+  /** MCP server IDs whose tools are made available to the LLM at inference time */
+  mcpServerIds?: string[];
   /** Channel names whose string values are injected as RAG context into the last user message */
   contextChannels?: string[];
 }
