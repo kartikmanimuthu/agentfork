@@ -1,6 +1,9 @@
+import type { ToolSet } from 'ai';
 import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { LlmNodeConfig } from '../../types/nodes';
+import { McpClientService } from '../../services/mcp-client.service';
+import type { McpServerConfig } from '../../types/mcp-server';
 
 const logger = createLogger('agent-studio:llm-executor');
 
@@ -10,6 +13,7 @@ export class LlmNodeExecutor implements NodeExecutor {
   async execute(ctx: NodeExecutionContext): Promise<NodeExecutionResult> {
     const config = ctx.config as LlmNodeConfig;
     const startedAt = new Date().toISOString();
+    const mcpClients: McpClientService[] = [];
 
     try {
       const provider = await ctx.services.llmProvider(undefined, config.model);
@@ -57,11 +61,49 @@ export class LlmNodeExecutor implements NodeExecutor {
         }
       }
 
+      // Build MCP ToolSet if server IDs are configured
+      const tools: ToolSet = {};
+      const mcpServerIds = config.mcpServerIds ?? [];
+
+      for (const serverId of mcpServerIds) {
+        const server = await ctx.services.prisma.mcpServer.findFirst({ where: { id: serverId } });
+        if (!server || server.status !== 'active') {
+          logger.warn({ nodeId: ctx.node.id, serverId }, 'MCP server not found or not active — skipping');
+          continue;
+        }
+
+        const serverConfig = server.config as McpServerConfig;
+        const mcpClient = new McpClientService();
+        await mcpClient.connect(serverConfig);
+        mcpClients.push(mcpClient);
+
+        const discovered = await mcpClient.discoverTools(serverConfig);
+        logger.info(
+          { nodeId: ctx.node.id, serverId, serverName: server.name, toolCount: discovered.length },
+          'MCP tools discovered for LLM',
+        );
+
+        for (const tool of discovered) {
+          const toolKey = `${server.name}__${tool.name}`;
+          const capturedClient = mcpClient;
+          const capturedToolName = tool.name;
+          tools[toolKey] = {
+            description: tool.description,
+            parameters: tool.inputSchema as Record<string, unknown>,
+            execute: async (args: Record<string, unknown>) =>
+              capturedClient.executeTool(capturedToolName, args),
+          };
+        }
+      }
+
+      const hasTools = Object.keys(tools).length > 0;
+
       const streamResult = provider.streamChat({
         messages,
         system: config.systemPrompt,
         temperature: config.temperature,
         maxOutputTokens: config.maxTokens,
+        ...(hasTools ? { tools, maxSteps: 10 } : {}),
       });
 
       let fullText = '';
@@ -71,7 +113,7 @@ export class LlmNodeExecutor implements NodeExecutor {
       }
 
       logger.info(
-        { nodeId: ctx.node.id, model: config.model, responseLength: fullText.length },
+        { nodeId: ctx.node.id, model: config.model, responseLength: fullText.length, mcpServers: mcpServerIds.length },
         'llm execution completed',
       );
 
@@ -93,6 +135,8 @@ export class LlmNodeExecutor implements NodeExecutor {
     } catch (error) {
       logger.error({ nodeId: ctx.node.id, error }, 'llm execution failed');
       throw error;
+    } finally {
+      await Promise.all(mcpClients.map((c) => c.disconnect().catch(() => {})));
     }
   }
 }
