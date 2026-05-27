@@ -69,7 +69,7 @@ export const stdioTransportSchema = z.object({
 export const httpBridgeTransportSchema = z.object({
   transport: z.literal('http_bridge'),
   bridgeUrl: z.string().url(),
-  targetCommand: z.string().min(1),
+  targetCommand: z.string().optional(),
 });
 
 export const mcpServerTransportConfigSchema = z.discriminatedUnion('transport', [

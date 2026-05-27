@@ -149,10 +149,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await provider.validate();
       logger.info({ requestId }, 'Provider validation passed');
 
-      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content ?? m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') ?? '',
-      }));
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content || m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') || '',
+        }))
+        .filter((m) => m.content.trim() !== '');
 
       const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const kbContext = await buildKbContext(id, tenantId, userQuery, db);
@@ -213,10 +215,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return new Response(JSON.stringify({ error: 'Graph has no nodes' }), { status: 400 });
       }
 
-      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '',
-      }));
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content || m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || '',
+        }))
+        .filter((m) => m.content.trim() !== '');
 
       const llmProviderService = new LlmProviderService(tenantId);
 

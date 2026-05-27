@@ -215,7 +215,7 @@ export function AgentCanvas({
       setRfNodes((nds) => [...nds, newNode]);
       setIsDirty(true);
     },
-    [setRfNodes]
+    [setRfNodes, rfNodes]
   );
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
