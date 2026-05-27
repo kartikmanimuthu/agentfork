@@ -111,18 +111,6 @@ export class LlmNodeExecutor implements NodeExecutor {
         ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: chunk });
       }
 
-      // AI SDK v6: textStream only covers the first LLM step. When the model
-      // uses tools the post-tool-call response is absent from textStream but
-      // present in streamResult.text, which accumulates ALL steps.
-      if (hasTools) {
-        const completeText = await streamResult.text;
-        if (completeText.length > fullText.length) {
-          const remainingDelta = completeText.slice(fullText.length);
-          ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: remainingDelta });
-          fullText = completeText;
-        }
-      }
-
       logger.info(
         { nodeId: ctx.node.id, model: config.model, responseLength: fullText.length, mcpServers: mcpServerIds.length },
         'llm execution completed',
