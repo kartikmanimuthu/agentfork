@@ -894,13 +894,12 @@ describe('LlmNodeExecutor — MCP tool integration', () => {
 
     await executor.execute(ctx);
 
-    expect(mockConnect).toHaveBeenCalledOnce();
     expect(mockDiscoverTools).toHaveBeenCalledOnce();
     expect(mockStreamChat).toHaveBeenCalledWith(
       expect.objectContaining({
         tools: expect.objectContaining({
-          'test-server__tool_a': expect.objectContaining({ description: 'Tool A' }),
-          'test-server__tool_b': expect.objectContaining({ description: 'Tool B' }),
+          'test-server__tool_a': expect.objectContaining({ description: '[test-server] Tool A' }),
+          'test-server__tool_b': expect.objectContaining({ description: '[test-server] Tool B' }),
         }),
         maxSteps: 10,
       }),

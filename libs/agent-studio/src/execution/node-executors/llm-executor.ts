@@ -1,4 +1,4 @@
-import type { ToolSet } from 'ai';
+import { jsonSchema, type ToolSet } from 'ai';
 import { createLogger } from '@chatbot/shared';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { LlmNodeConfig } from '../../types/nodes';
@@ -74,7 +74,6 @@ export class LlmNodeExecutor implements NodeExecutor {
 
         const serverConfig = server.config as McpServerConfig;
         const mcpClient = new McpClientService();
-        await mcpClient.connect(serverConfig);
         mcpClients.push(mcpClient);
 
         const discovered = await mcpClient.discoverTools(serverConfig);
@@ -87,9 +86,9 @@ export class LlmNodeExecutor implements NodeExecutor {
           const toolKey = `${server.name}__${tool.name}`;
           const capturedClient = mcpClient;
           const capturedToolName = tool.name;
-          tools[toolKey] = {
-            description: tool.description,
-            parameters: tool.inputSchema as Record<string, unknown>,
+          (tools as any)[toolKey] = {
+            description: `[${server.name}] ${tool.description}`,
+            inputSchema: jsonSchema({ ...tool.inputSchema, type: 'object' } as any),
             execute: async (args: Record<string, unknown>) =>
               capturedClient.executeTool(capturedToolName, args),
           };
