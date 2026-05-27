@@ -111,6 +111,15 @@ export class LlmNodeExecutor implements NodeExecutor {
         ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: chunk });
       }
 
+      // AI SDK v6: textStream emits nothing when the model uses tools.
+      // The final text (after all tool-call steps) is only in streamResult.text.
+      if (!fullText && hasTools) {
+        fullText = await streamResult.text;
+        if (fullText) {
+          ctx.emit({ type: 'text_delta', nodeId: ctx.node.id, delta: fullText });
+        }
+      }
+
       logger.info(
         { nodeId: ctx.node.id, model: config.model, responseLength: fullText.length, mcpServers: mcpServerIds.length },
         'llm execution completed',
