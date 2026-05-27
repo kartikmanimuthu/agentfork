@@ -90,7 +90,10 @@ export interface KnowledgeBaseNodeConfig {
 export interface McpServerNodeConfig {
   type: 'mcp_server';
   serverId: string;
-  toolName: string;
+  serverName?: string;
+  toolMode?: 'single' | 'selected' | 'all';
+  toolName?: string;
+  toolNames?: string[];
   argumentSource: 'from_state' | 'static';
   staticArguments?: Record<string, unknown>;
   channelMappings?: Record<string, string>;
