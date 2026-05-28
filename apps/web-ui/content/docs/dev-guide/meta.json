@@ -5,6 +5,7 @@
     "configuration",
     "architecture",
     "faq",
-    "kb-worker-testing"
+    "kb-worker-testing",
+    "web-crawler-rewrite"
   ]
 }

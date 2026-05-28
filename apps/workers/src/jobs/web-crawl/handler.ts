@@ -40,18 +40,20 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       crawlDepth: number;
       includePatterns?: string[];
       excludePatterns?: string[];
+      useHeadless?: boolean;
     };
 
-    log.info({ dataSourceId, urls: config.urls, crawlDepth: config.crawlDepth, includePatterns: config.includePatterns, excludePatterns: config.excludePatterns }, 'Data source config loaded');
+    log.info({ dataSourceId, urls: config.urls, crawlDepth: config.crawlDepth, includePatterns: config.includePatterns, excludePatterns: config.excludePatterns, useHeadless: config.useHeadless }, 'Data source config loaded');
 
     // Run crawler
-    const crawler = createWebCrawler({ delayMs: 500 });
+    const crawler = createWebCrawler({ useHeadless: config.useHeadless });
     const pages = await crawler.crawl({
       seedUrls: config.urls,
       crawlDepth: config.crawlDepth ?? 0,
       includePatterns: config.includePatterns,
       excludePatterns: config.excludePatterns,
       maxPages: 50,
+      useHeadless: config.useHeadless,
     });
 
     log.info({ dataSourceId, pagesFound: pages.length }, 'Crawl complete, processing pages');
@@ -66,19 +68,19 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
 
     for (let idx = 0; idx < pages.length; idx++) {
       const page = pages[idx];
-      const fileName = `${page.url.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-      const mimeType = 'text/plain';
-      const textBuffer = Buffer.from(page.text, 'utf-8');
+      const fileName = `${page.url.replace(/[^a-zA-Z0-9]/g, '_')}.md`;
+      const mimeType = 'text/markdown';
+      const mdBuffer = Buffer.from(page.markdown, 'utf-8');
 
-      log.info({ dataSourceId, pageIndex: idx, url: page.url, textLength: textBuffer.length }, 'Processing crawled page');
+      log.info({ dataSourceId, pageIndex: idx, url: page.url, markdownLength: mdBuffer.length }, 'Processing crawled page');
 
       try {
         // Generate S3 key and upload text directly via SDK
         const { s3Key } = await docService.getUploadUrl(dataSourceId, fileName, mimeType);
         log.debug({ dataSourceId, url: page.url, s3Key }, 'S3 key generated for page');
 
-        await s3.uploadBuffer(s3Key, textBuffer, mimeType);
-        log.debug({ dataSourceId, url: page.url, s3Key, sizeBytes: textBuffer.length }, 'Page text uploaded to S3');
+        await s3.uploadBuffer(s3Key, mdBuffer, mimeType);
+        log.debug({ dataSourceId, url: page.url, s3Key, sizeBytes: mdBuffer.length }, 'Page markdown uploaded to S3');
 
         // Create document record
         const document = await docRepo.create({
@@ -86,8 +88,8 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
           sourceKey: s3Key,
           fileName,
           mimeType,
-          sizeBytes: textBuffer.length,
-          metadata: { url: page.url, title: page.title, fetchedAt: page.fetchedAt.toISOString() },
+          sizeBytes: mdBuffer.length,
+          metadata: { url: page.url, title: page.title, textLength: page.textLength, fetchedAt: page.fetchedAt.toISOString() },
         });
         log.info({ dataSourceId, url: page.url, documentId: document.id, s3Key }, 'Document record created');
 
@@ -107,8 +109,8 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       } catch (pageErr) {
         failCount++;
         const pageError = pageErr instanceof Error ? pageErr : new Error(String(pageErr));
-        log.error({ dataSourceId, url: page.url, pageIndex: idx, errorMessage: pageError.message, errorStack: pageError.stack }, 'Failed to process crawled page');
-        throw pageError;
+        log.error({ dataSourceId, url: page.url, pageIndex: idx, errorMessage: pageError.message, errorStack: pageError.stack }, 'Failed to process crawled page — continuing to next page');
+        // Continue to next page instead of aborting the entire crawl job
       }
     }
 

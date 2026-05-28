@@ -92,8 +92,18 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY apps/workers/docker-entrypoint.sh ./docker-entrypoint.sh
 
-ENV NODE_ENV=production
+# Create bun user early so we can chown the browser cache
 RUN groupadd -r bun && useradd -r -g bun bun
+
+# Install Playwright system dependencies and Chromium browser for headless crawling.
+# This is required by the new Crawlee-based web crawler (default: headless mode).
+RUN npx playwright install-deps chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers
+RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH && \
+    npx playwright install chromium && \
+    chown -R bun:bun $PLAYWRIGHT_BROWSERS_PATH
+
+ENV NODE_ENV=production
 RUN chmod +x ./docker-entrypoint.sh
 USER bun
 

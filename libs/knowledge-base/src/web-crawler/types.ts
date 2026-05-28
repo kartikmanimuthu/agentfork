@@ -4,14 +4,17 @@ export interface CrawlOptions {
   includePatterns?: string[];
   excludePatterns?: string[];
   maxPages?: number; // default 50
-  delayMs?: number; // default 500
+  /** Use headless browser for JS-heavy sites */
+  useHeadless?: boolean;
 }
 
 export interface CrawledPage {
   url: string;
   title: string;
-  text: string;
-  links: string[];
+  /** Clean Markdown extracted from the page */
+  markdown: string;
+  /** Length of the Markdown string (includes syntax characters) */
+  textLength: number;
   fetchedAt: Date;
 }
 
