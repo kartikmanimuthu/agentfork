@@ -36,9 +36,7 @@ describe('SmcProactiveEngine', () => {
     setConfig(mockConfig);
 
     // We can verify the component loads without error
-    const { root } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root } = await render(<smc-proactive-engine />);
 
     expect(root).toBeTruthy();
     // componentDidLoad should have been called, setting up timeouts
@@ -47,9 +45,7 @@ describe('SmcProactiveEngine', () => {
   it('does not evaluate when no rules configured', async () => {
     setConfig({ ...mockConfig, proactiveRules: null });
 
-    const { root } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root } = await render(<smc-proactive-engine />);
 
     expect(root).toBeTruthy();
   });
@@ -57,9 +53,7 @@ describe('SmcProactiveEngine', () => {
   it('does not evaluate when rules array is empty', async () => {
     setConfig({ ...mockConfig, proactiveRules: [] });
 
-    const { root } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root } = await render(<smc-proactive-engine />);
 
     expect(root).toBeTruthy();
   });
@@ -68,9 +62,7 @@ describe('SmcProactiveEngine', () => {
     setConfig(mockConfig);
     setUiState({ open: true });
 
-    const { root } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root } = await render(<smc-proactive-engine />);
 
     expect(root).toBeTruthy();
   });
@@ -78,9 +70,7 @@ describe('SmcProactiveEngine', () => {
   it('renders nothing visible', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root } = await render(<smc-proactive-engine />);
 
     // Component has shadow: true and returns null from render
     expect(root.shadowRoot!.innerHTML).toBe('');
@@ -89,9 +79,7 @@ describe('SmcProactiveEngine', () => {
   it('calls cleanup on disconnect', async () => {
     setConfig(mockConfig);
 
-    const { root, unmount } = await render(<smc-proactive-engine />, {
-      components: [SmcProactiveEngine],
-    });
+    const { root, unmount } = await render(<smc-proactive-engine />);
 
     // Unmounting should call disconnectedCallback which calls cleanup
     expect(() => unmount()).not.toThrow();

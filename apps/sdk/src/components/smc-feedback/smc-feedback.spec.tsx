@@ -34,9 +34,7 @@ describe('SmcFeedback', () => {
   });
 
   it('renders thumbs up and thumbs down buttons', async () => {
-    const { root } = await render(<smc-feedback messageId="msg_1" />, {
-      components: [SmcFeedback],
-    });
+    const { root } = await render(<smc-feedback messageId="msg_1" />);
 
     const shadowRoot = root.shadowRoot!;
     const buttons = shadowRoot.querySelectorAll('button');
@@ -51,12 +49,10 @@ describe('SmcFeedback', () => {
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-feedback messageId="msg_1" />, {
-      components: [SmcFeedback],
-    });
+    const { root } = await render(<smc-feedback messageId="msg_1" />);
 
     const buttons = root.shadowRoot!.querySelectorAll('button');
-    buttons[0].click();
+    (buttons[0] as HTMLElement).click();
 
     // Wait for async handler to complete and component to re-render
     await new Promise((r) => setTimeout(r, 50));
@@ -71,14 +67,12 @@ describe('SmcFeedback', () => {
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-feedback messageId="msg_1" />, {
-      components: [SmcFeedback],
-    });
+    const { root } = await render(<smc-feedback messageId="msg_1" />);
 
     const buttons = root.shadowRoot!.querySelectorAll('button');
-    buttons[0].click();
+    (buttons[0] as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 50));
-    buttons[0].click();
+    (buttons[0] as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 50));
 
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -90,14 +84,12 @@ describe('SmcFeedback', () => {
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-feedback messageId="msg_1" />, {
-      components: [SmcFeedback],
-    });
+    const { root } = await render(<smc-feedback messageId="msg_1" />);
 
     const buttons = root.shadowRoot!.querySelectorAll('button');
-    buttons[0].click();
+    (buttons[0] as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 50));
-    buttons[1].click();
+    (buttons[1] as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 50));
 
     expect(fetch).toHaveBeenCalledTimes(2);
@@ -107,12 +99,10 @@ describe('SmcFeedback', () => {
     setConfig(mockConfig);
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-feedback messageId="msg_1" />, {
-      components: [SmcFeedback],
-    });
+    const { root } = await render(<smc-feedback messageId="msg_1" />);
 
     const buttons = root.shadowRoot!.querySelectorAll('button');
-    buttons[0].click();
+    (buttons[0] as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 50));
 
     expect(fetch).not.toHaveBeenCalled();

@@ -40,8 +40,7 @@ describe('SmcChatWidget', () => {
 
   it('renders launcher when ready with config', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget, SmcLauncher] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     // Wait for componentWillLoad to complete
@@ -56,8 +55,7 @@ describe('SmcChatWidget', () => {
     (fetch as any).mockRejectedValue(new Error('Network error'));
 
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -69,8 +67,7 @@ describe('SmcChatWidget', () => {
 
   it('renders chat window when open and not minimized', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget, SmcLauncher] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -84,8 +81,7 @@ describe('SmcChatWidget', () => {
 
   it('does not render chat window when closed', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget, SmcLauncher] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -95,8 +91,7 @@ describe('SmcChatWidget', () => {
 
   it('does not render chat window when minimized', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget, SmcLauncher] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -109,8 +104,7 @@ describe('SmcChatWidget', () => {
 
   it('sets CSS custom properties from config colors', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -122,8 +116,7 @@ describe('SmcChatWidget', () => {
 
   it('adds position class to root element', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />,
-      { components: [SmcChatWidget] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://api.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));
@@ -133,8 +126,7 @@ describe('SmcChatWidget', () => {
 
   it('uses apiUrl prop for baseUrl', async () => {
     const { root } = await render(
-      <smc-chat-widget sdkId="test_sdk" apiUrl="https://custom.example.com" />,
-      { components: [SmcChatWidget] },
+      <smc-chat-widget sdkId="test_sdk" apiUrl="https://custom.example.com" />
     );
 
     await new Promise((r) => setTimeout(r, 50));

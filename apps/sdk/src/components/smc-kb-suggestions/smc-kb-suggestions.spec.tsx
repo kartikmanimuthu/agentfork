@@ -14,9 +14,7 @@ describe('SmcKbSuggestions', () => {
       { id: '1', title: 'Help Article', snippet: 'How to get started...' },
     ]);
 
-    const { root } = await render(<smc-kb-suggestions />, {
-      components: [SmcKbSuggestions],
-    });
+    const { root } = await render(<smc-kb-suggestions />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.kb-suggestions')).toBeTruthy();
@@ -26,18 +24,14 @@ describe('SmcKbSuggestions', () => {
   });
 
   it('does not render when kbSuggestions is empty', async () => {
-    const { root } = await render(<smc-kb-suggestions />, {
-      components: [SmcKbSuggestions],
-    });
+    const { root } = await render(<smc-kb-suggestions />);
 
     expect(root.shadowRoot!.querySelector('.kb-suggestions')).toBeNull();
   });
 
   it('does not render when kbSuggestions is null', async () => {
     setKbSuggestions(null as any);
-    const { root } = await render(<smc-kb-suggestions />, {
-      components: [SmcKbSuggestions],
-    });
+    const { root } = await render(<smc-kb-suggestions />);
 
     expect(root.shadowRoot!.querySelector('.kb-suggestions')).toBeNull();
   });
@@ -49,9 +43,7 @@ describe('SmcKbSuggestions', () => {
       { id: '3', title: 'Third', snippet: 'Snippet 3' },
     ]);
 
-    const { root } = await render(<smc-kb-suggestions />, {
-      components: [SmcKbSuggestions],
-    });
+    const { root } = await render(<smc-kb-suggestions />);
 
     const cards = root.shadowRoot!.querySelectorAll('.kb-card');
     expect(cards).toHaveLength(3);
@@ -60,11 +52,9 @@ describe('SmcKbSuggestions', () => {
   it('dismiss button clears suggestions', async () => {
     setKbSuggestions([{ id: '1', title: 'Help', snippet: '...' }]);
 
-    const { root } = await render(<smc-kb-suggestions />, {
-      components: [SmcKbSuggestions],
-    });
+    const { root } = await render(<smc-kb-suggestions />);
 
-    const dismissBtn = root.shadowRoot!.querySelector('.dismiss')!;
+    const dismissBtn = root.shadowRoot!.querySelector('.dismiss') as HTMLElement;
     dismissBtn.click();
 
     expect(state.kbSuggestions).toEqual([]);

@@ -11,9 +11,7 @@ describe('SmcRichCard', () => {
       buttons: [{ label: 'Click me', url: 'https://example.com' }],
     });
 
-    const { root } = await render(<smc-rich-card cardData={cardData} />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData={cardData} />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.rich-card')).toBeTruthy();
@@ -25,9 +23,7 @@ describe('SmcRichCard', () => {
 
   it('renders card with only title', async () => {
     const cardData = JSON.stringify({ title: 'Just a title' });
-    const { root } = await render(<smc-rich-card cardData={cardData} />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData={cardData} />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.card-title')!.textContent).toBe('Just a title');
@@ -37,9 +33,7 @@ describe('SmcRichCard', () => {
 
   it('renders card with only buttons', async () => {
     const cardData = JSON.stringify({ buttons: [{ label: 'Click', url: 'https://x.com' }] });
-    const { root } = await render(<smc-rich-card cardData={cardData} />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData={cardData} />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.card-title')).toBeNull();
@@ -48,35 +42,27 @@ describe('SmcRichCard', () => {
   });
 
   it('returns null for invalid JSON', async () => {
-    const { root } = await render(<smc-rich-card cardData="{not json}" />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData="{not json}" />);
 
     expect(root.shadowRoot!.querySelector('.rich-card')).toBeNull();
   });
 
   it('returns null for empty string', async () => {
-    const { root } = await render(<smc-rich-card cardData="" />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData="" />);
 
     expect(root.shadowRoot!.querySelector('.rich-card')).toBeNull();
   });
 
   it('ignores unknown fields', async () => {
     const cardData = JSON.stringify({ title: 'Hi', extra: 'ignored' });
-    const { root } = await render(<smc-rich-card cardData={cardData} />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData={cardData} />);
 
     expect(root.shadowRoot!.querySelector('.card-title')!.textContent).toBe('Hi');
   });
 
   it('renders buttons without url safely', async () => {
     const cardData = JSON.stringify({ buttons: [{ label: 'No URL' }] });
-    const { root } = await render(<smc-rich-card cardData={cardData} />, {
-      components: [SmcRichCard],
-    });
+    const { root } = await render(<smc-rich-card cardData={cardData} />);
 
     const btn = root.shadowRoot!.querySelector('.card-btn')!;
     expect(btn.textContent).toBe('No URL');

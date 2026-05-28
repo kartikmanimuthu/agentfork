@@ -5,9 +5,7 @@ import { SmcTimestamp } from './smc-timestamp';
 
 describe('SmcTimestamp', () => {
   it('renders timestamp element in shadow DOM', async () => {
-    const { root } = await render(<smc-timestamp timestamp="2024-01-15T08:30:00.000Z" />, {
-      components: [SmcTimestamp],
-    });
+    const { root } = await render(<smc-timestamp timestamp="2024-01-15T08:30:00.000Z" />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.timestamp')).toBeTruthy();
@@ -19,9 +17,7 @@ describe('SmcTimestamp', () => {
     yesterday.setDate(yesterday.getDate() - 2);
     const ts = yesterday.toISOString();
 
-    const { root } = await render(<smc-timestamp timestamp={ts} />, {
-      components: [SmcTimestamp],
-    });
+    const { root } = await render(<smc-timestamp timestamp={ts} />);
 
     const text = root.shadowRoot!.querySelector('span')!.textContent!;
     expect(text).toMatch(/\w{3}\s\d{1,2},\s\d{1,2}:\d{2}/);
@@ -29,8 +25,7 @@ describe('SmcTimestamp', () => {
 
   it('formats ISO 8601 timestamp without error', async () => {
     const { root } = await render(
-      <smc-timestamp timestamp="2024-01-15T08:30:00.000Z" />,
-      { components: [SmcTimestamp] },
+      <smc-timestamp timestamp="2024-01-15T08:30:00.000Z" />
     );
 
     const text = root.shadowRoot!.querySelector('span')!.textContent!;
