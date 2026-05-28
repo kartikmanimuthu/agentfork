@@ -162,7 +162,7 @@ export default function KnowledgeBaseDocumentsPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <FileText className="h-5 w-5" />
-          <h2 className="text-2xl font-bold tracking-tight">Documents</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Content</h2>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={loadDocuments} aria-label="Refresh">
@@ -192,7 +192,7 @@ export default function KnowledgeBaseDocumentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Uploaded Documents</CardTitle>
+          <CardTitle>Content Items</CardTitle>
           <CardDescription>
             {loading ? <Skeleton className="h-4 w-24" /> : `${documents.length} document${documents.length !== 1 ? 's' : ''}`}
           </CardDescription>
@@ -211,7 +211,7 @@ export default function KnowledgeBaseDocumentsPage() {
               enableSorting
               enableFiltering={false}
               defaultPageSize={25}
-              emptyMessage="No documents yet. Upload files to get started."
+              emptyMessage="No content items yet. Upload files to get started."
             />
           )}
         </CardContent>
