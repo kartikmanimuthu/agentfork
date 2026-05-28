@@ -1,41 +1,90 @@
 'use client';
 
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useRef, useState, useCallback, type FormEvent, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { SendHorizontal } from 'lucide-react';
+import { SendHorizontal, Paperclip } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { FileChip, type FileChipStatus } from './file-chip';
 
-interface ChatInputProps {
-  onSend: (content: string) => void;
-  isLoading: boolean;
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+export interface UploadedAttachment {
+  fileId: string;
+  s3Key: string;
+  mimeType: string;
+  fileName: string;
+  size: number;
 }
 
-export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+interface PendingFile {
+  /** Local ID for React key / removal */
+  localId: string;
+  file: File;
+  status: FileChipStatus;
+  attachment?: UploadedAttachment;
+  error?: string;
+}
+
+export interface ChatInputProps {
+  onSend: (content: string, attachments?: UploadedAttachment[]) => void;
+  isLoading: boolean;
+  /**
+   * Optional upload handler. When provided, the paperclip button is shown.
+   * The parent is responsible for calling the upload API and returning the
+   * attachment metadata.
+   */
+  uploadFile?: (file: File) => Promise<UploadedAttachment>;
+}
+
+export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canSend =
+    !isLoading &&
+    (input.trim().length > 0 || pendingFiles.some((f) => f.status === 'done')) &&
+    pendingFiles.every((f) => f.status !== 'uploading');
+
+  const resetInput = () => {
+    setInput('');
+    setPendingFiles([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSend(input.trim());
-      setInput('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-    }
+    if (!canSend) return;
+
+    const attachments = pendingFiles
+      .filter((f) => f.status === 'done' && f.attachment)
+      .map((f) => f.attachment!);
+
+    onSend(input.trim(), attachments.length > 0 ? attachments : undefined);
+    resetInput();
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() && !isLoading) {
-        onSend(input.trim());
-        setInput('');
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-        }
+      if (canSend) {
+        const attachments = pendingFiles
+          .filter((f) => f.status === 'done' && f.attachment)
+          .map((f) => f.attachment!);
+        onSend(input.trim(), attachments.length > 0 ? attachments : undefined);
+        resetInput();
       }
     }
   };
@@ -47,9 +96,136 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   };
 
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!uploadFile || !e.target.files) return;
+
+      const files = Array.from(e.target.files);
+      // Reset the input so the same file can be re-selected after removal
+      e.target.value = '';
+
+      const newPending: PendingFile[] = files.map((file) => ({
+        localId: crypto.randomUUID(),
+        file,
+        status: 'uploading' as FileChipStatus,
+      }));
+
+      setPendingFiles((prev) => [...prev, ...newPending]);
+
+      // Upload each file concurrently
+      await Promise.all(
+        newPending.map(async (pending) => {
+          // Client-side validation
+          if (!ALLOWED_MIME_TYPES.includes(pending.file.type)) {
+            setPendingFiles((prev) =>
+              prev.map((f) =>
+                f.localId === pending.localId
+                  ? { ...f, status: 'error', error: `File type ${pending.file.type} not allowed` }
+                  : f
+              )
+            );
+            return;
+          }
+          if (pending.file.size > MAX_FILE_SIZE) {
+            setPendingFiles((prev) =>
+              prev.map((f) =>
+                f.localId === pending.localId
+                  ? { ...f, status: 'error', error: 'File exceeds 10 MB limit' }
+                  : f
+              )
+            );
+            return;
+          }
+
+          try {
+            const attachment = await uploadFile(pending.file);
+            setPendingFiles((prev) =>
+              prev.map((f) =>
+                f.localId === pending.localId
+                  ? { ...f, status: 'done', attachment }
+                  : f
+              )
+            );
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Upload failed';
+            setPendingFiles((prev) =>
+              prev.map((f) =>
+                f.localId === pending.localId
+                  ? { ...f, status: 'error', error: message }
+                  : f
+              )
+            );
+          }
+        })
+      );
+    },
+    [uploadFile]
+  );
+
+  const removeFile = (localId: string) => {
+    setPendingFiles((prev) => prev.filter((f) => f.localId !== localId));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="border-t bg-background/80 px-4 py-3 backdrop-blur-sm">
+      {/* File chips */}
+      {pendingFiles.length > 0 && (
+        <div
+          className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5"
+          role="list"
+          aria-label="Attached files"
+        >
+          {pendingFiles.map((pf) => (
+            <FileChip
+              key={pf.localId}
+              fileName={pf.file.name}
+              status={pf.status}
+              error={pf.error}
+              onRemove={() => removeFile(pf.localId)}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-muted/40 p-2 shadow-sm transition-all focus-within:border-primary/30 focus-within:bg-background focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring/40">
+        {/* Hidden file input */}
+        {uploadFile && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ALLOWED_MIME_TYPES.join(',')}
+            className="sr-only"
+            aria-hidden
+            onChange={handleFileChange}
+          />
+        )}
+
+        {/* Paperclip button */}
+        {uploadFile && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={isLoading}
+                  className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-all hover:text-foreground disabled:opacity-40"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach files"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <TooltipContent side="top">
+              <p>Attach files</p>
+              <p className="text-[10px] text-muted-foreground">PDF, DOCX, TXT, images — max 10 MB</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
         <Textarea
           ref={textareaRef}
           value={input}
@@ -67,7 +243,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
               <Button
                 type="submit"
                 size="icon"
-                disabled={isLoading || !input.trim()}
+                disabled={!canSend}
                 className="h-9 w-9 shrink-0 rounded-xl transition-all disabled:opacity-40"
               >
                 {isLoading ? (
