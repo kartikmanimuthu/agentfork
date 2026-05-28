@@ -24,6 +24,8 @@ export {
   MAX_EXTRACTED_TEXT_LENGTH,
 } from './multimodal-types';
 
+export { ContentResolver, type FileDownloader } from './content-resolver';
+
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.
 export { getBedrockProvider } from './bedrock-client';
