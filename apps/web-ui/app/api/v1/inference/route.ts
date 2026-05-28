@@ -8,8 +8,9 @@ import {
   LlmProviderService,
   TenantConfigService,
   WebhookService,
+  S3Service,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
 import { validateInferenceApiKey } from './lib/auth';
 
 const logger = createLogger('api:inference');
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
       alias,
       versionId: requestedVersionId,
     } = body as {
-      messages: Array<{ role: string; content?: string }>;
+      messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string; fileId?: string; s3Key?: string; mimeType?: string; fileName?: string; size?: number }> }>;
       sessionId?: string;
       systemPrompt?: string;
       temperature?: number;
@@ -91,6 +92,47 @@ export async function POST(req: NextRequest) {
       alias?: string;
       versionId?: string;
     };
+
+    // ─── Normalize content-parts messages ────────────────────────────────
+    // Each message content may be a plain string or an array of content parts.
+    // File parts are resolved to text via ContentResolver; the result is a flat
+    // string suitable for the LLM. Attachments are tracked for session persistence.
+    const s3 = new S3Service();
+    const contentResolver = new ContentResolver(s3);
+
+    type NormalizedMessage = { role: string; content: string; attachments?: MessageAttachment[] };
+    const normalizedMessages: NormalizedMessage[] = [];
+
+    for (const msg of messages) {
+      if (typeof msg.content === 'string' || msg.content == null) {
+        normalizedMessages.push({ role: msg.role, content: msg.content ?? '' });
+        continue;
+      }
+
+      // Array content — split into text parts and file parts
+      const textParts = msg.content.filter((p) => p.type === 'text').map((p) => p.text ?? '');
+      const fileParts = msg.content.filter((p) => p.type === 'file');
+
+      const attachments: MessageAttachment[] = fileParts
+        .filter((p) => p.fileId && p.s3Key)
+        .map((p) => ({
+          fileId: p.fileId!,
+          s3Key: p.s3Key!,
+          mimeType: p.mimeType ?? 'application/octet-stream',
+          fileName: p.fileName ?? p.fileId!,
+          size: p.size ?? 0,
+        }));
+
+      const resolvedFileParts = await contentResolver.resolve(attachments);
+      const resolvedTexts = resolvedFileParts.map((rp) => rp.text);
+
+      const combined = [...textParts, ...resolvedTexts].join('\n').trim();
+      normalizedMessages.push({
+        role: msg.role,
+        content: combined,
+        ...(attachments.length > 0 ? { attachments } : {}),
+      });
+    }
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id: agentId, tenantId } });
@@ -175,18 +217,19 @@ export async function POST(req: NextRequest) {
       }
 
       // Append the inbound user turn(s) to the session before invoking the model
-      for (const msg of messages) {
+      for (const msg of normalizedMessages) {
         if (msg.role === 'user') {
           await sessionService.appendMessage(sessionId, {
             role: 'user',
-            content: msg.content ?? '',
+            content: msg.content,
+            ...(msg.attachments ? { attachments: msg.attachments } : {}),
           });
         }
       }
     }
 
     // Compose the prompt: prior session turns (if stateful) + the inbound turn(s).
-    const sessionMessages = sessionId ? [...priorMessages, ...messages] : messages;
+    const sessionMessages = sessionId ? [...priorMessages, ...normalizedMessages] : normalizedMessages;
 
     // Create execution row, linked to session for stateful runs
     const execution = await db.apiKeyExecution.create({
