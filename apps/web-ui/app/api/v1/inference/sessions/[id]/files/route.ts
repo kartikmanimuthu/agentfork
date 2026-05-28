@@ -72,6 +72,7 @@ export async function POST(
 
     return NextResponse.json({
       fileId,
+      s3Key: key,
       url,
       mimeType: file.type,
       fileName: file.name,
