@@ -16,6 +16,7 @@ const ALLOWED_MIME_TYPES = [
   'text/plain',
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 5;
 
 export interface UploadedAttachment {
   fileId: string;
@@ -30,6 +31,7 @@ interface PendingFile {
   localId: string;
   file: File;
   status: FileChipStatus;
+  previewUrl?: string;
   attachment?: UploadedAttachment;
   error?: string;
 }
@@ -101,13 +103,16 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
       if (!uploadFile || !e.target.files) return;
 
       const files = Array.from(e.target.files);
-      // Reset the input so the same file can be re-selected after removal
       e.target.value = '';
 
-      const newPending: PendingFile[] = files.map((file) => ({
+      const availableSlots = MAX_FILES - pendingFiles.length;
+      const filesToAdd = files.slice(0, availableSlots);
+
+      const newPending: PendingFile[] = filesToAdd.map((file) => ({
         localId: crypto.randomUUID(),
         file,
         status: 'uploading' as FileChipStatus,
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
       }));
 
       setPendingFiles((prev) => [...prev, ...newPending]);
@@ -163,8 +168,37 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
   );
 
   const removeFile = (localId: string) => {
-    setPendingFiles((prev) => prev.filter((f) => f.localId !== localId));
+    setPendingFiles((prev) => {
+      const file = prev.find((f) => f.localId === localId);
+      if (file?.previewUrl) URL.revokeObjectURL(file.previewUrl);
+      return prev.filter((f) => f.localId !== localId);
+    });
   };
+
+  const retryFile = useCallback(
+    async (localId: string) => {
+      if (!uploadFile) return;
+      const pending = pendingFiles.find((f) => f.localId === localId);
+      if (!pending) return;
+
+      setPendingFiles((prev) =>
+        prev.map((f) => (f.localId === localId ? { ...f, status: 'uploading' as FileChipStatus, error: undefined } : f)),
+      );
+
+      try {
+        const attachment = await uploadFile(pending.file);
+        setPendingFiles((prev) =>
+          prev.map((f) => (f.localId === localId ? { ...f, status: 'done' as FileChipStatus, attachment } : f)),
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed';
+        setPendingFiles((prev) =>
+          prev.map((f) => (f.localId === localId ? { ...f, status: 'error' as FileChipStatus, error: message } : f)),
+        );
+      }
+    },
+    [uploadFile, pendingFiles],
+  );
 
   return (
     <form onSubmit={handleSubmit} className="border-t bg-background/80 px-4 py-3 backdrop-blur-sm">
@@ -179,9 +213,13 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
             <FileChip
               key={pf.localId}
               fileName={pf.file.name}
+              size={pf.file.size}
+              mimeType={pf.file.type}
               status={pf.status}
+              previewUrl={pf.previewUrl}
               error={pf.error}
               onRemove={() => removeFile(pf.localId)}
+              onRetry={pf.status === 'error' ? () => retryFile(pf.localId) : undefined}
             />
           ))}
         </div>

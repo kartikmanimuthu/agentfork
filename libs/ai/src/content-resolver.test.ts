@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ContentResolver, type FileDownloader } from './content-resolver';
+import { ContentResolver, type FileDownloader, type StoredMessage } from './content-resolver';
 import type { MessageAttachment } from './multimodal-types';
-import { MAX_ATTACHMENTS_PER_MESSAGE, MAX_EXTRACTED_TEXT_LENGTH } from './multimodal-types';
-
-// ── helpers ──────────────────────────────────────────────────────────────────
+import { MAX_EXTRACTED_TEXT_LENGTH } from './multimodal-types';
 
 function makeAttachment(overrides: Partial<MessageAttachment> = {}): MessageAttachment {
   return {
@@ -25,200 +23,210 @@ function makeDownloader(bufferMap: Record<string, Buffer>): FileDownloader {
   };
 }
 
-// ── unit tests ────────────────────────────────────────────────────────────────
-
 describe('ContentResolver', () => {
-  describe('resolve — plain text', () => {
-    it('returns a TextContentPart for a text/plain attachment', async () => {
-      const content = 'Hello, world!';
-      const s3 = makeDownloader({ 'uploads/file-1.txt': Buffer.from(content) });
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve([makeAttachment()]);
-
-      expect(parts).toHaveLength(1);
-      expect(parts[0].type).toBe('text');
-      expect(parts[0].text).toContain('Hello, world!');
-      expect(parts[0].text).toContain('[File: hello.txt]');
-    });
-
-    it('truncates text to MAX_EXTRACTED_TEXT_LENGTH', async () => {
-      const longText = 'x'.repeat(MAX_EXTRACTED_TEXT_LENGTH + 1000);
-      const s3 = makeDownloader({ 'uploads/file-1.txt': Buffer.from(longText) });
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve([makeAttachment()]);
-
-      // The prefix "[File: hello.txt]\n" is prepended before slicing, so the
-      // extracted portion is capped at MAX_EXTRACTED_TEXT_LENGTH.
-      const extracted = parts[0].text.replace('[File: hello.txt]\n', '');
-      expect(extracted.length).toBe(MAX_EXTRACTED_TEXT_LENGTH);
-    });
-  });
-
-  describe('resolve — attachment cap', () => {
-    it(`processes at most ${MAX_ATTACHMENTS_PER_MESSAGE} attachments`, async () => {
-      const attachments = Array.from({ length: MAX_ATTACHMENTS_PER_MESSAGE + 2 }, (_, i) =>
-        makeAttachment({ fileId: `f${i}`, s3Key: `uploads/f${i}.txt`, fileName: `f${i}.txt` })
-      );
-      const bufferMap = Object.fromEntries(
-        attachments.map((a) => [a.s3Key, Buffer.from(`content of ${a.fileName}`)])
-      );
-      const s3 = makeDownloader(bufferMap);
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve(attachments);
-
-      expect(parts).toHaveLength(MAX_ATTACHMENTS_PER_MESSAGE);
-    });
-  });
-
-  describe('resolve — error resilience', () => {
-    it('skips attachments that fail to download and returns the rest', async () => {
-      const good = makeAttachment({ fileId: 'good', s3Key: 'uploads/good.txt', fileName: 'good.txt' });
-      const bad = makeAttachment({ fileId: 'bad', s3Key: 'uploads/bad.txt', fileName: 'bad.txt' });
-
-      const s3 = makeDownloader({ 'uploads/good.txt': Buffer.from('good content') });
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve([good, bad]);
-
-      expect(parts).toHaveLength(1);
-      expect(parts[0].text).toContain('good content');
-    });
-
-    it('skips attachments with unsupported MIME types', async () => {
-      const attachment = makeAttachment({ mimeType: 'image/png', fileName: 'photo.png' });
-      const s3 = makeDownloader({ 'uploads/file-1.txt': Buffer.from('binary') });
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve([attachment]);
-
-      expect(parts).toHaveLength(0);
-    });
-  });
-
-  describe('resolve — empty input', () => {
-    it('returns an empty array for no attachments', async () => {
+  describe('resolve — text-only messages', () => {
+    it('returns text-only messages unchanged', async () => {
       const s3 = makeDownloader({});
       const resolver = new ContentResolver(s3);
 
-      const parts = await resolver.resolve([]);
+      const messages: StoredMessage[] = [
+        { role: 'user', content: 'Hello', attachments: [] },
+      ];
 
-      expect(parts).toHaveLength(0);
+      const result = await resolver.resolve(messages, 0);
+
+      expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
     });
   });
 
-  // ── integration: mixed conversation scenarios ─────────────────────────────
+  describe('resolve — current turn with image attachment', () => {
+    it('resolves image attachments as base64 ImagePart', async () => {
+      const pngBuffer = Buffer.from('fake-png-data');
+      const s3 = makeDownloader({ 'uploads/f1-test.png': pngBuffer });
+      const resolver = new ContentResolver(s3);
 
-  describe('integration — mixed content-parts conversation', () => {
-    it('resolves multiple files in a single turn and preserves order', async () => {
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'What is this?',
+          attachments: [
+            makeAttachment({ fileId: 'f1', s3Key: 'uploads/f1-test.png', mimeType: 'image/png', fileName: 'test.png', size: 1024 }),
+          ],
+        },
+      ];
+
+      const result = await resolver.resolve(messages, 0);
+
+      expect(result[0].role).toBe('user');
+      expect(result[0].content).toEqual([
+        { type: 'text', text: 'What is this?' },
+        { type: 'image', image: pngBuffer.toString('base64'), mimeType: 'image/png' },
+      ]);
+      expect(s3.downloadAsBuffer).toHaveBeenCalledWith('uploads/f1-test.png');
+    });
+  });
+
+  describe('resolve — current turn with text file attachment', () => {
+    it('resolves text file attachments as TextPart with filename header', async () => {
+      const textBuffer = Buffer.from('Hello from file');
+      const s3 = makeDownloader({ 'uploads/f2-readme.txt': textBuffer });
+      const resolver = new ContentResolver(s3);
+
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'Summarize this',
+          attachments: [
+            makeAttachment({ fileId: 'f2', s3Key: 'uploads/f2-readme.txt', mimeType: 'text/plain', fileName: 'readme.txt', size: 15 }),
+          ],
+        },
+      ];
+
+      const result = await resolver.resolve(messages, 0);
+
+      expect(result[0].content).toEqual([
+        { type: 'text', text: 'Summarize this' },
+        { type: 'text', text: '--- readme.txt ---\nHello from file' },
+      ]);
+    });
+  });
+
+  describe('resolve — history turns with attachments', () => {
+    it('replaces attachments with placeholder for history turns', async () => {
+      const s3 = makeDownloader({});
+      const resolver = new ContentResolver(s3);
+
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'Check this',
+          attachments: [
+            makeAttachment({ fileId: 'f1', s3Key: 'uploads/f1-doc.pdf', mimeType: 'application/pdf', fileName: 'doc.pdf', size: 5000 }),
+          ],
+        },
+        { role: 'assistant', content: 'I see a document', attachments: [] },
+        { role: 'user', content: 'What about page 2?', attachments: [] },
+      ];
+
+      const result = await resolver.resolve(messages, 2);
+
+      expect(result[0].content).toBe('Check this\n\n[Attached: doc.pdf]');
+      expect(s3.downloadAsBuffer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolve — S3 failure fallback', () => {
+    it('substitutes placeholder when S3 fetch fails', async () => {
+      const s3 = makeDownloader({});
+      const resolver = new ContentResolver(s3);
+
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'Look at this',
+          attachments: [
+            makeAttachment({ fileId: 'f1', s3Key: 'uploads/f1-img.png', mimeType: 'image/png', fileName: 'img.png', size: 1024 }),
+          ],
+        },
+      ];
+
+      const result = await resolver.resolve(messages, 0);
+
+      expect(result[0].content).toEqual([
+        { type: 'text', text: 'Look at this' },
+        { type: 'text', text: '[File unavailable: img.png]' },
+      ]);
+    });
+  });
+
+  describe('resolve — text truncation', () => {
+    it('truncates extracted text exceeding MAX_EXTRACTED_TEXT_LENGTH with note', async () => {
+      const longText = 'x'.repeat(60_000);
+      const s3 = makeDownloader({ 'uploads/f1-big.txt': Buffer.from(longText) });
+      const resolver = new ContentResolver(s3);
+
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'Read this',
+          attachments: [
+            makeAttachment({ fileId: 'f1', s3Key: 'uploads/f1-big.txt', mimeType: 'text/plain', fileName: 'big.txt', size: 60_000 }),
+          ],
+        },
+      ];
+
+      const result = await resolver.resolve(messages, 0);
+
+      const parts = result[0].content as Array<{ type: string; text: string }>;
+      const filePart = parts[1];
+      expect(filePart.text).toContain('[Document truncated');
+      expect(filePart.text).toContain('--- big.txt ---');
+    });
+  });
+
+  describe('integration — mixed conversation', () => {
+    it('handles a mixed conversation with text and image attachments', async () => {
       const s3 = makeDownloader({
-        'uploads/a.txt': Buffer.from('Content of A'),
-        'uploads/b.txt': Buffer.from('Content of B'),
+        'uploads/img-1-photo.png': Buffer.from('fake-image-bytes'),
       });
       const resolver = new ContentResolver(s3);
 
-      const attachments: MessageAttachment[] = [
-        makeAttachment({ fileId: 'a', s3Key: 'uploads/a.txt', fileName: 'a.txt' }),
-        makeAttachment({ fileId: 'b', s3Key: 'uploads/b.txt', fileName: 'b.txt' }),
+      const messages: StoredMessage[] = [
+        { role: 'user', content: 'Hello', attachments: [] },
+        { role: 'assistant', content: 'Hi! How can I help?', attachments: [] },
+        {
+          role: 'user',
+          content: 'What is in this image?',
+          attachments: [
+            makeAttachment({
+              fileId: 'img-1',
+              s3Key: 'uploads/img-1-photo.png',
+              mimeType: 'image/png',
+              fileName: 'photo.png',
+              size: 2048,
+            }),
+          ],
+        },
       ];
 
-      const parts = await resolver.resolve(attachments);
+      const result = await resolver.resolve(messages, 2);
 
+      expect(result[0]).toEqual({ role: 'user', content: 'Hello' });
+      expect(result[1]).toEqual({ role: 'assistant', content: 'Hi! How can I help?' });
+      expect(result[2].role).toBe('user');
+      expect(Array.isArray(result[2].content)).toBe(true);
+      const parts = result[2].content as Array<{ type: string }>;
       expect(parts).toHaveLength(2);
-      expect(parts[0].text).toContain('[File: a.txt]');
-      expect(parts[0].text).toContain('Content of A');
-      expect(parts[1].text).toContain('[File: b.txt]');
-      expect(parts[1].text).toContain('Content of B');
+      expect(parts[0]).toEqual({ type: 'text', text: 'What is in this image?' });
+      expect(parts[1]).toMatchObject({ type: 'image', mimeType: 'image/png' });
     });
 
-    it('handles a mix of successful and failed downloads in one turn', async () => {
-      const s3 = makeDownloader({
-        'uploads/ok.txt': Buffer.from('OK content'),
-        // 'uploads/missing.txt' intentionally absent
-      });
-      const resolver = new ContentResolver(s3);
-
-      const attachments: MessageAttachment[] = [
-        makeAttachment({ fileId: 'ok', s3Key: 'uploads/ok.txt', fileName: 'ok.txt' }),
-        makeAttachment({ fileId: 'missing', s3Key: 'uploads/missing.txt', fileName: 'missing.txt' }),
-      ];
-
-      const parts = await resolver.resolve(attachments);
-
-      // Only the successful download is returned; the failed one is silently skipped.
-      expect(parts).toHaveLength(1);
-      expect(parts[0].text).toContain('OK content');
-    });
-
-    it('returns empty parts when all attachments fail', async () => {
+    it('handles history messages with attachments as placeholders', async () => {
       const s3 = makeDownloader({});
       const resolver = new ContentResolver(s3);
 
-      const attachments: MessageAttachment[] = [
-        makeAttachment({ fileId: 'x', s3Key: 'uploads/x.txt', fileName: 'x.txt' }),
-        makeAttachment({ fileId: 'y', s3Key: 'uploads/y.txt', fileName: 'y.txt' }),
+      const messages: StoredMessage[] = [
+        {
+          role: 'user',
+          content: 'Check this doc',
+          attachments: [
+            makeAttachment({
+              fileId: 'doc-1',
+              s3Key: 'uploads/doc-1-report.pdf',
+              mimeType: 'application/pdf',
+              fileName: 'report.pdf',
+              size: 5000,
+            }),
+          ],
+        },
+        { role: 'assistant', content: 'I see a report about Q4 earnings.', attachments: [] },
+        { role: 'user', content: 'Summarize page 3', attachments: [] },
       ];
 
-      const parts = await resolver.resolve(attachments);
+      const result = await resolver.resolve(messages, 2);
 
-      expect(parts).toHaveLength(0);
-    });
-  });
-
-  describe('integration — history placeholder behaviour', () => {
-    it('each call to resolve is independent (no shared state between turns)', async () => {
-      // Simulates two separate conversation turns each with their own attachment.
-      const s3 = makeDownloader({
-        'uploads/turn1.txt': Buffer.from('Turn 1 content'),
-        'uploads/turn2.txt': Buffer.from('Turn 2 content'),
-      });
-      const resolver = new ContentResolver(s3);
-
-      const turn1 = await resolver.resolve([
-        makeAttachment({ fileId: 't1', s3Key: 'uploads/turn1.txt', fileName: 'turn1.txt' }),
-      ]);
-      const turn2 = await resolver.resolve([
-        makeAttachment({ fileId: 't2', s3Key: 'uploads/turn2.txt', fileName: 'turn2.txt' }),
-      ]);
-
-      expect(turn1).toHaveLength(1);
-      expect(turn1[0].text).toContain('Turn 1 content');
-      expect(turn2).toHaveLength(1);
-      expect(turn2[0].text).toContain('Turn 2 content');
-      // Ensure turn1 result is not contaminated by turn2
-      expect(turn1[0].text).not.toContain('Turn 2 content');
-    });
-
-    it('file label prefix acts as a history placeholder for the LLM', async () => {
-      // The "[File: name]" prefix is the placeholder that lets the LLM refer back
-      // to the file in subsequent turns without re-uploading.
-      const s3 = makeDownloader({
-        'uploads/report.txt': Buffer.from('Q3 revenue: $1.2M'),
-      });
-      const resolver = new ContentResolver(s3);
-
-      const parts = await resolver.resolve([
-        makeAttachment({ fileId: 'r1', s3Key: 'uploads/report.txt', fileName: 'report.txt' }),
-      ]);
-
-      expect(parts[0].text).toMatch(/^\[File: report\.txt\]/);
-      expect(parts[0].text).toContain('Q3 revenue: $1.2M');
-    });
-
-    it('downloadAsBuffer is called exactly once per attachment per resolve call', async () => {
-      const s3 = makeDownloader({
-        'uploads/doc.txt': Buffer.from('document content'),
-      });
-      const resolver = new ContentResolver(s3);
-
-      await resolver.resolve([
-        makeAttachment({ fileId: 'd1', s3Key: 'uploads/doc.txt', fileName: 'doc.txt' }),
-      ]);
-
-      expect(s3.downloadAsBuffer).toHaveBeenCalledTimes(1);
-      expect(s3.downloadAsBuffer).toHaveBeenCalledWith('uploads/doc.txt');
+      expect(result[0].content).toBe('Check this doc\n\n[Attached: report.pdf]');
+      expect(s3.downloadAsBuffer).not.toHaveBeenCalled();
     });
   });
 });

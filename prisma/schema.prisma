@@ -534,7 +534,7 @@ model InferenceSessionMessage {
   sessionId   String
   role        String
   content     String                       @db.Text
-  attachments Json?
+  attachments Json?                        @default("[]")
   tokenCount  Int?
   embedding   Unsupported("vector(1024)")?
   createdAt   DateTime                     @default(now())

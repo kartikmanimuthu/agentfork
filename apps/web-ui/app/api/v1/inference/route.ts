@@ -95,17 +95,17 @@ export async function POST(req: NextRequest) {
 
     // ─── Normalize content-parts messages ────────────────────────────────
     // Each message content may be a plain string or an array of content parts.
-    // File parts are resolved to text via ContentResolver; the result is a flat
-    // string suitable for the LLM. Attachments are tracked for session persistence.
+    // File metadata is extracted for session persistence; actual file resolution
+    // happens later via ContentResolver before LLM invocation.
     const s3 = new S3Service();
     const contentResolver = new ContentResolver(s3);
 
-    type NormalizedMessage = { role: string; content: string; attachments?: MessageAttachment[] };
+    type NormalizedMessage = { role: string; content: string; attachments: MessageAttachment[] };
     const normalizedMessages: NormalizedMessage[] = [];
 
     for (const msg of messages) {
       if (typeof msg.content === 'string' || msg.content == null) {
-        normalizedMessages.push({ role: msg.role, content: msg.content ?? '' });
+        normalizedMessages.push({ role: msg.role, content: msg.content ?? '', attachments: [] });
         continue;
       }
 
@@ -123,14 +123,10 @@ export async function POST(req: NextRequest) {
           size: p.size ?? 0,
         }));
 
-      const resolvedFileParts = await contentResolver.resolve(attachments);
-      const resolvedTexts = resolvedFileParts.map((rp) => rp.text);
-
-      const combined = [...textParts, ...resolvedTexts].join('\n').trim();
       normalizedMessages.push({
         role: msg.role,
-        content: combined,
-        ...(attachments.length > 0 ? { attachments } : {}),
+        content: textParts.join('\n').trim(),
+        attachments,
       });
     }
 
@@ -192,7 +188,7 @@ export async function POST(req: NextRequest) {
     // ─── Session loading (stateful flow) ─────────────────────────────────
     // For stateful calls (sessionId present): load prior messages, persist agentVersionId
     // on the session if not yet set, and append the incoming user turn(s).
-    let priorMessages: Array<{ role: string; content: string }> = [];
+    let priorMessages: Array<{ role: string; content: string; attachments: MessageAttachment[] }> = [];
 
     if (sessionId) {
       const session = await sessionService.findActiveById(sessionId);
@@ -206,6 +202,7 @@ export async function POST(req: NextRequest) {
       priorMessages = (session.messages ?? []).map((m) => ({
         role: m.role,
         content: m.content,
+        attachments: (m.attachments as MessageAttachment[]) ?? [],
       }));
 
       // Lock the session to this agent version (idempotent)
@@ -222,14 +219,31 @@ export async function POST(req: NextRequest) {
           await sessionService.appendMessage(sessionId, {
             role: 'user',
             content: msg.content,
-            ...(msg.attachments ? { attachments: msg.attachments } : {}),
+            ...(msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
           });
         }
       }
     }
 
     // Compose the prompt: prior session turns (if stateful) + the inbound turn(s).
-    const sessionMessages = sessionId ? [...priorMessages, ...normalizedMessages] : normalizedMessages;
+    // Resolve multimodal content — files are fetched from S3 only for the current turn.
+    const allMessages = sessionId ? [...priorMessages, ...normalizedMessages] : normalizedMessages;
+    const currentTurnIndex = allMessages.length - 1;
+
+    const storedMessages = allMessages.map((m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+      attachments: m.attachments ?? [],
+    }));
+
+    const resolvedMessages = await contentResolver.resolve(storedMessages, currentTurnIndex);
+    const sessionMessages = resolvedMessages.map((m) => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content : m.content.map((p) => {
+        if (p.type === 'text') return { type: 'text' as const, text: p.text };
+        return { type: 'image' as const, image: p.image, mimeType: p.mimeType };
+      }),
+    }));
 
     // Create execution row, linked to session for stateful runs
     const execution = await db.apiKeyExecution.create({

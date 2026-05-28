@@ -1,95 +1,154 @@
-/**
- * ContentResolver — downloads file attachments from S3 and extracts text
- * for inclusion as TextContentParts in LLM messages.
- *
- * Supported MIME types:
- *   application/pdf                                                    → pdf-parse
- *   application/vnd.openxmlformats-officedocument.wordprocessingml.document → mammoth
- *   text/*                                                             → UTF-8 decode
- */
-
+import { MAX_EXTRACTED_TEXT_LENGTH, type MessageAttachment } from './multimodal-types';
 import pino from 'pino';
-import {
-  MAX_ATTACHMENTS_PER_MESSAGE,
-  MAX_EXTRACTED_TEXT_LENGTH,
-  type MessageAttachment,
-  type TextContentPart,
-} from './multimodal-types';
 
 const logger = pino({ name: 'ai:content-resolver' });
 
-/** Minimal S3 surface the resolver depends on — matches S3Service.downloadAsBuffer. */
+type ImageMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+
 export interface FileDownloader {
   downloadAsBuffer(key: string): Promise<Buffer>;
+}
+
+export interface StoredMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  attachments: MessageAttachment[];
+}
+
+type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: string; mimeType: ImageMimeType };
+
+export type ResolvedContent = string | ContentPart[];
+
+export interface ResolvedMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: ResolvedContent;
 }
 
 export class ContentResolver {
   constructor(private readonly s3: FileDownloader) {}
 
-  /**
-   * Resolve a list of attachments to TextContentParts.
-   * Silently skips attachments that fail to download or parse.
-   * Caps at MAX_ATTACHMENTS_PER_MESSAGE and MAX_EXTRACTED_TEXT_LENGTH per file.
-   */
-  async resolve(attachments: MessageAttachment[]): Promise<TextContentPart[]> {
-    const limited = attachments.slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
-    const parts: TextContentPart[] = [];
+  async resolve(
+    messages: StoredMessage[],
+    currentTurnIndex: number,
+  ): Promise<ResolvedMessage[]> {
+    const resolved: ResolvedMessage[] = [];
 
-    for (const attachment of limited) {
-      try {
-        logger.debug(
-          { fileId: attachment.fileId, s3Key: attachment.s3Key, mimeType: attachment.mimeType },
-          'Resolving attachment'
-        );
-        const buffer = await this.s3.downloadAsBuffer(attachment.s3Key);
-        const raw = await this.extractText(buffer, attachment.mimeType, attachment.fileName);
-        const text = raw.slice(0, MAX_EXTRACTED_TEXT_LENGTH);
-        parts.push({
-          type: 'text',
-          text: `[File: ${attachment.fileName}]\n${text}`,
-        });
-        logger.info(
-          { fileId: attachment.fileId, extractedLength: text.length },
-          'Attachment resolved'
-        );
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        logger.warn(
-          { fileId: attachment.fileId, s3Key: attachment.s3Key, errorMessage: error.message },
-          'Failed to resolve attachment — skipping'
-        );
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const isCurrentTurn = i === currentTurnIndex;
+      const attachments = msg.attachments ?? [];
+
+      if (attachments.length === 0) {
+        resolved.push({ role: msg.role, content: msg.content });
+        continue;
       }
+
+      if (!isCurrentTurn) {
+        const placeholders = attachments.map((a) => `[Attached: ${a.fileName}]`).join('\n');
+        const content = msg.content
+          ? `${msg.content}\n\n${placeholders}`
+          : placeholders;
+        resolved.push({ role: msg.role, content });
+        continue;
+      }
+
+      const parts: ContentPart[] = [];
+      if (msg.content) {
+        parts.push({ type: 'text', text: msg.content });
+      }
+
+      for (const attachment of attachments) {
+        const part = await this.resolveAttachment(attachment);
+        parts.push(part);
+      }
+
+      resolved.push({ role: msg.role, content: parts });
     }
 
-    return parts;
+    return resolved;
   }
 
-  private async extractText(
-    buffer: Buffer,
-    mimeType: string,
-    fileName: string
-  ): Promise<string> {
+  private async resolveAttachment(attachment: MessageAttachment): Promise<ContentPart> {
+    try {
+      logger.debug(
+        { fileId: attachment.fileId, s3Key: attachment.s3Key, mimeType: attachment.mimeType },
+        'Resolving attachment',
+      );
+      const buffer = await this.s3.downloadAsBuffer(attachment.s3Key);
+      return await this.processBuffer(buffer, attachment);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn(
+        { fileId: attachment.fileId, fileName: attachment.fileName, err: err.message },
+        'Failed to resolve attachment',
+      );
+      return { type: 'text', text: `[File unavailable: ${attachment.fileName}]` };
+    }
+  }
+
+  private async processBuffer(buffer: Buffer, attachment: MessageAttachment): Promise<ContentPart> {
+    const { mimeType, fileName } = attachment;
+
+    if (mimeType.startsWith('image/')) {
+      return {
+        type: 'image',
+        image: buffer.toString('base64'),
+        mimeType: mimeType as ImageMimeType,
+      };
+    }
+
+    if (mimeType === 'text/plain' || mimeType.startsWith('text/')) {
+      const text = buffer.toString('utf-8');
+      return { type: 'text', text: this.wrapExtractedText(fileName, text) };
+    }
+
     if (mimeType === 'application/pdf') {
-      // pdf-parse is CJS; the dynamic import resolves to the parse function directly.
-      const pdfParse = (await import('pdf-parse')) as unknown as { default: (buf: Buffer) => Promise<{ text: string }> };
-      const result = await pdfParse.default(buffer);
-      return result.text;
+      return await this.extractPdf(buffer, fileName);
     }
 
     if (
-      mimeType ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      fileName.toLowerCase().endsWith('.docx')
+      mimeType === 'application/msword' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ) {
+      return await this.extractWord(buffer, fileName);
+    }
+
+    return { type: 'text', text: `[Unsupported file type: ${fileName}]` };
+  }
+
+  private async extractPdf(buffer: Buffer, fileName: string): Promise<ContentPart> {
+    try {
+      const pdfParse = (await import('pdf-parse')) as unknown as {
+        default: (buf: Buffer) => Promise<{ text: string }>;
+      };
+      const result = await pdfParse.default(buffer);
+      return { type: 'text', text: this.wrapExtractedText(fileName, result.text) };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error({ fileName, err: err.message }, 'PDF extraction failed');
+      return { type: 'text', text: `[Could not read: ${fileName}]` };
+    }
+  }
+
+  private async extractWord(buffer: Buffer, fileName: string): Promise<ContentPart> {
+    try {
       const mammoth = await import('mammoth');
       const result = await mammoth.extractRawText({ buffer });
-      return result.value;
+      return { type: 'text', text: this.wrapExtractedText(fileName, result.value) };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error({ fileName, err: err.message }, 'Word extraction failed');
+      return { type: 'text', text: `[Could not read: ${fileName}]` };
     }
+  }
 
-    if (mimeType.startsWith('text/')) {
-      return buffer.toString('utf-8');
-    }
-
-    throw new Error(`Unsupported MIME type: ${mimeType}`);
+  private wrapExtractedText(fileName: string, text: string): string {
+    const truncated =
+      text.length > MAX_EXTRACTED_TEXT_LENGTH
+        ? `${text.slice(0, MAX_EXTRACTED_TEXT_LENGTH)}\n\n[Document truncated — showing first ${MAX_EXTRACTED_TEXT_LENGTH} characters]`
+        : text;
+    return `--- ${fileName} ---\n${truncated}`;
   }
 }
