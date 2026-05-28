@@ -52,8 +52,15 @@ export async function handleDocumentIngestion(data: unknown): Promise<void> {
     // 3. Parse document
     log.info({ documentId, mimeType }, 'Parsing document');
     await docRepo.update(documentId, { status: 'PROCESSING' });
-    const parser = getDocumentParser(mimeType);
-    const rawText = await parser.parse(buffer, mimeType);
+    let rawText: string;
+    if (mimeType === 'text/markdown' || mimeType === 'text/x-markdown') {
+      // Preserve markdown structure for MARKDOWN_AWARE chunking
+      rawText = buffer.toString('utf-8');
+      log.info({ documentId, mimeType }, 'Preserved raw markdown (skipping strip parser)');
+    } else {
+      const parser = getDocumentParser(mimeType);
+      rawText = await parser.parse(buffer, mimeType);
+    }
     log.info({ documentId, mimeType, rawTextLength: rawText.length }, 'Document parsed successfully');
 
     // 4. Pre-process

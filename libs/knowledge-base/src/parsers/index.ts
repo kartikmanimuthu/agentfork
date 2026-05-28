@@ -62,13 +62,15 @@ export function stripHtml(html: string): string {
 }
 
 /**
- * Markdown parser — strips markdown syntax to plain text.
+ * Markdown parser — returns raw markdown text as-is.
+ * Previously stripped markdown syntax; now preserved so MARKDOWN_AWARE
+ * chunking can split by headings. Callers that need plain text can apply
+ * stripMarkdown() explicitly after parsing.
  */
 export class MarkdownParser implements DocumentParser {
   async parse(buffer: Buffer, _mimeType: string): Promise<string> {
     try {
-      const md = buffer.toString('utf-8');
-      const text = stripMarkdown(md);
+      const text = buffer.toString('utf-8');
       parserLogger.debug({ mimeType: _mimeType, length: text.length }, 'Parsed markdown');
       return text;
     } catch (err) {
