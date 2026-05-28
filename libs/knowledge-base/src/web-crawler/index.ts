@@ -5,12 +5,18 @@ import { runCrawleeCrawl } from './crawlee-engine';
 const crawlLogger = createLogger('kb:web-crawler');
 
 export class CrawleeWebCrawler implements WebCrawler {
+  constructor(private readonly defaultUseHeadless: boolean = true) {}
+
   async crawl(options: CrawlOptions): Promise<CrawledPage[]> {
     crawlLogger.info(
       { seedUrls: options.seedUrls, crawlDepth: options.crawlDepth },
       'CrawleeWebCrawler.start'
     );
-    const results = await runCrawleeCrawl(options);
+    const mergedOptions: CrawlOptions = {
+      ...options,
+      useHeadless: options.useHeadless ?? this.defaultUseHeadless,
+    };
+    const results = await runCrawleeCrawl(mergedOptions);
     crawlLogger.info({ count: results.length }, 'CrawleeWebCrawler.complete');
     return results;
   }
@@ -22,8 +28,8 @@ export interface CrawlerFactoryOptions {
   useHeadless?: boolean;
 }
 
-export function createWebCrawler(_options: CrawlerFactoryOptions = {}): WebCrawler {
-  return new CrawleeWebCrawler();
+export function createWebCrawler(options: CrawlerFactoryOptions = {}): WebCrawler {
+  return new CrawleeWebCrawler(options.useHeadless);
 }
 
 export * from './types';

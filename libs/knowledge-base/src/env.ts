@@ -5,7 +5,7 @@ const kbEnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   COHERE_API_KEY: z.string().optional(),
   OLLAMA_BASE_URL: z.string().optional(),
-  CRAWL_PROXY_URL: z.string().url().optional(),
+  CRAWLEE_STORAGE_DIR: z.string().optional(),
 });
 
 export const kbEnv = kbEnvSchema.parse(process.env);

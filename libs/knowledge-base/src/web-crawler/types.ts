@@ -13,7 +13,7 @@ export interface CrawledPage {
   title: string;
   /** Clean Markdown extracted from the page */
   markdown: string;
-  /** Plain text length estimate */
+  /** Length of the Markdown string (includes syntax characters) */
   textLength: number;
   fetchedAt: Date;
 }

@@ -109,8 +109,8 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       } catch (pageErr) {
         failCount++;
         const pageError = pageErr instanceof Error ? pageErr : new Error(String(pageErr));
-        log.error({ dataSourceId, url: page.url, pageIndex: idx, errorMessage: pageError.message, errorStack: pageError.stack }, 'Failed to process crawled page');
-        throw pageError;
+        log.error({ dataSourceId, url: page.url, pageIndex: idx, errorMessage: pageError.message, errorStack: pageError.stack }, 'Failed to process crawled page — continuing to next page');
+        // Continue to next page instead of aborting the entire crawl job
       }
     }
 

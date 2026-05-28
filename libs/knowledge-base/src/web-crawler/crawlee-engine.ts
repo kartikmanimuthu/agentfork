@@ -5,6 +5,7 @@ import {
   Configuration,
 } from 'crawlee';
 import { createLogger } from '@chatbot/shared/workers';
+import { kbEnv } from '../env';
 import type { CrawlOptions, CrawledPage } from './types';
 import { extractMarkdownFromHtml } from './extraction';
 
@@ -14,7 +15,7 @@ const engineLogger = createLogger('kb:web-crawler:engine');
 // so the worker does not accumulate on-disk queues between restarts.
 Configuration.set(
   'storageClientOptions',
-  { storageDir: process.env.CRAWLEE_STORAGE_DIR ?? '/tmp/crawlee-storage' }
+  { storageDir: kbEnv.CRAWLEE_STORAGE_DIR ?? '/tmp/crawlee-storage' }
 );
 
 export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPage[]> {
@@ -43,8 +44,6 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
   const sharedConfig = {
     requestQueue,
     maxRequestsPerCrawl: maxPages,
-    maxRequestRetries: 3,
-    requestHandlerTimeoutSecs: 60,
     respectRobotsTxtFile: true,
     keepAlive: false,
   };
@@ -62,7 +61,7 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
         url,
         title: extraction.title,
         markdown: extraction.markdown,
-        textLength: extraction.textLength,
+        textLength: extraction.markdown.length,
         fetchedAt: new Date(),
       });
 
@@ -84,41 +83,56 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
       const userData = req.userData ?? {};
       const parentDepth = (userData.depth as number) ?? 0;
       if (parentDepth + 1 > crawlDepth) {
-        return false as unknown as { url: string; userData?: Record<string, unknown> };
+        return false;
       }
       req.userData = { ...userData, depth: parentDepth + 1 };
       return req;
     },
   };
 
-  if (useHeadless) {
-    const crawler = new PlaywrightCrawler({
-      ...sharedConfig,
-      headless: true,
-      async requestHandler({ page, request, enqueueLinks }) {
-        await page.waitForLoadState('networkidle');
-        const html = await page.content();
-        const depth = (request.userData?.depth as number) ?? 0;
-        await handlePage(request.url, html, depth);
-        if (depth < crawlDepth) {
-          await enqueueLinks(enqueueLinksConfig);
-        }
-      },
-    });
-    await crawler.run();
-  } else {
-    const crawler = new CheerioCrawler({
-      ...sharedConfig,
-      async requestHandler({ $, request, enqueueLinks }) {
-        const html = $.html();
-        const depth = (request.userData?.depth as number) ?? 0;
-        await handlePage(request.url, html, depth);
-        if (depth < crawlDepth) {
-          await enqueueLinks(enqueueLinksConfig);
-        }
-      },
-    });
-    await crawler.run();
+  try {
+    if (useHeadless) {
+      const crawler = new PlaywrightCrawler({
+        ...sharedConfig,
+        maxRequestRetries: 1,
+        requestHandlerTimeoutSecs: 120,
+        headless: true,
+        async requestHandler({ page, request, enqueueLinks }) {
+          await page.waitForLoadState('networkidle');
+          const html = await page.content();
+          const depth = (request.userData?.depth as number) ?? 0;
+          await handlePage(request.url, html, depth);
+          if (depth < crawlDepth) {
+            await enqueueLinks(enqueueLinksConfig);
+          }
+        },
+      });
+      await crawler.run();
+    } else {
+      const crawler = new CheerioCrawler({
+        ...sharedConfig,
+        maxRequestRetries: 3,
+        requestHandlerTimeoutSecs: 60,
+        async requestHandler({ $, request, enqueueLinks }) {
+          const html = $.html();
+          const depth = (request.userData?.depth as number) ?? 0;
+          await handlePage(request.url, html, depth);
+          if (depth < crawlDepth) {
+            await enqueueLinks(enqueueLinksConfig);
+          }
+        },
+      });
+      await crawler.run();
+    }
+  } finally {
+    // Clean up the request queue directory to prevent /tmp accumulation
+    try {
+      await requestQueue.drop();
+      engineLogger.debug({}, 'Crawlee request queue cleaned up');
+    } catch (cleanupErr) {
+      const error = cleanupErr instanceof Error ? cleanupErr : new Error(String(cleanupErr));
+      engineLogger.warn({ errorMessage: error.message }, 'Failed to clean up Crawlee request queue');
+    }
   }
 
   engineLogger.info({ crawledCount: results.length }, 'Crawl complete');
