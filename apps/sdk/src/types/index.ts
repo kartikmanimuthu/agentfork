@@ -76,6 +76,7 @@ export interface SessionInfo {
 export interface WidgetState {
   config: SdkWidgetConfig | null;
   apiKey: string | null;
+  baseUrl: string;
   session: SessionInfo | null;
   messages: Message[];
   uiState: { open: boolean; minimized: boolean; hidden: boolean };
@@ -84,4 +85,6 @@ export interface WidgetState {
   unreadCount: number;
   kbSuggestions: KbArticle[];
   error: string | null;
+  csatPending: boolean;
+  csatSubmitted: boolean;
 }

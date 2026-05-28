@@ -12,6 +12,7 @@ export class SmcChatWindow {
     if (!config) return null;
 
     const showPreChat = config.preChatForm && config.preChatForm.length > 0 && !state.preChatDone;
+    const showCsat = config.csatEnabled && state.csatPending && state.messages.length > 0;
 
     return (
       <div class="chat-window">
@@ -19,6 +20,11 @@ export class SmcChatWindow {
         <div class="chat-body">
           {showPreChat ? (
             <smc-pre-chat-form></smc-pre-chat-form>
+          ) : showCsat ? (
+            [
+              <smc-message-list></smc-message-list>,
+              <smc-csat-survey></smc-csat-survey>,
+            ]
           ) : (
             [
               <smc-message-list></smc-message-list>,

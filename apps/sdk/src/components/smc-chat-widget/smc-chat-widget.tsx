@@ -1,5 +1,5 @@
 import { Component, Prop, h, State } from '@stencil/core';
-import { state, setConfig, setApiKey, setSession, setMessages, setPreChatDone, setUiState } from '../../store/widget-store';
+import { state, setConfig, setApiKey, setBaseUrl, setSession, setMessages, setPreChatDone, setUiState } from '../../store/widget-store';
 import { ConfigService } from '../../services/config.service';
 import { ApiService } from '../../services/api.service';
 import { StorageService } from '../../services/storage.service';
@@ -42,6 +42,7 @@ export class SmcChatWidget {
       console.log('[smc-widget] Config loaded', config);
       setConfig(config);
       setApiKey(config.apiKeyPrefix);
+      setBaseUrl(baseUrl);
 
       this.apiService = new ApiService(baseUrl, config.apiKeyPrefix);
 
@@ -64,6 +65,7 @@ export class SmcChatWidget {
         } else {
           console.log('[smc-widget] Session expired, clearing');
           this.storage.clearSession();
+          this.storage.setPreChatDone(false);
         }
       }
 

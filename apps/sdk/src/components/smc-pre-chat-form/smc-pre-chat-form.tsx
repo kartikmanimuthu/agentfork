@@ -51,8 +51,7 @@ export class SmcPreChatForm {
       const sdkId = widgetEl?.sdkId;
       const storage = new StorageService(sdkId);
       const visitorId = storage.getVisitorId();
-      const baseUrl = window.location.origin;
-      const api = new ApiService(baseUrl, state.apiKey!);
+      const api = new ApiService(state.baseUrl, state.apiKey!);
 
       const session = await api.createSession({
         visitorId,

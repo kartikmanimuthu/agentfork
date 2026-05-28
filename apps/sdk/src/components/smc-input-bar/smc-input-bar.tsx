@@ -1,6 +1,7 @@
 import { Component, h, State, Element } from '@stencil/core';
-import { state, addMessage, setStreaming, updateLastMessage, finalizeLastMessage, setKbSuggestions } from '../../store/widget-store';
+import { state, addMessage, setStreaming, updateLastMessage, finalizeLastMessage, setKbSuggestions, setSession } from '../../store/widget-store';
 import { ApiService } from '../../services/api.service';
+import { StorageService } from '../../services/storage.service';
 import { StreamService } from '../../services/stream.service';
 
 @Component({
@@ -25,8 +26,7 @@ export class SmcInputBar {
       if (this.kbDebounce) clearTimeout(this.kbDebounce);
       if (this.text.length >= 3) {
         this.kbDebounce = setTimeout(async () => {
-          const baseUrl = window.location.origin;
-          const api = new ApiService(baseUrl, state.apiKey!);
+          const api = new ApiService(state.baseUrl, state.apiKey!);
           const articles = await api.suggestKb(state.session!.id, this.text);
           setKbSuggestions(articles);
         }, 300);
@@ -50,10 +50,28 @@ export class SmcInputBar {
 
   private async send() {
     const content = this.text.trim();
-    if (!content || this.sending || !state.session || !state.apiKey) return;
+    if (!content || this.sending || !state.apiKey) return;
+
+    this.sending = true;
+
+    // Auto-create session on first send if none exists
+    if (!state.session) {
+      try {
+        const widgetEl = document.querySelector('smc-chat-widget') as any;
+        const sdkId = widgetEl?.sdkId;
+        const storage = new StorageService(sdkId);
+        const visitorId = storage.getVisitorId();
+        const api = new ApiService(state.baseUrl, state.apiKey);
+        const session = await api.createSession({ visitorId });
+        storage.setSessionId(session.id);
+        setSession({ id: session.id, status: 'active', visitorId });
+      } catch {
+        this.sending = false;
+        return;
+      }
+    }
 
     this.text = '';
-    this.sending = true;
     setKbSuggestions([]);
 
     if (this.textareaEl) {
@@ -79,9 +97,8 @@ export class SmcInputBar {
     setStreaming(true);
 
     try {
-      const baseUrl = window.location.origin;
-      const api = new ApiService(baseUrl, state.apiKey);
-      const response = await api.sendMessage(state.session.id, content);
+      const api = new ApiService(state.baseUrl, state.apiKey);
+      const response = await api.sendMessage(state.session!.id, content);
 
       const streamService = new StreamService();
       let fullContent = '';
@@ -113,8 +130,7 @@ export class SmcInputBar {
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file || !state.session || !state.apiKey) return;
-      const baseUrl = window.location.origin;
-      const api = new ApiService(baseUrl, state.apiKey);
+      const api = new ApiService(state.baseUrl, state.apiKey);
       try {
         await api.uploadFile(state.session.id, file);
       } catch {

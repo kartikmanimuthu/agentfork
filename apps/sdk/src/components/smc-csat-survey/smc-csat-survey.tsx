@@ -1,6 +1,7 @@
 import { Component, h, State } from '@stencil/core';
-import { state } from '../../store/widget-store';
+import { state, setCsatPending, setCsatSubmitted, setUiState, resetWidget } from '../../store/widget-store';
 import { ApiService } from '../../services/api.service';
+import { StorageService } from '../../services/storage.service';
 
 @Component({
   tag: 'smc-csat-survey',
@@ -15,11 +16,31 @@ export class SmcCsatSurvey {
     this.rating = value;
 
     if (state.session && state.apiKey) {
-      const baseUrl = window.location.origin;
-      const api = new ApiService(baseUrl, state.apiKey);
-      await api.submitCsat(state.session.id, value);
-      this.submitted = true;
+      const api = new ApiService(state.baseUrl, state.apiKey);
+      try {
+        await api.submitCsat(state.session.id, value);
+      } catch (err) {
+        console.warn('[smc-csat] CSAT submission failed', err);
+      }
     }
+
+    this.submitted = true;
+    setCsatSubmitted(true);
+
+    // After a brief moment, close the widget and reset for a fresh start
+    setTimeout(() => {
+      setCsatPending(false);
+      setUiState({ open: false, minimized: false, hidden: false });
+
+      // Clear session storage so next chat starts fresh
+      const widgetEl = document.querySelector('smc-chat-widget') as any;
+      const sdkId = widgetEl?.sdkId;
+      if (sdkId) {
+        const storage = new StorageService(sdkId);
+        storage.clearSession();
+      }
+      resetWidget();
+    }, 1500);
   }
 
   render() {
