@@ -177,7 +177,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isAnalyticsActive}
                       tooltip="Analytics"
                     >
                       <BarChart3 className="size-4" />
@@ -217,7 +216,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isAgentStudioActive}
                       tooltip="Agent Studio"
                     >
                       <Bot className="size-4" />
@@ -257,7 +255,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isKbActive}
                       tooltip="Knowledge Base"
                     >
                       <Database className="size-4" />
@@ -297,7 +294,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isSdksActive}
                       tooltip="SDKs"
                     >
                       <Code2 className="size-4" />
@@ -337,7 +333,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isSettingsActive}
                       tooltip="Settings"
                     >
                       <Settings className="size-4" />
