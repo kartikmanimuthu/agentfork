@@ -14,6 +14,16 @@ export {
 export { createDiscovery } from './discovery';
 export type { DiscoveredModel, ModelCapability } from './discovery';
 
+export {
+  contentPartSchema,
+  contentPartsMessageSchema,
+  type ContentPart,
+  type ContentPartsMessage,
+  type MessageAttachment,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_EXTRACTED_TEXT_LENGTH,
+} from './multimodal-types';
+
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.
 export { getBedrockProvider } from './bedrock-client';
