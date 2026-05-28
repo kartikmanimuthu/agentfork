@@ -4,6 +4,7 @@ import type { WidgetState, Message, KbArticle, SdkWidgetConfig, SessionInfo } fr
 const { state, onChange, reset } = createStore<WidgetState>({
   config: null,
   apiKey: null,
+  baseUrl: window.location.origin,
   session: null,
   messages: [],
   uiState: { open: false, minimized: false, hidden: false },
@@ -12,6 +13,8 @@ const { state, onChange, reset } = createStore<WidgetState>({
   unreadCount: 0,
   kbSuggestions: [],
   error: null,
+  csatPending: false,
+  csatSubmitted: false,
 });
 
 export { state, onChange, reset };
@@ -22,6 +25,10 @@ export function setConfig(config: SdkWidgetConfig) {
 
 export function setApiKey(key: string) {
   state.apiKey = key;
+}
+
+export function setBaseUrl(url: string) {
+  state.baseUrl = url;
 }
 
 export function setSession(session: SessionInfo) {
@@ -80,4 +87,28 @@ export function setKbSuggestions(articles: KbArticle[]) {
 
 export function setError(error: string | null) {
   state.error = error;
+}
+
+export function setCsatPending(pending: boolean) {
+  state.csatPending = pending;
+}
+
+export function setCsatSubmitted(submitted: boolean) {
+  state.csatSubmitted = submitted;
+}
+
+export function resetCsat() {
+  state.csatPending = false;
+  state.csatSubmitted = false;
+}
+
+export function resetWidget() {
+  state.session = null;
+  state.messages = [];
+  state.preChatDone = false;
+  state.csatPending = false;
+  state.csatSubmitted = false;
+  state.streaming = { active: false, currentTokens: '' };
+  state.kbSuggestions = [];
+  state.error = null;
 }

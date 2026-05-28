@@ -1,5 +1,5 @@
 import { Component, h, State } from '@stencil/core';
-import { state, setUiState, clearUnread } from '../../store/widget-store';
+import { state, setUiState, clearUnread, resetCsat } from '../../store/widget-store';
 
 @Component({
   tag: 'smc-launcher',
@@ -10,13 +10,22 @@ export class SmcLauncher {
   @State() proactiveMessage: string | null = null;
 
   private handleClick = () => {
-    if (state.uiState.open) {
-      setUiState({ open: false, minimized: false });
-    } else {
-      setUiState({ open: true, minimized: false });
-      clearUnread();
-      this.proactiveMessage = null;
+    const isOpen = state.uiState.open;
+
+    if (isOpen) {
+      // Clicking launcher while open just minimizes
+      setUiState({ open: false, minimized: true });
+      return;
     }
+
+    // If CSAT was already submitted, reset for a fresh start
+    if (state.csatSubmitted) {
+      resetCsat();
+    }
+
+    setUiState({ open: true, minimized: false });
+    clearUnread();
+    this.proactiveMessage = null;
   };
 
   render() {

@@ -23,7 +23,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx stencil test --spec",
+        "command": "vitest run",
         "cwd": "apps/sdk"
       }
     }

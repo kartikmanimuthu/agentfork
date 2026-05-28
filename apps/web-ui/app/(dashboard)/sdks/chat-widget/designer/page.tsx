@@ -708,6 +708,14 @@ export default function DesignerPage() {
                       )}
                       {saved ? 'Saved' : 'Publish Changes'}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => router.push(`/sdks/chat-widget/sandbox?id=${widgetId}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -717,25 +725,23 @@ export default function DesignerPage() {
                 <div className="flex-1 min-w-0 overflow-y-auto">
                   <div className="max-w-2xl mx-auto p-6">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                      <TabsList className="grid grid-cols-3 mb-6 h-10">
-                        <TabsTrigger value="appearance" className="text-xs gap-1.5">
+                      <TabsList className="grid grid-rows-2 grid-cols-3 mb-6 h-auto p-1 gap-1">
+                        <TabsTrigger value="appearance" className="text-xs gap-1.5 h-9">
                           <Palette className="h-3.5 w-3.5" /> Appearance
                         </TabsTrigger>
-                        <TabsTrigger value="behavior" className="text-xs gap-1.5">
+                        <TabsTrigger value="behavior" className="text-xs gap-1.5 h-9">
                           <Settings className="h-3.5 w-3.5" /> Behavior
                         </TabsTrigger>
-                        <TabsTrigger value="prechat" className="text-xs gap-1.5">
+                        <TabsTrigger value="prechat" className="text-xs gap-1.5 h-9">
                           <MessageSquare className="h-3.5 w-3.5" /> Pre-chat
                         </TabsTrigger>
-                      </TabsList>
-                      <TabsList className="grid grid-cols-3 mb-6 h-10">
-                        <TabsTrigger value="proactive" className="text-xs gap-1.5">
+                        <TabsTrigger value="proactive" className="text-xs gap-1.5 h-9">
                           <Sparkles className="h-3.5 w-3.5" /> Proactive
                         </TabsTrigger>
-                        <TabsTrigger value="knowledge" className="text-xs gap-1.5">
+                        <TabsTrigger value="knowledge" className="text-xs gap-1.5 h-9">
                           <BookIcon className="h-3.5 w-3.5" /> Knowledge
                         </TabsTrigger>
-                        <TabsTrigger value="embed" className="text-xs gap-1.5">
+                        <TabsTrigger value="embed" className="text-xs gap-1.5 h-9">
                           <Code className="h-3.5 w-3.5" /> Embed
                         </TabsTrigger>
                       </TabsList>
@@ -1118,7 +1124,7 @@ export default function DesignerPage() {
                         <iframe
                           srcDoc={iframeHtml}
                           className="w-full h-full"
-                          sandbox="allow-scripts allow-same-origin"
+                          sandbox="allow-scripts allow-same-origin allow-forms"
                           title="Widget Preview"
                         />
                       </div>

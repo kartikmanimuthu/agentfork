@@ -1,5 +1,6 @@
 import { Component, h } from '@stencil/core';
-import { state, setUiState } from '../../store/widget-store';
+import { state, setUiState, setCsatPending } from '../../store/widget-store';
+import { ApiService } from '../../services/api.service';
 
 @Component({
   tag: 'smc-header',
@@ -11,7 +12,26 @@ export class SmcHeader {
     setUiState({ open: false, minimized: true });
   };
 
-  private handleClose = () => {
+  private handleClose = async () => {
+    const config = state.config;
+    const session = state.session;
+    const apiKey = state.apiKey;
+
+    // If CSAT is enabled and there's an active session with messages, trigger CSAT flow
+    if (config?.csatEnabled && session && apiKey && state.messages.length > 0 && !state.csatSubmitted) {
+      try {
+        const api = new ApiService(state.baseUrl, apiKey);
+        await api.endSession(session.id);
+      } catch (err) {
+        // silently fail — session may already be ended
+        console.warn('[smc-header] Failed to end session', err);
+      }
+      setCsatPending(true);
+      // Keep widget open so CSAT is visible; just clear the unread
+      return;
+    }
+
+    // Normal close: just hide the chat window
     setUiState({ open: false, minimized: false, hidden: true });
   };
 

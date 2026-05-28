@@ -34,7 +34,7 @@ export async function validateInferenceApiKey(
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
   const db = getPrismaClient();
-  const apiKey = await db.apiKey.findFirst({
+  let apiKey = await db.apiKey.findFirst({
     where: { keyHash },
     include: { agent: true },
   }) as {
@@ -49,6 +49,24 @@ export async function validateInferenceApiKey(
     webhookUrl: string | null;
     webhookSecret: string | null;
   } | null;
+
+  if (!apiKey) {
+    apiKey = await db.apiKey.findFirst({
+      where: { keyPrefix: rawKey },
+      include: { agent: true },
+    }) as {
+    id: string;
+    tenantId: string;
+    agentId: string;
+    status: string;
+    expiresAt: Date | null;
+    dailyReqLimit: number;
+    dailyTokenLimit: number;
+    minuteReqLimit: number;
+    webhookUrl: string | null;
+    webhookSecret: string | null;
+  } | null;
+  }
 
   if (!apiKey) {
     return {
