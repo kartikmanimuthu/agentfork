@@ -12,4 +12,5 @@ export const whatsappEnv = createEnv({
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
+  skipValidation: !process.env.META_APP_ID,
 });
