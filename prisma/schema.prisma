@@ -530,13 +530,14 @@ model InferenceSession {
 }
 
 model InferenceSessionMessage {
-  id         String                       @id @default(cuid())
-  sessionId  String
-  role       String
-  content    String                       @db.Text
-  tokenCount Int?
-  embedding  Unsupported("vector(1024)")?
-  createdAt  DateTime                     @default(now())
+  id          String                       @id @default(cuid())
+  sessionId   String
+  role        String
+  content     String                       @db.Text
+  attachments Json?
+  tokenCount  Int?
+  embedding   Unsupported("vector(1024)")?
+  createdAt   DateTime                     @default(now())
 
   session InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback MessageFeedback?
