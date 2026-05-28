@@ -13,6 +13,7 @@ import type { Message } from '../../types';
 export class SmcChatWidget {
   @Prop() sdkId!: string;
   @Prop() apiUrl?: string;
+  @Prop() mockConfig?: string;
 
   @State() ready = false;
   @State() bootError: string | null = null;
@@ -36,10 +37,20 @@ export class SmcChatWidget {
     this.storage = new StorageService(this.sdkId);
 
     try {
-      const configService = new ConfigService(baseUrl);
-      console.log('[smc-widget] Fetching config...');
-      const config = await configService.fetchConfig(this.sdkId);
-      console.log('[smc-widget] Config loaded', config);
+      let config;
+
+      if (this.mockConfig) {
+        config = JSON.parse(this.mockConfig);
+        if (!config?.apiKeyPrefix) {
+          throw new Error('[smc-widget] mockConfig is missing required field: apiKeyPrefix');
+        }
+        console.warn('[smc-widget] Using mock config', config);
+      } else {
+        const configService = new ConfigService(baseUrl);
+        console.log('[smc-widget] Fetching config...');
+        config = await configService.fetchConfig(this.sdkId);
+        console.log('[smc-widget] Config loaded', config);
+      }
       setConfig(config);
       setApiKey(config.apiKeyPrefix);
       setBaseUrl(baseUrl);
