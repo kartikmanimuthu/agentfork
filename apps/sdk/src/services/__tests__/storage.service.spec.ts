@@ -7,11 +7,11 @@ describe('StorageService', () => {
   beforeEach(() => {
     store = {};
     const proto = Object.getPrototypeOf(window.localStorage);
-    vi.spyOn(proto, 'getItem').mockImplementation((key: string) => store[key] ?? null);
-    vi.spyOn(proto, 'setItem').mockImplementation((key: string, val: string) => {
+    vi.spyOn(proto, 'getItem').mockImplementation((key: any) => store[key] ?? null);
+    vi.spyOn(proto, 'setItem').mockImplementation((key: any, val: any) => {
       store[key] = String(val);
     });
-    vi.spyOn(proto, 'removeItem').mockImplementation((key: string) => {
+    vi.spyOn(proto, 'removeItem').mockImplementation((key: any) => {
       delete store[key];
     });
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-000000000000');

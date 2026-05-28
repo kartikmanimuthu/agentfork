@@ -14,8 +14,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_1"
         status="sent"
-      />,
-      { components: [SmcMessage] },
+      />
     );
 
     const shadowRoot = root.shadowRoot!;
@@ -32,8 +31,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_2"
         status="sent"
-      />,
-      { components: [SmcMessage, SmcMarkdown] },
+      />
     );
 
     const shadowRoot = root.shadowRoot!;
@@ -49,8 +47,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_123"
         status="sent"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeTruthy();
@@ -64,8 +61,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="welcome"
         status="sent"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeNull();
@@ -79,8 +75,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_123"
         status="sent"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeNull();
@@ -94,8 +89,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_123"
         status="streaming"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeNull();
@@ -109,8 +103,7 @@ describe('SmcMessage', () => {
         timestamp="2024-01-01T00:00:00.000Z"
         messageId=""
         status="sent"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeNull();
@@ -123,8 +116,7 @@ describe('SmcMessage', () => {
         role="assistant"
         timestamp="2024-01-01T00:00:00.000Z"
         messageId="msg_123"
-      />,
-      { components: [SmcMessage, SmcMarkdown, SmcFeedback] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('smc-feedback')).toBeNull();

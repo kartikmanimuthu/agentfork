@@ -37,9 +37,7 @@ describe('SmcHeader', () => {
   it('renders header text and Online status', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.header')).toBeTruthy();
@@ -50,9 +48,7 @@ describe('SmcHeader', () => {
   it('renders avatar image when botAvatar is set', async () => {
     setConfig({ ...mockConfig, botAvatar: 'https://example.com/avatar.png' });
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
     const img = root.shadowRoot!.querySelector('.avatar')!;
     expect(img.getAttribute('src')).toBe('https://example.com/avatar.png');
@@ -62,9 +58,7 @@ describe('SmcHeader', () => {
   it('renders placeholder SVG when botAvatar is null', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
     expect(root.shadowRoot!.querySelector('.avatar')).toBeNull();
     expect(root.shadowRoot!.querySelector('.avatar-placeholder svg')).toBeTruthy();
@@ -73,11 +67,9 @@ describe('SmcHeader', () => {
   it('minimize button sets uiState', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const minimizeBtn = root.shadowRoot!.querySelector('[aria-label="Minimize"]')!;
+    const minimizeBtn = root.shadowRoot!.querySelector('[aria-label="Minimize"]') as HTMLElement;
     minimizeBtn.click();
 
     // Stencil batched update - wait for next render cycle
@@ -89,11 +81,9 @@ describe('SmcHeader', () => {
   it('close without CSAT hides widget', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]')!;
+    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]') as HTMLElement;
     closeBtn.click();
 
     await new Promise((r) => requestAnimationFrame(r));
@@ -114,11 +104,9 @@ describe('SmcHeader', () => {
     });
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]')!;
+    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]') as HTMLElement;
     closeBtn.click();
 
     // handleClose is async - wait for it to complete
@@ -139,11 +127,9 @@ describe('SmcHeader', () => {
     });
     setCsatSubmitted(true);
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]')!;
+    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]') as HTMLElement;
     closeBtn.click();
 
     await new Promise((r) => requestAnimationFrame(r));
@@ -162,11 +148,9 @@ describe('SmcHeader', () => {
       status: 'sent',
     });
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]')!;
+    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]') as HTMLElement;
     closeBtn.click();
 
     await new Promise((r) => requestAnimationFrame(r));
@@ -187,11 +171,9 @@ describe('SmcHeader', () => {
     });
     (fetch as any).mockRejectedValue(new Error('Network error'));
 
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
-    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]')!;
+    const closeBtn = root.shadowRoot!.querySelector('[aria-label="Close"]') as HTMLElement;
     closeBtn.click();
 
     await new Promise((r) => setTimeout(r, 50));
@@ -200,9 +182,7 @@ describe('SmcHeader', () => {
   });
 
   it('renders null when config is null', async () => {
-    const { root } = await render(<smc-header />, {
-      components: [SmcHeader],
-    });
+    const { root } = await render(<smc-header />);
 
     expect(root.shadowRoot!.querySelector('.header')).toBeNull();
   });

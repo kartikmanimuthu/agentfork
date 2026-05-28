@@ -41,9 +41,7 @@ describe('SmcCsatSurvey', () => {
   it('renders thumbs up/down when csatType is thumbs', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.csat')).toBeTruthy();
@@ -55,9 +53,7 @@ describe('SmcCsatSurvey', () => {
   it('renders 5 stars when csatType is stars', async () => {
     setConfig({ ...mockConfig, csatType: 'stars' });
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
     const stars = root.shadowRoot!.querySelectorAll('.star');
     expect(stars).toHaveLength(5);
@@ -66,9 +62,7 @@ describe('SmcCsatSurvey', () => {
   it('renders stars when csatType is nps (falls through to else)', async () => {
     setConfig({ ...mockConfig, csatType: 'nps' });
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
     const stars = root.shadowRoot!.querySelectorAll('.star');
     expect(stars).toHaveLength(5);
@@ -77,9 +71,7 @@ describe('SmcCsatSurvey', () => {
   it('does not render when csatEnabled is false', async () => {
     setConfig({ ...mockConfig, csatEnabled: false });
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
     expect(root.shadowRoot!.querySelector('.csat')).toBeNull();
   });
@@ -91,11 +83,9 @@ describe('SmcCsatSurvey', () => {
     (state as any).baseUrl = 'https://test.local';
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
-    const thumbsUp = root.shadowRoot!.querySelector('.thumb')!;
+    const thumbsUp = root.shadowRoot!.querySelector('.thumb') as HTMLElement;
     thumbsUp.click();
 
     // Wait for the async handler + 1500ms timeout
@@ -112,12 +102,10 @@ describe('SmcCsatSurvey', () => {
     (state as any).baseUrl = 'https://test.local';
     (fetch as any).mockResolvedValue({ ok: true });
 
-    const { root } = await render(<smc-csat-survey />, {
-      components: [SmcCsatSurvey],
-    });
+    const { root } = await render(<smc-csat-survey />);
 
     const stars = root.shadowRoot!.querySelectorAll('.star');
-    stars[2].click(); // Click 3rd star
+    (stars[2] as HTMLElement).click(); // Click 3rd star
 
     // Wait for async handler + CSAT 1500ms timeout
     await new Promise((r) => setTimeout(r, 100));

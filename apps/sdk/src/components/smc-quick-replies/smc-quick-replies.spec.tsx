@@ -35,9 +35,7 @@ describe('SmcQuickReplies', () => {
   it('renders chips for each quick reply when no messages', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root } = await render(<smc-quick-replies />);
 
     const chips = root.shadowRoot!.querySelectorAll('.chip');
     expect(chips).toHaveLength(3);
@@ -56,9 +54,7 @@ describe('SmcQuickReplies', () => {
       status: 'sent',
     });
 
-    const { root } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root } = await render(<smc-quick-replies />);
 
     expect(root.shadowRoot!.querySelector('.quick-replies')).toBeNull();
   });
@@ -66,9 +62,7 @@ describe('SmcQuickReplies', () => {
   it('does not render when quickReplies is null', async () => {
     setConfig({ ...mockConfig, quickReplies: null });
 
-    const { root } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root } = await render(<smc-quick-replies />);
 
     expect(root.shadowRoot!.querySelector('.quick-replies')).toBeNull();
   });
@@ -76,9 +70,7 @@ describe('SmcQuickReplies', () => {
   it('does not render when quickReplies is empty array', async () => {
     setConfig({ ...mockConfig, quickReplies: [] });
 
-    const { root } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root } = await render(<smc-quick-replies />);
 
     expect(root.shadowRoot!.querySelector('.quick-replies')).toBeNull();
   });
@@ -86,13 +78,11 @@ describe('SmcQuickReplies', () => {
   it('emits smcQuickReply event when chip is clicked', async () => {
     setConfig(mockConfig);
 
-    const { root, spyOnEvent } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root, spyOnEvent } = await render(<smc-quick-replies />);
 
     const spy = spyOnEvent('smcQuickReply');
     const chips = root.shadowRoot!.querySelectorAll('.chip');
-    chips[0].click();
+    (chips[0] as HTMLElement).click();
 
     expect(spy.events).toHaveLength(1);
     expect(spy.events[0].detail).toEqual({ text: 'Hello' });
@@ -104,9 +94,7 @@ describe('SmcQuickReplies', () => {
       quickReplies: ['A very long reply text that might overflow the container'],
     });
 
-    const { root } = await render(<smc-quick-replies />, {
-      components: [SmcQuickReplies],
-    });
+    const { root } = await render(<smc-quick-replies />);
 
     const chip = root.shadowRoot!.querySelector('.chip')!;
     expect(chip.textContent).toBe('A very long reply text that might overflow the container');

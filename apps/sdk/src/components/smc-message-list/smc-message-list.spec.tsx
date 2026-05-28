@@ -39,9 +39,7 @@ describe('SmcMessageList', () => {
   it('shows welcome message when no messages and welcomeMessage set', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown],
-    });
+    const { root } = await render(<smc-message-list />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('smc-message')).toBeTruthy();
@@ -57,9 +55,7 @@ describe('SmcMessageList', () => {
       status: 'sent',
     });
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown],
-    });
+    const { root } = await render(<smc-message-list />);
 
     // Should show the actual message, not welcome
     expect(root.shadowRoot!.querySelectorAll('smc-message')).toHaveLength(1);
@@ -68,9 +64,7 @@ describe('SmcMessageList', () => {
   it('does not show welcome when welcomeMessage is empty', async () => {
     setConfig({ ...mockConfig, welcomeMessage: '' });
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown],
-    });
+    const { root } = await render(<smc-message-list />);
 
     expect(root.shadowRoot!.querySelector('smc-message')).toBeNull();
   });
@@ -83,9 +77,7 @@ describe('SmcMessageList', () => {
       { id: 'msg_3', content: 'C', role: 'user', timestamp: '2024-01-01T00:12:00.000Z', status: 'sent' },
     ]);
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown, SmcTimestamp],
-    });
+    const { root } = await render(<smc-message-list />);
 
     const messages = root.shadowRoot!.querySelectorAll('smc-message');
     expect(messages).toHaveLength(3);
@@ -98,9 +90,7 @@ describe('SmcMessageList', () => {
       { id: 'msg_2', content: 'Second', role: 'assistant', timestamp: '2024-01-01T00:10:00.000Z', status: 'sent' },
     ]);
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown, SmcTimestamp],
-    });
+    const { root } = await render(<smc-message-list />);
 
     // First message has timestamp, plus one between them = 2
     const timestamps = root.shadowRoot!.querySelectorAll('smc-timestamp');
@@ -114,9 +104,7 @@ describe('SmcMessageList', () => {
       { id: 'msg_2', content: 'Second', role: 'assistant', timestamp: '2024-01-01T00:03:00.000Z', status: 'sent' },
     ]);
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown, SmcTimestamp],
-    });
+    const { root } = await render(<smc-message-list />);
 
     // Only first message has timestamp
     const timestamps = root.shadowRoot!.querySelectorAll('smc-timestamp');
@@ -127,9 +115,7 @@ describe('SmcMessageList', () => {
     setConfig(mockConfig);
     setStreaming(true, 'Loading...');
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown, SmcTypingIndicator],
-    });
+    const { root } = await render(<smc-message-list />);
 
     expect(root.shadowRoot!.querySelector('smc-typing-indicator')).toBeTruthy();
   });
@@ -137,9 +123,7 @@ describe('SmcMessageList', () => {
   it('does not show typing indicator when streaming is inactive', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-message-list />, {
-      components: [SmcMessageList, SmcMessage, SmcMarkdown, SmcTypingIndicator],
-    });
+    const { root } = await render(<smc-message-list />);
 
     expect(root.shadowRoot!.querySelector('smc-typing-indicator')).toBeNull();
   });

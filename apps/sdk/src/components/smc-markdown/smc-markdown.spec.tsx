@@ -9,41 +9,32 @@ function getHtml(root: HTMLElement) {
 
 describe('SmcMarkdown', () => {
   it('renders plain text escaped', async () => {
-    const { root } = await render(<smc-markdown content="Hello world" />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content="Hello world" />);
 
     expect(getHtml(root)).toContain('Hello world');
   });
 
   it('renders bold text', async () => {
-    const { root } = await render(<smc-markdown content="Hello **world**" />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content="Hello **world**" />);
 
     expect(getHtml(root)).toContain('<strong>world</strong>');
   });
 
   it('renders italic text', async () => {
-    const { root } = await render(<smc-markdown content="Hello *world*" />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content="Hello *world*" />);
 
     expect(getHtml(root)).toContain('<em>world</em>');
   });
 
   it('renders inline code', async () => {
-    const { root } = await render(<smc-markdown content="Use `const x = 1` here" />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content="Use `const x = 1` here" />);
 
     expect(getHtml(root)).toContain('<code>const x = 1</code>');
   });
 
   it('renders code blocks with language', async () => {
     const { root } = await render(
-      <smc-markdown content={'```javascript\nconst x = 1;\n```'} />,
-      { components: [SmcMarkdown] },
+      <smc-markdown content={'```javascript\nconst x = 1;\n```'} />
     );
 
     const result = getHtml(root);
@@ -53,8 +44,7 @@ describe('SmcMarkdown', () => {
 
   it('renders links with target blank', async () => {
     const { root } = await render(
-      <smc-markdown content="Click [here](https://example.com)" />,
-      { components: [SmcMarkdown] },
+      <smc-markdown content="Click [here](https://example.com)" />
     );
 
     const result = getHtml(root);
@@ -63,9 +53,7 @@ describe('SmcMarkdown', () => {
 
   it('renders unordered lists', async () => {
     const { root } = await render(<smc-markdown content={`- Item 1
-- Item 2`} />, {
-      components: [SmcMarkdown],
-    });
+- Item 2`} />);
 
     const result = getHtml(root);
     expect(result).toContain('<ul>');
@@ -75,9 +63,7 @@ describe('SmcMarkdown', () => {
 
   it('renders ordered lists', async () => {
     const { root } = await render(<smc-markdown content={`1. First
-2. Second`} />, {
-      components: [SmcMarkdown],
-    });
+2. Second`} />);
 
     const result = getHtml(root);
     expect(result).toContain('<li>First</li>');
@@ -86,17 +72,14 @@ describe('SmcMarkdown', () => {
 
   it('renders line breaks', async () => {
     const { root } = await render(<smc-markdown content={`Line 1
-Line 2`} />, {
-      components: [SmcMarkdown],
-    });
+Line 2`} />);
 
     expect(getHtml(root)).toContain('<br>');
   });
 
   it('escapes HTML tags', async () => {
     const { root } = await render(
-      <smc-markdown content={'<script>alert("xss")</script>'} />,
-      { components: [SmcMarkdown] },
+      <smc-markdown content={'<script>alert("xss")</script>'} />
     );
 
     const result = getHtml(root);
@@ -105,26 +88,21 @@ Line 2`} />, {
   });
 
   it('handles empty string', async () => {
-    const { root } = await render(<smc-markdown content="" />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content="" />);
 
     expect(root.shadowRoot!.querySelector('.markdown')).toBeTruthy();
   });
 
   it('handles very long content', async () => {
     const long = 'A'.repeat(10000);
-    const { root } = await render(<smc-markdown content={long} />, {
-      components: [SmcMarkdown],
-    });
+    const { root } = await render(<smc-markdown content={long} />);
 
     expect(getHtml(root)).toContain('A'.repeat(10000));
   });
 
   it('renders mixed markdown: bold inside link', async () => {
     const { root } = await render(
-      <smc-markdown content="**[link](url)**" />,
-      { components: [SmcMarkdown] },
+      <smc-markdown content="**[link](url)**" />
     );
 
     const result = getHtml(root);
