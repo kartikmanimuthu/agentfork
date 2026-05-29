@@ -197,11 +197,18 @@ export function usePlayground({
   const setMessages = agentType === 'simple' ? setAiMessages : setGraphMessages;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachments?: Array<{ fileId: string; s3Key: string; mimeType: string; fileName: string; size: number }>) => {
       if (!agentId) return;
 
       if (agentType === 'simple') {
-        sendMessage({ text: content });
+        if (attachments && attachments.length > 0) {
+          sendMessage({
+            text: content,
+            data: { attachments },
+          });
+        } else {
+          sendMessage({ text: content });
+        }
         return;
       }
 

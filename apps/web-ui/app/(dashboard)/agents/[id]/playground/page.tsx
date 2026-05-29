@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAgent } from '@/hooks/use-agents';
 import { useAgentVersions } from '@/hooks/use-agent-versions';
@@ -13,7 +13,7 @@ import {
   useDeletePlaygroundSession,
 } from '@/hooks/use-playground-sessions';
 import { ChatMessages } from '@/components/chat/chat-messages';
-import { ChatInput } from '@/components/chat/chat-input';
+import { ChatInput, type UploadedAttachment } from '@/components/chat/chat-input';
 import { PlaygroundConsole } from '@/components/agents/playground/console';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,6 +149,23 @@ export default function PlaygroundPage() {
     alias: selectedAlias,
     onError: (err) => toast.error(err.message),
   });
+
+  const uploadFile = useCallback(
+    async (file: File): Promise<UploadedAttachment> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/agents/${agentId}/playground/files`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message ?? 'Upload failed');
+      }
+      return res.json();
+    },
+    [agentId],
+  );
 
   const {
     activeTab,
@@ -417,7 +434,7 @@ export default function PlaygroundPage() {
             thinkingMap={thinkingMap}
             showMetadata
           />
-          <ChatInput onSend={handleSend} isLoading={isLoading} />
+          <ChatInput onSend={handleSend} isLoading={isLoading} uploadFile={uploadFile} />
         </div>
 
         {/* Right Panel: Console with Config tab */}
