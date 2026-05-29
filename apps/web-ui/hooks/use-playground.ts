@@ -202,10 +202,87 @@ export function usePlayground({
 
       if (agentType === 'simple') {
         if (attachments && attachments.length > 0) {
-          sendMessage({
-            text: content,
-            data: { attachments },
-          });
+          // AI SDK's sendMessage doesn't forward custom data to the server.
+          // For multimodal messages, use direct fetch with SSE streaming.
+          setAiMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: 'user' as const,
+              parts: [{ type: 'text' as const, text: content }],
+              createdAt: new Date(),
+            } as UIMessage,
+          ]);
+
+          const assistantId = crypto.randomUUID();
+          setAiMessages((prev) => [
+            ...prev,
+            {
+              id: assistantId,
+              role: 'assistant' as const,
+              parts: [{ type: 'text' as const, text: '' }],
+              createdAt: new Date(),
+            } as UIMessage,
+          ]);
+
+          try {
+            const res = await fetch(`/api/agents/${agentId}/playground`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: [
+                  ...aiMessages.map((m) => ({
+                    role: m.role,
+                    content: m.parts?.filter((p): p is { type: 'text'; text: string } => p.type === 'text').map((p) => p.text).join('') ?? '',
+                  })),
+                  {
+                    role: 'user',
+                    content,
+                    data: { attachments },
+                  },
+                ],
+                agentVersionId: versionId,
+                alias,
+                systemPrompt: overrides.systemPrompt,
+                model: overrides.model,
+                temperature: overrides.temperature,
+                maxTokens: overrides.maxTokens,
+              }),
+            });
+
+            if (!res.ok || !res.body) {
+              throw new Error('Failed to get response');
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('0:')) {
+                  const text = JSON.parse(line.slice(2));
+                  fullText += text;
+                  setAiMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, parts: [{ type: 'text' as const, text: fullText }] }
+                        : m
+                    )
+                  );
+                }
+              }
+            }
+          } catch (err) {
+            onError?.(err instanceof Error ? err : new Error(String(err)));
+            setAiMessages((prev) => prev.filter((m) => m.id !== assistantId));
+          }
         } else {
           sendMessage({ text: content });
         }
