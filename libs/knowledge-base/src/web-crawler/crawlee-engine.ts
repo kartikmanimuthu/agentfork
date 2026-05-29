@@ -26,6 +26,7 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
     excludePatterns,
     maxPages = 50,
     useHeadless = true,
+    restrictToSameSubdomain = false,
   } = options;
 
   engineLogger.info(
@@ -78,7 +79,7 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
   const enqueueLinksConfig = {
     globs: includePatterns?.length ? includePatterns : undefined,
     exclude: excludePatterns?.length ? excludePatterns : undefined,
-    strategy: 'same-domain' as const,
+    strategy: (restrictToSameSubdomain ? 'same-hostname' : 'same-domain') as 'same-hostname' | 'same-domain',
     transformRequestFunction(req: { url: string; userData?: Record<string, unknown> }) {
       const userData = req.userData ?? {};
       const parentDepth = (userData.depth as number) ?? 0;
@@ -94,11 +95,22 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
     if (useHeadless) {
       const crawler = new PlaywrightCrawler({
         ...sharedConfig,
-        maxRequestRetries: 1,
+        maxRequestRetries: 2,
+        navigationTimeoutSecs: 30,
         requestHandlerTimeoutSecs: 120,
         headless: true,
         async requestHandler({ page, request, enqueueLinks }) {
-          await page.waitForLoadState('networkidle');
+          // Wait for networkidle with a short timeout so pages with persistent
+          // analytics / chat widgets don't hang the crawl. Crawlee already
+          // guarantees domcontentloaded before this handler runs.
+          try {
+            await page.waitForLoadState('networkidle', { timeout: 15000 });
+          } catch {
+            engineLogger.debug(
+              { url: request.url },
+              'Network idle wait timed out; proceeding with current DOM'
+            );
+          }
           const html = await page.content();
           const depth = (request.userData?.depth as number) ?? 0;
           await handlePage(request.url, html, depth);

@@ -41,9 +41,10 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       includePatterns?: string[];
       excludePatterns?: string[];
       useHeadless?: boolean;
+      restrictToSameSubdomain?: boolean;
     };
 
-    log.info({ dataSourceId, urls: config.urls, crawlDepth: config.crawlDepth, includePatterns: config.includePatterns, excludePatterns: config.excludePatterns, useHeadless: config.useHeadless }, 'Data source config loaded');
+    log.info({ dataSourceId, urls: config.urls, crawlDepth: config.crawlDepth, includePatterns: config.includePatterns, excludePatterns: config.excludePatterns, useHeadless: config.useHeadless, restrictToSameSubdomain: config.restrictToSameSubdomain }, 'Data source config loaded');
 
     // Run crawler
     const crawler = createWebCrawler({ useHeadless: config.useHeadless });
@@ -54,6 +55,7 @@ export async function handleWebCrawl(data: unknown, boss?: PgBoss): Promise<void
       excludePatterns: config.excludePatterns,
       maxPages: 50,
       useHeadless: config.useHeadless,
+      restrictToSameSubdomain: config.restrictToSameSubdomain,
     });
 
     log.info({ dataSourceId, pagesFound: pages.length }, 'Crawl complete, processing pages');

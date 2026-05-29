@@ -54,6 +54,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 interface DataSource {
   id: string;
@@ -119,6 +120,7 @@ export default function KnowledgeBaseSourcesPage() {
     crawlDepth: '0',
     includePatterns: '',
     excludePatterns: '',
+    restrictToSameSubdomain: false,
     syncSchedule: 'manual',
   });
 
@@ -190,6 +192,7 @@ export default function KnowledgeBaseSourcesPage() {
         crawlDepth: String(cfg.crawlDepth ?? '0'),
         includePatterns: Array.isArray(cfg.includePatterns) ? cfg.includePatterns.join('\n') : '',
         excludePatterns: Array.isArray(cfg.excludePatterns) ? cfg.excludePatterns.join('\n') : '',
+        restrictToSameSubdomain: Boolean(cfg.restrictToSameSubdomain),
         syncSchedule: data.syncSchedule ?? 'manual',
       });
     } catch {
@@ -224,6 +227,7 @@ export default function KnowledgeBaseSourcesPage() {
           crawlDepth: Number(editForm.crawlDepth),
           ...(includeArray.length > 0 ? { includePatterns: includeArray } : {}),
           ...(excludeArray.length > 0 ? { excludePatterns: excludeArray } : {}),
+          restrictToSameSubdomain: editForm.restrictToSameSubdomain,
         };
       }
 
@@ -511,6 +515,10 @@ export default function KnowledgeBaseSourcesPage() {
                     <p>{viewTarget.config.excludePatterns.map(String).join(', ')}</p>
                   </div>
                 )}
+                <div>
+                  <span className="text-muted-foreground">Restrict to Same Subdomain</span>
+                  <p>{viewTarget.config?.restrictToSameSubdomain ? 'Yes' : 'No'}</p>
+                </div>
               </div>
             )}
             {viewTarget.type !== 'URL' && (
@@ -591,6 +599,19 @@ export default function KnowledgeBaseSourcesPage() {
                     value={editForm.excludePatterns}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, excludePatterns: e.target.value }))}
                     placeholder="One pattern per line (optional)"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="edit-restrictToSameSubdomain">Restrict to Same Subdomain</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Only crawl pages that share the exact hostname of the seed URLs.
+                    </p>
+                  </div>
+                  <Switch
+                    id="edit-restrictToSameSubdomain"
+                    checked={editForm.restrictToSameSubdomain}
+                    onCheckedChange={(checked) => setEditForm((prev) => ({ ...prev, restrictToSameSubdomain: checked }))}
                   />
                 </div>
               </div>

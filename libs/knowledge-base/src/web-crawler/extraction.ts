@@ -34,10 +34,18 @@ const PRE_STRIP_SELECTORS = [
 
 export function extractMarkdownFromHtml(html: string, url: string): ExtractionResult {
   try {
-    const dom = new JSDOM(html, { url });
+    // Strip <style> and <script> tags from raw HTML before JSDOM parsing.
+    // JSDOM's internal CSS parser (cssom) throws noisy errors on modern
+    // CSS syntax like @import URLs (e.g., Google Fonts), and since these
+    // elements are removed post-parse anyway, pre-cleaning avoids the logs.
+    const cleanedHtml = html
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+
+    const dom = new JSDOM(cleanedHtml, { url });
     const doc = dom.window.document;
 
-    // Pre-strip noisy elements
+    // Pre-strip remaining noisy elements
     for (const selector of PRE_STRIP_SELECTORS) {
       for (const el of Array.from(doc.querySelectorAll(selector))) {
         el.remove();

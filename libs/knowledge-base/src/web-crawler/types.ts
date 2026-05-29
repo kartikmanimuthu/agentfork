@@ -6,6 +6,8 @@ export interface CrawlOptions {
   maxPages?: number; // default 50
   /** Use headless browser for JS-heavy sites */
   useHeadless?: boolean;
+  /** Restrict link following to the exact hostname of the seed URLs */
+  restrictToSameSubdomain?: boolean;
 }
 
 export interface CrawledPage {
