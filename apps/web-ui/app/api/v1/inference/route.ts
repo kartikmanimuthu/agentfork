@@ -12,8 +12,36 @@ import {
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@chatbot/ai';
 import { validateInferenceApiKey } from './lib/auth';
+import { z } from 'zod';
 
 const logger = createLogger('api:inference');
+
+const contentPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({
+    type: z.literal('file'),
+    fileId: z.string(),
+    s3Key: z.string(),
+    mimeType: z.string().optional(),
+    fileName: z.string().optional(),
+    size: z.number().optional(),
+  }),
+]);
+
+const inferenceRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.union([z.string(), z.array(contentPartSchema)]).optional(),
+  })).min(1),
+  sessionId: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().positive().optional(),
+  stream: z.boolean().optional(),
+  noCache: z.boolean().optional(),
+  alias: z.string().optional(),
+  versionId: z.string().optional(),
+});
 
 async function resolveProviderForModel(
   tenantId: string,
@@ -71,6 +99,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const parsed = inferenceRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: { type: 'validation_error', message: parsed.error.issues[0]?.message ?? 'Invalid request body' } }),
+        { status: 400 }
+      );
+    }
+
     const {
       messages,
       sessionId,
@@ -81,17 +117,7 @@ export async function POST(req: NextRequest) {
       noCache = false,
       alias,
       versionId: requestedVersionId,
-    } = body as {
-      messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string; fileId?: string; s3Key?: string; mimeType?: string; fileName?: string; size?: number }> }>;
-      sessionId?: string;
-      systemPrompt?: string;
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-      noCache?: boolean;
-      alias?: string;
-      versionId?: string;
-    };
+    } = parsed.data;
 
     // ─── Normalize content-parts messages ────────────────────────────────
     // Each message content may be a plain string or an array of content parts.

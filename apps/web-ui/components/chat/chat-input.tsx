@@ -110,66 +110,76 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
       const files = Array.from(e.target.files);
       e.target.value = '';
 
-      const availableSlots = MAX_FILES - pendingFiles.length;
-      const filesToAdd = files.slice(0, availableSlots);
+      setPendingFiles((prev) => {
+        const availableSlots = MAX_FILES - prev.length;
+        const filesToAdd = files.slice(0, availableSlots);
 
-      const newPending: PendingFile[] = filesToAdd.map((file) => ({
-        localId: crypto.randomUUID(),
-        file,
-        status: 'uploading' as FileChipStatus,
-        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-      }));
+        const newPending: PendingFile[] = filesToAdd.map((file) => ({
+          localId: crypto.randomUUID(),
+          file,
+          status: 'uploading' as FileChipStatus,
+          previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+        }));
 
-      setPendingFiles((prev) => [...prev, ...newPending]);
-
-      // Upload each file concurrently
-      await Promise.all(
-        newPending.map(async (pending) => {
-          // Client-side validation
-          if (!ALLOWED_MIME_TYPES.includes(pending.file.type)) {
-            setPendingFiles((prev) =>
-              prev.map((f) =>
-                f.localId === pending.localId
-                  ? { ...f, status: 'error', error: `File type ${pending.file.type} not allowed` }
-                  : f
-              )
-            );
-            return;
+        // Kick off uploads outside the state updater
+        setTimeout(() => {
+          for (const pending of newPending) {
+            uploadPendingFile(pending);
           }
-          if (pending.file.size > MAX_FILE_SIZE) {
-            setPendingFiles((prev) =>
-              prev.map((f) =>
-                f.localId === pending.localId
-                  ? { ...f, status: 'error', error: 'File exceeds 10 MB limit' }
-                  : f
-              )
-            );
-            return;
-          }
+        }, 0);
 
-          try {
-            const attachment = await uploadFile(pending.file);
-            setPendingFiles((prev) =>
-              prev.map((f) =>
-                f.localId === pending.localId
-                  ? { ...f, status: 'done', attachment }
-                  : f
-              )
-            );
-          } catch (err) {
-            const message = err instanceof Error ? err.message : 'Upload failed';
-            setPendingFiles((prev) =>
-              prev.map((f) =>
-                f.localId === pending.localId
-                  ? { ...f, status: 'error', error: message }
-                  : f
-              )
-            );
-          }
-        })
-      );
+        return [...prev, ...newPending];
+      });
     },
-    [uploadFile]
+    [uploadFile],
+  );
+
+  const uploadPendingFile = useCallback(
+    async (pending: PendingFile) => {
+      if (!uploadFile) return;
+
+      if (!ALLOWED_MIME_TYPES.includes(pending.file.type)) {
+        setPendingFiles((prev) =>
+          prev.map((f) =>
+            f.localId === pending.localId
+              ? { ...f, status: 'error' as FileChipStatus, error: `File type ${pending.file.type} not allowed` }
+              : f
+          )
+        );
+        return;
+      }
+      if (pending.file.size > MAX_FILE_SIZE) {
+        setPendingFiles((prev) =>
+          prev.map((f) =>
+            f.localId === pending.localId
+              ? { ...f, status: 'error' as FileChipStatus, error: 'File exceeds 10 MB limit' }
+              : f
+          )
+        );
+        return;
+      }
+
+      try {
+        const attachment = await uploadFile(pending.file);
+        setPendingFiles((prev) =>
+          prev.map((f) =>
+            f.localId === pending.localId
+              ? { ...f, status: 'done' as FileChipStatus, attachment }
+              : f
+          )
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed';
+        setPendingFiles((prev) =>
+          prev.map((f) =>
+            f.localId === pending.localId
+              ? { ...f, status: 'error' as FileChipStatus, error: message }
+              : f
+          )
+        );
+      }
+    },
+    [uploadFile],
   );
 
   const removeFile = (localId: string) => {
@@ -183,15 +193,18 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
   const retryFile = useCallback(
     async (localId: string) => {
       if (!uploadFile) return;
-      const pending = pendingFiles.find((f) => f.localId === localId);
-      if (!pending) return;
 
-      setPendingFiles((prev) =>
-        prev.map((f) => (f.localId === localId ? { ...f, status: 'uploading' as FileChipStatus, error: undefined } : f)),
-      );
+      let fileToRetry: File | undefined;
+      setPendingFiles((prev) => {
+        const pending = prev.find((f) => f.localId === localId);
+        if (pending) fileToRetry = pending.file;
+        return prev.map((f) => (f.localId === localId ? { ...f, status: 'uploading' as FileChipStatus, error: undefined } : f));
+      });
+
+      if (!fileToRetry) return;
 
       try {
-        const attachment = await uploadFile(pending.file);
+        const attachment = await uploadFile(fileToRetry);
         setPendingFiles((prev) =>
           prev.map((f) => (f.localId === localId ? { ...f, status: 'done' as FileChipStatus, attachment } : f)),
         );
@@ -202,7 +215,7 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
         );
       }
     },
-    [uploadFile, pendingFiles],
+    [uploadFile],
   );
 
   return (

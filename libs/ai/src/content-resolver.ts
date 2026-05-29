@@ -5,6 +5,10 @@ const logger = pino({ name: 'ai:content-resolver' });
 
 type ImageMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 
+const ALLOWED_IMAGE_TYPES: Set<string> = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const ALLOWED_TEXT_TYPES: Set<string> = new Set(['text/plain', 'text/markdown', 'text/csv']);
+const MAX_DOWNLOAD_SIZE = 10 * 1024 * 1024; // 10 MB
+
 export interface FileDownloader {
   downloadAsBuffer(key: string): Promise<Buffer>;
 }
@@ -72,6 +76,10 @@ export class ContentResolver {
 
   private async resolveAttachment(attachment: MessageAttachment): Promise<ContentPart> {
     try {
+      if (attachment.size > MAX_DOWNLOAD_SIZE) {
+        logger.warn({ fileId: attachment.fileId, fileName: attachment.fileName, size: attachment.size }, 'File exceeds max download size');
+        return { type: 'text', text: `[File too large: ${attachment.fileName}]` };
+      }
       logger.debug(
         { fileId: attachment.fileId, s3Key: attachment.s3Key, mimeType: attachment.mimeType },
         'Resolving attachment',
@@ -91,7 +99,7 @@ export class ContentResolver {
   private async processBuffer(buffer: Buffer, attachment: MessageAttachment): Promise<ContentPart> {
     const { mimeType, fileName } = attachment;
 
-    if (mimeType.startsWith('image/')) {
+    if (ALLOWED_IMAGE_TYPES.has(mimeType)) {
       return {
         type: 'image',
         image: buffer.toString('base64'),
@@ -99,7 +107,7 @@ export class ContentResolver {
       };
     }
 
-    if (mimeType === 'text/plain' || mimeType.startsWith('text/')) {
+    if (ALLOWED_TEXT_TYPES.has(mimeType)) {
       const text = buffer.toString('utf-8');
       return { type: 'text', text: this.wrapExtractedText(fileName, text) };
     }

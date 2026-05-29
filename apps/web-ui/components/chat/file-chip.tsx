@@ -111,7 +111,7 @@ export function FileChip({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+          className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
           onClick={onRemove}
           aria-label={`Remove ${fileName}`}
         >
