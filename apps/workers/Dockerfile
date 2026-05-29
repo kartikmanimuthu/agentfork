@@ -80,7 +80,7 @@ RUN set -x; for d in node_modules/.bun/*/node_modules/*; do \
 FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl procps && rm -rf /var/lib/apt/lists/*
 RUN npm install -g bun@1.3.6
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
