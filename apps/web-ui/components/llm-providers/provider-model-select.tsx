@@ -1,16 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import * as SelectPrimitive from '@radix-ui/react-select';
 import { useLlmProviders, type LlmProvider } from '@/hooks/use-llm-providers';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-} from '@/components/ui/select';
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxGroup,
+  ComboboxLabel,
+  ComboboxEmpty,
+} from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export type ModelCapability = 'chat' | 'embedding';
@@ -33,14 +34,12 @@ function getModelsForCapability(
   provider: LlmProvider,
   capability: ModelCapability
 ): DiscoveredModel[] {
-  // Try discovered models JSON first
   const discovered = (provider.models as { models?: DiscoveredModel[] } | null)?.models ?? [];
   const filtered = discovered.filter((m) => m.capabilities.includes(capability));
   if (filtered.length > 0) {
     return filtered;
   }
 
-  // Fallback to the provider's configured default model
   const fallbackModel = capability === 'chat' ? provider.chatModel : provider.embeddingModel;
   if (fallbackModel) {
     return [{ id: fallbackModel, name: fallbackModel, capabilities: [capability] }];
@@ -85,25 +84,42 @@ export function ProviderModelSelect({
     );
   }
 
+  const allModels = grouped.flatMap(({ provider, models }) =>
+    models.map((model) => ({
+      ...model,
+      providerName: provider.name,
+      providerId: provider.id,
+    }))
+  );
+
+  const selectedModel = allModels.find((m) => m.id === value);
+
   return (
-    <Select value={value ?? ''} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {grouped.map(({ provider, models }) => (
-          <SelectGroup key={provider.id}>
-            <SelectPrimitive.Label className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-              {provider.name}
-            </SelectPrimitive.Label>
-            {models.map((model) => (
-              <SelectItem key={`${provider.id}::${model.id}`} value={model.id}>
-                {model.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        ))}
-      </SelectContent>
-    </Select>
+    <Combobox
+      value={value ?? ''}
+      onValueChange={onChange}
+      disabled={disabled}
+    >
+      <ComboboxInput
+        placeholder={selectedModel?.name ?? placeholder}
+        showClear={!!value}
+        disabled={disabled}
+      />
+      <ComboboxContent>
+        <ComboboxList>
+          <ComboboxEmpty>No models found</ComboboxEmpty>
+          {grouped.map(({ provider, models }) => (
+            <ComboboxGroup key={provider.id}>
+              <ComboboxLabel>{provider.name}</ComboboxLabel>
+              {models.map((model) => (
+                <ComboboxItem key={`${provider.id}::${model.id}`} value={model.id}>
+                  {model.name}
+                </ComboboxItem>
+              ))}
+            </ComboboxGroup>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
