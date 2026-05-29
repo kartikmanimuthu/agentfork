@@ -495,7 +495,7 @@ export function usePlayground({
         setIsGraphLoading(false);
       }
     },
-    [agentId, agentType, versionId, alias, overrides, graphMessages, sendMessage, onError]
+    [agentId, agentType, aiMessages, versionId, alias, overrides, graphMessages, sendMessage, onError]
   );
 
   const handleRegenerate = useCallback(() => {
