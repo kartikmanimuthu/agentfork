@@ -8,6 +8,7 @@ import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 export namespace Components {
     interface SmcChatWidget {
         "apiUrl"?: string;
+        "mockConfig"?: string;
         "sdkId": string;
     }
     interface SmcChatWindow {
@@ -208,6 +209,7 @@ declare namespace LocalJSX {
 
     interface SmcChatWidget {
         "apiUrl"?: string;
+        "mockConfig"?: string;
         "sdkId": string;
     }
     interface SmcChatWindow {
@@ -262,6 +264,7 @@ declare namespace LocalJSX {
     interface SmcChatWidgetAttributes {
         "sdkId": string;
         "apiUrl": string;
+        "mockConfig": string;
     }
     interface SmcFeedbackAttributes {
         "messageId": string;
