@@ -155,6 +155,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         attachments: (m.data?.attachments ?? []) as MessageAttachment[],
       }));
 
+      logger.debug(
+        { requestId, rawMessages: messages.map((m: any) => ({ role: m.role, hasContent: !!m.content, hasData: !!m.data, attachmentCount: m.data?.attachments?.length ?? 0 })) },
+        'Parsed messages from request body',
+      );
+
       // Resolve multimodal content — fetch files from S3 for the current turn
       const s3 = new S3Service();
       const contentResolver = new ContentResolver(s3);
