@@ -60,7 +60,12 @@ export function ChatInput({ onSend, isLoading, uploadFile }: ChatInputProps) {
 
   const resetInput = () => {
     setInput('');
-    setPendingFiles([]);
+    setPendingFiles((prev) => {
+      for (const f of prev) {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      }
+      return [];
+    });
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }

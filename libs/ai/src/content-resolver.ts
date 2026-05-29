@@ -59,10 +59,10 @@ export class ContentResolver {
         parts.push({ type: 'text', text: msg.content });
       }
 
-      for (const attachment of attachments) {
-        const part = await this.resolveAttachment(attachment);
-        parts.push(part);
-      }
+      const resolvedParts = await Promise.all(
+        attachments.map((attachment) => this.resolveAttachment(attachment)),
+      );
+      parts.push(...resolvedParts);
 
       resolved.push({ role: msg.role, content: parts });
     }

@@ -10,7 +10,7 @@ import {
   WebhookService,
   S3Service,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@chatbot/ai';
 import { validateInferenceApiKey } from './lib/auth';
 
 const logger = createLogger('api:inference');
@@ -115,13 +115,15 @@ export async function POST(req: NextRequest) {
 
       const attachments: MessageAttachment[] = fileParts
         .filter((p) => p.fileId && p.s3Key)
+        .slice(0, MAX_ATTACHMENTS_PER_MESSAGE)
         .map((p) => ({
           fileId: p.fileId!,
           s3Key: p.s3Key!,
           mimeType: p.mimeType ?? 'application/octet-stream',
           fileName: p.fileName ?? p.fileId!,
           size: p.size ?? 0,
-        }));
+        }))
+        .filter((a) => a.s3Key.startsWith(`sdk-uploads/${tenantId}/`));
 
       normalizedMessages.push({
         role: msg.role,
@@ -320,7 +322,10 @@ export async function POST(req: NextRequest) {
         content: m.content ?? '',
       }));
 
-      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const lastUserContent = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const userQuery = typeof lastUserContent === 'string'
+        ? lastUserContent
+        : (lastUserContent as Array<{ type: string; text?: string }>).filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ');
       const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
 
       const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
@@ -446,6 +451,12 @@ export async function POST(req: NextRequest) {
               controller.close();
             } catch (err) {
               const error = err instanceof Error ? err : new Error(String(err));
+              await mcpCleanup();
+              await db.apiKeyExecution.update({
+                where: { id: executionId },
+                data: { status: 'failed', output: { error: error.message }, completedAt: new Date() },
+              }).catch(() => {});
+              await deliverWebhook('failed', undefined, error.message).catch(() => {});
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`)
               );
