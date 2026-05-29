@@ -101,6 +101,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = inferenceRequestSchema.safeParse(body);
     if (!parsed.success) {
+      logger.warn(
+        { tenantId, apiKeyId, validationError: parsed.error.issues[0]?.message },
+        'Inference request validation failed',
+      );
       return new Response(
         JSON.stringify({ error: { type: 'validation_error', message: parsed.error.issues[0]?.message ?? 'Invalid request body' } }),
         { status: 400 }
@@ -129,6 +133,9 @@ export async function POST(req: NextRequest) {
     type NormalizedMessage = { role: string; content: string; attachments: MessageAttachment[] };
     const normalizedMessages: NormalizedMessage[] = [];
 
+    let totalAttachments = 0;
+    let rejectedAttachments = 0;
+
     for (const msg of messages) {
       if (typeof msg.content === 'string' || msg.content == null) {
         normalizedMessages.push({ role: msg.role, content: msg.content ?? '', attachments: [] });
@@ -139,9 +146,10 @@ export async function POST(req: NextRequest) {
       const textParts = msg.content.filter((p) => p.type === 'text').map((p) => p.text ?? '');
       const fileParts = msg.content.filter((p) => p.type === 'file');
 
-      const attachments: MessageAttachment[] = fileParts
-        .filter((p) => p.fileId && p.s3Key)
-        .slice(0, MAX_ATTACHMENTS_PER_MESSAGE)
+      const validFileParts = fileParts.filter((p) => p.fileId && p.s3Key);
+      const cappedFileParts = validFileParts.slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
+
+      const attachments: MessageAttachment[] = cappedFileParts
         .map((p) => ({
           fileId: p.fileId!,
           s3Key: p.s3Key!,
@@ -151,11 +159,29 @@ export async function POST(req: NextRequest) {
         }))
         .filter((a) => a.s3Key.startsWith(`sdk-uploads/${tenantId}/`));
 
+      const rejected = cappedFileParts.length - attachments.length;
+      totalAttachments += attachments.length;
+      rejectedAttachments += rejected;
+
+      if (rejected > 0) {
+        logger.warn(
+          { tenantId, apiKeyId, sessionId, rejected, reason: 'tenant_prefix_mismatch' },
+          'Attachments rejected — s3Key does not match tenant prefix',
+        );
+      }
+
       normalizedMessages.push({
         role: msg.role,
         content: textParts.join('\n').trim(),
         attachments,
       });
+    }
+
+    if (totalAttachments > 0) {
+      logger.info(
+        { tenantId, apiKeyId, sessionId, messageCount: messages.length, totalAttachments, rejectedAttachments },
+        'Multimodal request normalized — attachments extracted from content-parts',
+      );
     }
 
     // Fetch agent
@@ -221,6 +247,7 @@ export async function POST(req: NextRequest) {
     if (sessionId) {
       const session = await sessionService.findActiveById(sessionId);
       if (!session) {
+        logger.warn({ tenantId, apiKeyId, sessionId }, 'Session not found or expired');
         return new Response(
           JSON.stringify({ error: { type: 'session_expired', message: 'Session not found, ended, or idle-expired' } }),
           { status: 410 }
@@ -232,6 +259,12 @@ export async function POST(req: NextRequest) {
         content: m.content,
         attachments: (m.attachments as MessageAttachment[]) ?? [],
       }));
+
+      const priorAttachmentCount = priorMessages.reduce((sum, m) => sum + m.attachments.length, 0);
+      logger.info(
+        { sessionId, priorTurns: priorMessages.length, priorAttachmentCount },
+        'Session loaded — prior messages retrieved',
+      );
 
       // Lock the session to this agent version (idempotent)
       if (!session.agentVersionId) {
@@ -264,7 +297,15 @@ export async function POST(req: NextRequest) {
       attachments: m.attachments ?? [],
     }));
 
+    logger.info(
+      { tenantId, apiKeyId, sessionId, totalTurns: allMessages.length, currentTurnIndex },
+      'Resolving multimodal content before LLM invocation',
+    );
+
+    const resolveStartTime = Date.now();
     const resolvedMessages = await contentResolver.resolve(storedMessages, currentTurnIndex);
+    const resolveMs = Date.now() - resolveStartTime;
+
     const sessionMessages = resolvedMessages.map((m) => ({
       role: m.role,
       content: typeof m.content === 'string' ? m.content : m.content.map((p) => {
@@ -272,6 +313,12 @@ export async function POST(req: NextRequest) {
         return { type: 'image' as const, image: p.image, mimeType: p.mimeType };
       }),
     }));
+
+    const hasMultimodalContent = resolvedMessages.some((m) => Array.isArray(m.content));
+    logger.info(
+      { tenantId, apiKeyId, sessionId, resolveMs, hasMultimodalContent, resolvedTurns: resolvedMessages.length },
+      'Content resolution complete — ready for LLM',
+    );
 
     // Create execution row, linked to session for stateful runs
     const execution = await db.apiKeyExecution.create({

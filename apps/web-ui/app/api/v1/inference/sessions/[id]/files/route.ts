@@ -30,6 +30,7 @@ export async function POST(
       where: { id: sessionId, apiKeyId },
     });
     if (!session) {
+      logger.warn({ tenantId, apiKeyId, sessionId }, 'File upload rejected — session not found');
       return NextResponse.json(
         { error: { type: 'not_found', message: 'Session not found' } },
         { status: 404 }
@@ -40,13 +41,23 @@ export async function POST(
     const file = formData.get('file') as File | null;
 
     if (!file) {
+      logger.warn({ tenantId, apiKeyId, sessionId }, 'File upload attempted with no file in request');
       return NextResponse.json(
         { error: { type: 'validation_error', message: 'No file provided' } },
         { status: 400 }
       );
     }
 
+    logger.info(
+      { tenantId, apiKeyId, sessionId, fileName: file.name, mimeType: file.type, size: file.size },
+      'Session file upload started',
+    );
+
     if (file.size > MAX_SIZE) {
+      logger.warn(
+        { tenantId, apiKeyId, sessionId, fileName: file.name, size: file.size, maxSize: MAX_SIZE },
+        'File upload rejected — exceeds size limit',
+      );
       return NextResponse.json(
         { error: { type: 'validation_error', message: 'File exceeds 10MB limit' } },
         { status: 400 }
@@ -54,6 +65,10 @@ export async function POST(
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
+      logger.warn(
+        { tenantId, apiKeyId, sessionId, fileName: file.name, mimeType: file.type },
+        'File upload rejected — unsupported MIME type',
+      );
       return NextResponse.json(
         { error: { type: 'validation_error', message: `File type ${file.type} not allowed` } },
         { status: 400 }
@@ -64,11 +79,21 @@ export async function POST(
     const fileId = crypto.randomUUID();
     const key = `sdk-uploads/${tenantId}/${sessionId}/${fileId}-${file.name}`;
 
+    logger.debug(
+      { tenantId, sessionId, fileId, s3Key: key, mimeType: file.type },
+      'Uploading file to S3',
+    );
+
+    const uploadStart = Date.now();
     const buffer = Buffer.from(await file.arrayBuffer());
     await s3.uploadBuffer(key, buffer, file.type);
     const url = await s3.getDownloadUrl(key);
+    const uploadMs = Date.now() - uploadStart;
 
-    logger.info({ sessionId, fileId, fileName: file.name, size: file.size }, 'File uploaded');
+    logger.info(
+      { tenantId, apiKeyId, sessionId, fileId, fileName: file.name, s3Key: key, mimeType: file.type, size: file.size, uploadMs },
+      'Session file uploaded successfully',
+    );
 
     return NextResponse.json({
       fileId,
@@ -80,7 +105,10 @@ export async function POST(
     }, { status: 201 });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ err: err.message, sessionId }, 'File upload failed');
+    logger.error(
+      { tenantId, apiKeyId, sessionId, errorMessage: err.message, errorStack: err.stack },
+      'Session file upload failed — internal error',
+    );
     return NextResponse.json(
       { error: { type: 'internal_error', message: 'File upload failed' } },
       { status: 500 }
