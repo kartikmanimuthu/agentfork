@@ -58,6 +58,13 @@ export const playgroundRequestSchema = z.object({
   maxTokens: z.number().int().min(1).max(100000).optional(),
   agentVersionId: z.string().optional(),
   alias: z.string().optional(),
+  attachments: z.array(z.object({
+    fileId: z.string(),
+    s3Key: z.string(),
+    mimeType: z.string(),
+    fileName: z.string(),
+    size: z.number(),
+  })).optional(),
 });
 
 // ─── MCP Server schemas ───────────────────────────────────────────────────────

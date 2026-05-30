@@ -13,7 +13,10 @@ export interface BaseStreamChatOptions {
 }
 
 export interface StreamChatResult {
-  toUIMessageStreamResponse(options?: { headers?: Record<string, string> }): Response;
+  toUIMessageStreamResponse(options?: {
+    headers?: Record<string, string>;
+    onError?: (error: unknown) => string;
+  }): Response;
   text: PromiseLike<string>;
   usage: PromiseLike<LanguageModelUsage>;
   textStream: AsyncIterable<string>;

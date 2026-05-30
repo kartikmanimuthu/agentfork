@@ -201,118 +201,11 @@ export function usePlayground({
       if (!agentId) return;
 
       if (agentType === 'simple') {
+        // Pass attachments via the per-call body option. useChat merges this into the
+        // request body at the top level and correctly parses the AI SDK v6 UI-message
+        // stream response (manual SSE parsing broke because it assumed the v3 protocol).
         if (attachments && attachments.length > 0) {
-          // AI SDK's sendMessage doesn't forward custom data to the server.
-          // For multimodal messages, use direct fetch with SSE streaming.
-          setAiMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: 'user' as const,
-              parts: [{ type: 'text' as const, text: content }],
-              createdAt: new Date(),
-            } as UIMessage,
-          ]);
-
-          const assistantId = crypto.randomUUID();
-          setAiMessages((prev) => [
-            ...prev,
-            {
-              id: assistantId,
-              role: 'assistant' as const,
-              parts: [{ type: 'text' as const, text: '' }],
-              createdAt: new Date(),
-            } as UIMessage,
-          ]);
-
-          try {
-            const res = await fetch(`/api/agents/${agentId}/playground`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                messages: [
-                  ...aiMessages.map((m) => ({
-                    role: m.role,
-                    content: m.parts?.filter((p): p is { type: 'text'; text: string } => p.type === 'text').map((p) => p.text).join('') ?? '',
-                  })),
-                  {
-                    role: 'user',
-                    content,
-                    data: { attachments },
-                  },
-                ],
-                agentVersionId: versionId,
-                alias,
-                systemPrompt: overrides.systemPrompt,
-                model: overrides.model,
-                temperature: overrides.temperature,
-                maxTokens: overrides.maxTokens,
-              }),
-            });
-
-            if (!res.ok || !res.body) {
-              const errorBody = await res.json().catch(() => ({ error: 'Request failed' }));
-              throw new Error(errorBody?.error ?? `Request failed with status ${res.status}`);
-            }
-
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let fullText = '';
-            let streamError: string | null = null;
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n');
-
-              for (const line of lines) {
-                if (line.startsWith('0:')) {
-                  // Text chunk from AI SDK stream protocol
-                  const text = JSON.parse(line.slice(2));
-                  fullText += text;
-                  setAiMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, parts: [{ type: 'text' as const, text: fullText }] }
-                        : m
-                    )
-                  );
-                } else if (line.startsWith('3:')) {
-                  // Error from AI SDK stream protocol
-                  streamError = JSON.parse(line.slice(2));
-                } else if (line.startsWith('e:')) {
-                  // Error event
-                  try {
-                    const errorData = JSON.parse(line.slice(2));
-                    streamError = errorData?.message ?? errorData?.error ?? JSON.stringify(errorData);
-                  } catch {
-                    streamError = line.slice(2);
-                  }
-                }
-              }
-            }
-
-            if (streamError) {
-              throw new Error(streamError);
-            }
-
-            if (!fullText) {
-              throw new Error('No response received from the model');
-            }
-          } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
-            onError?.(error);
-            // Show error in the assistant message bubble instead of silently removing it
-            setAiMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, parts: [{ type: 'text' as const, text: `Error: ${error.message}` }] }
-                  : m
-              )
-            );
-          }
+          sendMessage({ text: content }, { body: { attachments } });
         } else {
           sendMessage({ text: content });
         }
@@ -525,7 +418,7 @@ export function usePlayground({
         setIsGraphLoading(false);
       }
     },
-    [agentId, agentType, aiMessages, versionId, alias, overrides, graphMessages, sendMessage, onError]
+    [agentId, agentType, versionId, alias, overrides, graphMessages, sendMessage, onError]
   );
 
   const handleRegenerate = useCallback(() => {

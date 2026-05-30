@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 400 }
       );
     }
-    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId } = parsed.data;
+    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId, attachments: topLevelAttachments } = parsed.data;
     const { alias } = parsed.data;
 
     // Fetch agent
@@ -155,8 +155,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         attachments: (m.data?.attachments ?? []) as MessageAttachment[],
       }));
 
+      // Top-level attachments (sent via useChat per-call body) apply to the current (last) turn.
+      if (topLevelAttachments && topLevelAttachments.length > 0 && coreMessages.length > 0) {
+        coreMessages[coreMessages.length - 1].attachments = topLevelAttachments as MessageAttachment[];
+      }
+
       logger.debug(
-        { requestId, rawMessages: messages.map((m: any) => ({ role: m.role, hasContent: !!m.content, hasData: !!m.data, attachmentCount: m.data?.attachments?.length ?? 0 })) },
+        {
+          requestId,
+          rawMessages: coreMessages.map((m) => ({ role: m.role, hasContent: !!m.content, attachmentCount: m.attachments.length })),
+          topLevelAttachmentCount: topLevelAttachments?.length ?? 0,
+        },
         'Parsed messages from request body',
       );
 
@@ -241,6 +250,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           'x-execution-id': execution.id,
           'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
           'x-request-timestamp': String(startTime),
+        },
+        // By default AI SDK masks errors as "An error occurred". Surface the real
+        // message (e.g. unsupported model, token limit) so it reaches the UI.
+        onError: (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error({ requestId, executionId: execution.id, errorMessage: message }, 'Stream chat failed');
+          void mcpCleanup();
+          void db.agentExecution.update({
+            where: { id: execution.id },
+            data: { status: 'failed', error: message, completedAt: new Date() },
+          }).catch(() => {});
+          return message;
         },
       });
     }
