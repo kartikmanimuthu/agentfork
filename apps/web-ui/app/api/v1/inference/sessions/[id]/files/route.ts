@@ -109,6 +109,8 @@ export async function POST(
       { tenantId, apiKeyId, sessionId, errorMessage: err.message, errorStack: err.stack },
       'Session file upload failed — internal error',
     );
+    // Full error is captured in server logs above. Return a generic message to the
+    // client — this is a public API boundary; don't leak infra details (AWS, etc.).
     return NextResponse.json(
       { error: { type: 'internal_error', message: 'File upload failed' } },
       { status: 500 }
