@@ -11,9 +11,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (authError) return authError;
 
     const { id } = await params;
+    const status = req.nextUrl.searchParams.get('status') ?? undefined;
     const db = getPrismaClient();
     const service = new ApiKeyService(tenantId, db);
-    const keys = await service.findByAgentId(id);
+    const keys = await service.findByAgentId(id, status);
 
     return new Response(JSON.stringify(keys), { status: 200 });
   } catch (error) {
