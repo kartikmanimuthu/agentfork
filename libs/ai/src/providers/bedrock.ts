@@ -1,5 +1,6 @@
 import { streamText, embed, embedMany } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { createOpenAI } from '@ai-sdk/openai';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
 import type { TenantLLMConfig, ProviderName } from '../types';
@@ -8,6 +9,17 @@ import {
   DEFAULT_BEDROCK_EMBEDDING_MODEL,
 } from '../types';
 import { env } from '../env';
+
+// Models where Bedrock Converse API does not support tool calling.
+// AWS themselves recommend using the bedrock-mantle (OpenAI-compatible) endpoint for these.
+// Sources:
+//   - DeepSeek V3.2 model card: no `tools` field in Converse request schema
+//   - Kimi K2.5 model card: "Whenever possible, use bedrock-mantle"
+const MANTLE_TOOL_PREFIXES = ['deepseek.', 'moonshotai.'];
+
+function needsMantleForTools(modelId: string): boolean {
+  return MANTLE_TOOL_PREFIXES.some((prefix) => modelId.startsWith(prefix));
+}
 
 export class BedrockLLMProvider implements LLMProvider {
   readonly name: ProviderName = 'bedrock';
@@ -45,13 +57,36 @@ export class BedrockLLMProvider implements LLMProvider {
       maxSteps,
       onFinish,
     } = options;
+
+    const effectiveModel = model ?? this.chatModel;
+    const hasTools = !!tools && Object.keys(tools).length > 0;
+
+    // Route to bedrock-mantle for models that don't support Converse API tool calling
+    if (hasTools && needsMantleForTools(effectiveModel)) {
+      const mantleClient = createOpenAI({
+        baseURL: `https://bedrock-mantle.${this.region}.api.aws/v1`,
+        apiKey: env.AWS_BEARER_TOKEN_BEDROCK,
+      });
+      return streamText({
+        model: mantleClient(effectiveModel),
+        messages,
+        system,
+        temperature,
+        maxOutputTokens,
+        tools,
+        maxSteps: maxSteps ?? 5,
+        onFinish,
+      });
+    }
+
+    // Default: Converse API (works for Claude, Nova, Llama, Cohere, Mistral, etc.)
     return streamText({
-      model: this.client(model ?? this.chatModel),
+      model: this.client(effectiveModel),
       messages,
       system,
       temperature,
       maxOutputTokens,
-      ...(tools && Object.keys(tools).length > 0 ? { tools, maxSteps: maxSteps ?? 5 } : {}),
+      ...(hasTools ? { tools, maxSteps: maxSteps ?? 5 } : {}),
       onFinish,
     });
   }
@@ -73,7 +108,6 @@ export class BedrockLLMProvider implements LLMProvider {
   }
 
   async validate(): Promise<void> {
-    // When explicit credentials are provided, skip defaultProvider validation
     if (this.hasExplicitCredentials) {
       return;
     }
