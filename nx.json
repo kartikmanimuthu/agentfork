@@ -23,9 +23,10 @@
       "cache": true
     },
     "e2e": {
-      "dependsOn": ["web-ui:build"],
+      "dependsOn": ["^build"],
       "cache": false,
-      "inputs": ["default", "^production"]
+      "inputs": ["default", "^production"],
+      "outputs": ["{projectRoot}/playwright-report", "{projectRoot}/test-results"]
     }
   },
   "defaultBase": "main"
