@@ -189,17 +189,19 @@ export class ContentResolver {
   private async extractPdf(buffer: Buffer, fileName: string): Promise<ContentPart> {
     const startTime = Date.now();
     try {
-      const pdfParse = (await import('pdf-parse')) as unknown as {
-        default: (buf: Buffer) => Promise<{ text: string }>;
-      };
-      const result = await pdfParse.default(buffer);
+      // Import the internal lib path directly — importing the pdf-parse main entry
+      // (v1.1.1) runs a debug test harness that reads a sample PDF from disk and throws.
+      // @ts-ignore — pdf-parse has no types for the subpath
+      const pdfParse = await import('pdf-parse/lib/pdf-parse.js').then((m) => m.default ?? m);
+      const result = await pdfParse(buffer);
+      const text = result?.text ?? '';
       const durationMs = Date.now() - startTime;
-      const truncated = result.text.length > MAX_EXTRACTED_TEXT_LENGTH;
+      const truncated = text.length > MAX_EXTRACTED_TEXT_LENGTH;
       logger.info(
-        { fileName, extractedLength: result.text.length, truncated, durationMs },
+        { fileName, extractedLength: text.length, truncated, durationMs },
         'PDF text extraction complete',
       );
-      return { type: 'text', text: this.wrapExtractedText(fileName, result.text) };
+      return { type: 'text', text: this.wrapExtractedText(fileName, text) };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       const durationMs = Date.now() - startTime;
@@ -214,15 +216,17 @@ export class ContentResolver {
   private async extractWord(buffer: Buffer, fileName: string): Promise<ContentPart> {
     const startTime = Date.now();
     try {
-      const mammoth = await import('mammoth');
+      // @ts-ignore — match the knowledge-base lib's ESM-interop import pattern
+      const mammoth = await import('mammoth').then((m) => m.default ?? m);
       const result = await mammoth.extractRawText({ buffer });
+      const text = result?.value ?? '';
       const durationMs = Date.now() - startTime;
-      const truncated = result.value.length > MAX_EXTRACTED_TEXT_LENGTH;
+      const truncated = text.length > MAX_EXTRACTED_TEXT_LENGTH;
       logger.info(
-        { fileName, extractedLength: result.value.length, truncated, durationMs },
+        { fileName, extractedLength: text.length, truncated, durationMs },
         'Word document text extraction complete',
       );
-      return { type: 'text', text: this.wrapExtractedText(fileName, result.value) };
+      return { type: 'text', text: this.wrapExtractedText(fileName, text) };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       const durationMs = Date.now() - startTime;

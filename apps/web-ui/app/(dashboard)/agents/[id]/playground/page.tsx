@@ -190,6 +190,7 @@ export default function PlaygroundPage() {
     if (val !== versionValue) {
       setVersionValue(val);
       setMessages([]);
+      setOverrides({});
     }
   };
 
