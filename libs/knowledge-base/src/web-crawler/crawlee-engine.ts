@@ -18,6 +18,22 @@ Configuration.set(
   { storageDir: kbEnv.CRAWLEE_STORAGE_DIR ?? '/tmp/crawlee-storage' }
 );
 
+// On Fargate, Crawlee's autoscaler reads host RAM via os.totalmem() (not the
+// cgroup limit), so it computes an inflated memory budget and launches more
+// headless Chromium instances than the container can hold — the browsers then
+// die with SIGSEGV under memory exhaustion. Pin the budget to the real
+// container allowance so the snapshotter throttles correctly.
+Configuration.set('memoryMbytes', kbEnv.CRAWLEE_MEMORY_MBYTES);
+
+// Lean Chromium launch args for headless crawling in memory-constrained
+// containers. --single-process is intentionally omitted: it reduces memory but
+// is itself a known source of Chromium segfaults.
+const CHROMIUM_LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+];
+
 export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPage[]> {
   const {
     seedUrls,
@@ -95,10 +111,16 @@ export async function runCrawleeCrawl(options: CrawlOptions): Promise<CrawledPag
     if (useHeadless) {
       const crawler = new PlaywrightCrawler({
         ...sharedConfig,
+        maxConcurrency: kbEnv.CRAWLEE_MAX_CONCURRENCY,
         maxRequestRetries: 2,
         navigationTimeoutSecs: 30,
         requestHandlerTimeoutSecs: 120,
         headless: true,
+        launchContext: {
+          launchOptions: {
+            args: CHROMIUM_LAUNCH_ARGS,
+          },
+        },
         async requestHandler({ page, request, enqueueLinks }) {
           // Wait for networkidle with a short timeout so pages with persistent
           // analytics / chat widgets don't hang the crawl. Crawlee already
