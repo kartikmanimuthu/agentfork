@@ -51,7 +51,7 @@ export default function KnowledgeBaseDetailPage() {
   useEffect(() => { load(); }, [id]);
 
   const navItems = [
-    { href: `/knowledge-bases/${id}/documents`, icon: FileText, label: 'Documents', desc: 'Manage uploaded documents' },
+    { href: `/knowledge-bases/${id}/documents`, icon: FileText, label: 'Content', desc: 'Manage content items and uploads' },
     { href: `/knowledge-bases/${id}/sources`, icon: Link2, label: 'Sources', desc: 'Manage data sources and crawling' },
     { href: `/knowledge-bases/${id}/test`, icon: FlaskConical, label: 'Test Retrieval', desc: 'Query and tune search settings' },
     { href: `/knowledge-bases/${id}/visualize`, icon: BarChart3, label: 'Visualize', desc: 'UMAP embedding projection' },
@@ -86,9 +86,9 @@ export default function KnowledgeBaseDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Status', value: kb?.status, badge: true },
-          { label: 'Documents', value: kb?.documentCount?.toString() ?? '—' },
+          { label: 'Content', value: kb?.documentCount?.toString() ?? '—' },
           { label: 'Chunks', value: kb?.chunkCount?.toLocaleString() ?? '—' },
-          { label: 'Embedding', value: kb?.embeddingProvider ?? '—' },
+          { label: 'Embedding', value: kb?.embeddingModel ?? '—' },
         ].map(({ label, value, badge }) => (
           <Card key={label}>
             <CardContent className="pt-4 pb-3">

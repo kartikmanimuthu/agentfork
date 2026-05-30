@@ -42,9 +42,7 @@ describe('SmcPreChatForm', () => {
   it('renders welcome message and form fields', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.pre-chat')).toBeTruthy();
@@ -55,9 +53,7 @@ describe('SmcPreChatForm', () => {
   it('renders text, email, phone, select field types', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     const shadowRoot = root.shadowRoot!;
     const inputs = shadowRoot.querySelectorAll('input');
@@ -70,9 +66,7 @@ describe('SmcPreChatForm', () => {
   it('shows validation error for required field left empty', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     // Submit form directly via dispatchEvent on the form
     const form = root.shadowRoot!.querySelector('form')!;
@@ -89,9 +83,7 @@ describe('SmcPreChatForm', () => {
   it('shows validation error for invalid email', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     // Fill name and phone, but invalid email
     const inputs = root.shadowRoot!.querySelectorAll('input');
@@ -119,9 +111,7 @@ describe('SmcPreChatForm', () => {
     (fetch as any).mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: 'sess_1' }) });
     setApiKey('key123');
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     const inputs = root.shadowRoot!.querySelectorAll('input');
     inputs[0].value = 'John';
@@ -146,9 +136,7 @@ describe('SmcPreChatForm', () => {
     (fetch as any).mockRejectedValue(new Error('Network error'));
     setApiKey('key123');
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     const inputs = root.shadowRoot!.querySelectorAll('input');
     inputs[0].value = 'John';
@@ -174,9 +162,7 @@ describe('SmcPreChatForm', () => {
     (fetch as any).mockImplementation(() => new Promise(() => {}));
     setApiKey('key123');
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     const inputs = root.shadowRoot!.querySelectorAll('input');
     inputs[0].value = 'John';
@@ -200,9 +186,7 @@ describe('SmcPreChatForm', () => {
   it('can fill form and submit without validation errors', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     // Submit empty to trigger error
     const form = root.shadowRoot!.querySelector('form')!;
@@ -213,9 +197,7 @@ describe('SmcPreChatForm', () => {
     expect(root.shadowRoot!.querySelectorAll('.error').length).toBeGreaterThan(0);
 
     // Re-render with a fresh component that has filled values
-    const { root: root2 } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root: root2 } = await render(<smc-pre-chat-form />);
 
     // Fill values and submit
     const inputs = root2.shadowRoot!.querySelectorAll('input');
@@ -236,9 +218,7 @@ describe('SmcPreChatForm', () => {
   it('empty preChatForm array renders no fields', async () => {
     setConfig({ ...mockConfig, preChatForm: [] });
 
-    const { root } = await render(<smc-pre-chat-form />, {
-      components: [SmcPreChatForm],
-    });
+    const { root } = await render(<smc-pre-chat-form />);
 
     expect(root.shadowRoot!.querySelectorAll('.field')).toHaveLength(0);
   });

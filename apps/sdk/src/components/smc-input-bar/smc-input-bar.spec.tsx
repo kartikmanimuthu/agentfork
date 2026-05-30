@@ -39,9 +39,7 @@ describe('SmcInputBar', () => {
   it('renders textarea with placeholder from config', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     expect(textarea.placeholder).toBe('Ask me...');
@@ -50,9 +48,7 @@ describe('SmcInputBar', () => {
   it('renders default placeholder when config value is null', async () => {
     setConfig({ ...mockConfig, inputPlaceholder: null as any });
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     expect(textarea.placeholder).toBe('Write a message...');
@@ -61,9 +57,7 @@ describe('SmcInputBar', () => {
   it('send button is disabled when textarea is empty', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const sendBtn = root.shadowRoot!.querySelector('.send-btn')!;
     expect((sendBtn as HTMLButtonElement).disabled).toBe(true);
@@ -75,9 +69,7 @@ describe('SmcInputBar', () => {
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
     (fetch as any).mockResolvedValue(new Response());
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar, SmcMessage, SmcMarkdown],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     textarea.value = 'Hello';
@@ -96,9 +88,7 @@ describe('SmcInputBar', () => {
     setApiKey('key123');
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     textarea.value = 'Hello';
@@ -111,9 +101,7 @@ describe('SmcInputBar', () => {
   it('file upload button shown when fileUpload is true', async () => {
     setConfig({ ...mockConfig, fileUpload: true });
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     expect(root.shadowRoot!.querySelector('.attach-btn')).toBeTruthy();
   });
@@ -121,9 +109,7 @@ describe('SmcInputBar', () => {
   it('file upload button hidden when fileUpload is false', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     expect(root.shadowRoot!.querySelector('.attach-btn')).toBeNull();
   });
@@ -133,9 +119,7 @@ describe('SmcInputBar', () => {
     setApiKey('key123');
     setSession({ id: 'sess_1', status: 'active', visitorId: 'v_1' });
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     textarea.value = '   ';
@@ -148,9 +132,7 @@ describe('SmcInputBar', () => {
   it('does not send when no apiKey', async () => {
     setConfig(mockConfig);
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     textarea.value = 'Hello';
@@ -167,9 +149,7 @@ describe('SmcInputBar', () => {
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'sess_new' }) })
       .mockResolvedValueOnce(new Response());
 
-    const { root } = await render(<smc-input-bar />, {
-      components: [SmcInputBar, SmcMessage, SmcMarkdown],
-    });
+    const { root } = await render(<smc-input-bar />);
 
     const textarea = root.shadowRoot!.querySelector('textarea')!;
     textarea.value = 'Hello';

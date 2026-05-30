@@ -94,6 +94,16 @@ This single command:
 
 All projects — web-ui, workers, shared, ai — automatically inherit from the single root `.env` via Nx's built-in env loading. No per-app env files, no symlinks.
 
+### 4. Install Playwright browser (required for web crawling)
+
+The knowledge base worker uses **Playwright** for headless browser crawling. You must install the Chromium binary once:
+
+```bash
+npx playwright install chromium
+```
+
+> **Note:** This downloads ~150MB of browser binaries. If you skip this step, web crawl jobs for URL sources will fail with a "browser not found" error.
+
 Then edit `.env` and fill in your real values:
 
 ```env
@@ -115,7 +125,7 @@ AWS_REGION=ap-south-1
 
 `DATABASE_URL`, `NEXTAUTH_URL`, and Bedrock model IDs are pre-filled with defaults that match the docker-compose setup.
 
-### 4. Start the development server
+### 5. Start the development server
 
 ```bash
 bun run dev
@@ -126,7 +136,7 @@ Open http://localhost:3001. You should see the marketing landing page.
 
 **Sign up** to create your first account and organization, then navigate to `/chat`.
 
-### 5. Start background workers (optional)
+### 6. Start background workers (optional)
 
 Workers handle message embedding generation and conversation summarization. In a separate terminal:
 
@@ -135,7 +145,7 @@ bun run dev:workers
 # or: bunx nx serve workers
 ```
 
-### 6. Start everything in parallel
+### 7. Start everything in parallel
 
 ```bash
 bun run dev:all

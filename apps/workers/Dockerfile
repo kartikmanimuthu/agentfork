@@ -80,7 +80,7 @@ RUN set -x; for d in node_modules/.bun/*/node_modules/*; do \
 FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl procps && rm -rf /var/lib/apt/lists/*
 RUN npm install -g bun@1.3.6
 
 RUN curl -sSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
@@ -92,8 +92,18 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY apps/workers/docker-entrypoint.sh ./docker-entrypoint.sh
 
-ENV NODE_ENV=production
+# Create bun user early so we can chown the browser cache
 RUN groupadd -r bun && useradd -r -g bun bun
+
+# Install Playwright system dependencies and Chromium browser for headless crawling.
+# This is required by the new Crawlee-based web crawler (default: headless mode).
+RUN npx playwright install-deps chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers
+RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH && \
+    npx playwright install chromium && \
+    chown -R bun:bun $PLAYWRIGHT_BROWSERS_PATH
+
+ENV NODE_ENV=production
 RUN chmod +x ./docker-entrypoint.sh
 USER bun
 

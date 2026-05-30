@@ -5,9 +5,7 @@ import { SmcTypingIndicator } from './smc-typing-indicator';
 
 describe('SmcTypingIndicator', () => {
   it('renders three dots in shadow DOM', async () => {
-    const { root } = await render(<smc-typing-indicator />, {
-      components: [SmcTypingIndicator],
-    });
+    const { root } = await render(<smc-typing-indicator />);
 
     const shadowRoot = root.shadowRoot!;
     expect(shadowRoot.querySelector('.typing')).toBeTruthy();
@@ -16,9 +14,7 @@ describe('SmcTypingIndicator', () => {
   });
 
   it('renders without error when no props provided', async () => {
-    const { root } = await render(<smc-typing-indicator />, {
-      components: [SmcTypingIndicator],
-    });
+    const { root } = await render(<smc-typing-indicator />);
 
     expect(root).toBeTruthy();
   });

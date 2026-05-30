@@ -44,6 +44,7 @@ interface Args {
   url: string | null;
   crawlDepth: number;
   maxPages: number;
+  useHeadless: boolean;
   help: boolean;
 }
 
@@ -59,6 +60,7 @@ function parseArgs(): Args {
     url: null,
     crawlDepth: 0,
     maxPages: 10,
+    useHeadless: false,
     help: false,
   };
 
@@ -96,6 +98,9 @@ function parseArgs(): Args {
       case '--max-pages':
         args.maxPages = parseInt(argv[++i] ?? '10', 10);
         break;
+      case '--use-headless':
+        args.useHeadless = true;
+        break;
       case '--help':
         args.help = true;
         break;
@@ -124,6 +129,7 @@ Options:
   --url <url>             URL to crawl when using --crawl-only
   --crawl-depth <n>       Crawl depth (default: 0)
   --max-pages <n>         Max pages to crawl (default: 10)
+  --use-headless          Use Playwright headless browser (for JS-heavy sites)
   --help                  Show this help
 
 Examples:
@@ -132,6 +138,9 @@ Examples:
 
   # Crawl-only test (no DB side effects)
   npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts --crawl-only --url https://example.com
+
+  # Crawl-only with headless browser
+  npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts --crawl-only --url https://example.com --use-headless
 
   # Sync an existing source
   npx tsx --env-file=../../.env src/scripts/test-kb-sync.ts --kb-id <kb-id> --source-id <source-id> --tenant-id <tenant-id>
@@ -217,13 +226,15 @@ async function runCrawlOnly(args: Args) {
   console.log(`\n--- CRAWL-ONLY TEST ---`);
   console.log(`Target URL: ${url}`);
   console.log(`Crawl depth: ${args.crawlDepth}, Max pages: ${args.maxPages}`);
+  console.log(`Use headless: ${args.useHeadless}`);
 
-  const crawler = createWebCrawler({ delayMs: 500 });
+  const crawler = createWebCrawler({ useHeadless: args.useHeadless });
   const start = Date.now();
   const pages = await crawler.crawl({
     seedUrls: [url],
     crawlDepth: args.crawlDepth,
     maxPages: args.maxPages,
+    useHeadless: args.useHeadless,
   });
   const elapsed = Date.now() - start;
 
@@ -233,9 +244,11 @@ async function runCrawlOnly(args: Args) {
   for (const page of pages) {
     console.log(`\n  URL:    ${page.url}`);
     console.log(`  Title:  ${page.title ?? '(none)'}`);
-    console.log(`  Length: ${page.text.length} chars`);
-    console.log(`  Links:  ${page.links.length}`);
+    console.log(`  Length: ${page.markdown.length} chars`);
+    console.log(`  TextLen: ${page.textLength}`);
     console.log(`  Fetched: ${page.fetchedAt.toISOString()}`);
+    console.log(`  Preview (first 200 chars):`);
+    console.log(`    ${page.markdown.slice(0, 200).replace(/\n/g, ' ')}`);
   }
 
   if (pages.length === 0) {

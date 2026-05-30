@@ -11,8 +11,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/photo.png"
         mimeType="image/png"
         fileSize={1024}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     const shadowRoot = root.shadowRoot!;
@@ -29,8 +28,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/doc.pdf"
         mimeType="application/pdf"
         fileSize={2048}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     const shadowRoot = root.shadowRoot!;
@@ -45,8 +43,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/small.txt"
         mimeType="text/plain"
         fileSize={512}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('512 B');
@@ -59,8 +56,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/empty.txt"
         mimeType="text/plain"
         fileSize={0}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('0 B');
@@ -73,8 +69,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/doc.pdf"
         mimeType="application/pdf"
         fileSize={1024}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('1.0 KB');
@@ -87,8 +82,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/doc.pdf"
         mimeType="application/pdf"
         fileSize={1536}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('1.5 KB');
@@ -101,8 +95,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/big.pdf"
         mimeType="application/pdf"
         fileSize={1048576}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('1.0 MB');
@@ -115,8 +108,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/big.pdf"
         mimeType="application/pdf"
         fileSize={2097152}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('2.0 MB');
@@ -129,8 +121,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/huge.pdf"
         mimeType="application/pdf"
         fileSize={10737418240}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     expect(root.shadowRoot!.querySelector('.file-size')!.textContent).toBe('10240.0 MB');
@@ -143,8 +134,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/unknown"
         mimeType=""
         fileSize={100}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     const shadowRoot = root.shadowRoot!;
@@ -159,8 +149,7 @@ describe('SmcFilePreview', () => {
         fileUrl="https://example.com/doc.pdf"
         mimeType="application/pdf"
         fileSize={1000}
-      />,
-      { components: [SmcFilePreview] },
+      />
     );
 
     const link = root.shadowRoot!.querySelector('.file-name')!;

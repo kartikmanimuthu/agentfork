@@ -1090,6 +1090,8 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
+            { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
+            { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
         ],
     }])),
 }, { retainOnDelete: true });
@@ -1196,6 +1198,8 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
             { name: "PRIVATE_SUBNET_IDS", value: subnetsJoined },
             { name: "SECURITY_GROUP_IDS", value: workersSgId },
             { name: "TASK_TIMEOUT_MS", value: "900000" },
+            { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
+            { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
         ],
     }])),
 }, { retainOnDelete: true });

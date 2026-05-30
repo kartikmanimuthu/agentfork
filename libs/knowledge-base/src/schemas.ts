@@ -94,6 +94,7 @@ export const urlDataSourceConfigSchema = z.object({
   crawlDepth: z.number().int().min(0).max(5).default(0),
   includePatterns: z.array(z.string()).optional(),
   excludePatterns: z.array(z.string()).optional(),
+  restrictToSameSubdomain: z.boolean().default(false),
 });
 
 export const connectorDataSourceConfigSchema = z.object({
