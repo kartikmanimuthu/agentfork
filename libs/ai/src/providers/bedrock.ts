@@ -40,7 +40,7 @@ export class BedrockLLMProvider implements LLMProvider {
       model,
       system,
       temperature = 0.7,
-      maxOutputTokens = 4096,
+      maxOutputTokens,
       tools,
       maxSteps,
       onFinish,
@@ -50,7 +50,7 @@ export class BedrockLLMProvider implements LLMProvider {
       messages,
       system,
       temperature,
-      maxOutputTokens,
+      ...(maxOutputTokens != null ? { maxOutputTokens } : {}),
       ...(tools && Object.keys(tools).length > 0 ? { tools, maxSteps: maxSteps ?? 5 } : {}),
       onFinish,
     });

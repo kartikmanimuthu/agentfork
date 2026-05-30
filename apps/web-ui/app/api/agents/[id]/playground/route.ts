@@ -218,7 +218,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         model: effectiveModel,
         system: effectiveSystem,
         temperature: effectiveTemperature,
-        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
+        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? undefined,
         ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
