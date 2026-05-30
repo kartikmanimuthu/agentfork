@@ -251,12 +251,14 @@ export function usePlayground({
             });
 
             if (!res.ok || !res.body) {
-              throw new Error('Failed to get response');
+              const errorBody = await res.json().catch(() => ({ error: 'Request failed' }));
+              throw new Error(errorBody?.error ?? `Request failed with status ${res.status}`);
             }
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
+            let streamError: string | null = null;
 
             while (true) {
               const { done, value } = await reader.read();
@@ -267,6 +269,7 @@ export function usePlayground({
 
               for (const line of lines) {
                 if (line.startsWith('0:')) {
+                  // Text chunk from AI SDK stream protocol
                   const text = JSON.parse(line.slice(2));
                   fullText += text;
                   setAiMessages((prev) =>
@@ -276,12 +279,39 @@ export function usePlayground({
                         : m
                     )
                   );
+                } else if (line.startsWith('3:')) {
+                  // Error from AI SDK stream protocol
+                  streamError = JSON.parse(line.slice(2));
+                } else if (line.startsWith('e:')) {
+                  // Error event
+                  try {
+                    const errorData = JSON.parse(line.slice(2));
+                    streamError = errorData?.message ?? errorData?.error ?? JSON.stringify(errorData);
+                  } catch {
+                    streamError = line.slice(2);
+                  }
                 }
               }
             }
+
+            if (streamError) {
+              throw new Error(streamError);
+            }
+
+            if (!fullText) {
+              throw new Error('No response received from the model');
+            }
           } catch (err) {
-            onError?.(err instanceof Error ? err : new Error(String(err)));
-            setAiMessages((prev) => prev.filter((m) => m.id !== assistantId));
+            const error = err instanceof Error ? err : new Error(String(err));
+            onError?.(error);
+            // Show error in the assistant message bubble instead of silently removing it
+            setAiMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, parts: [{ type: 'text' as const, text: `Error: ${error.message}` }] }
+                  : m
+              )
+            );
           }
         } else {
           sendMessage({ text: content });
