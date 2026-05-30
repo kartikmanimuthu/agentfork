@@ -66,6 +66,7 @@ export class BedrockLLMProvider implements LLMProvider {
       const mantleClient = createOpenAI({
         baseURL: `https://bedrock-mantle.${this.region}.api.aws/v1`,
         apiKey: env.AWS_BEARER_TOKEN_BEDROCK,
+        compatibility: 'compatible', // bedrock-mantle supports /v1/chat/completions, not /v1/responses
       });
       return streamText({
         model: mantleClient(effectiveModel),

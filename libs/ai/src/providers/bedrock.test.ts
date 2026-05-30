@@ -98,6 +98,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
       expect.objectContaining({
         baseURL: 'https://bedrock-mantle.us-east-1.api.aws/v1',
         apiKey: 'test-bedrock-token',
+        compatibility: 'compatible',
       })
     );
     expect(createAmazonBedrock).toHaveBeenCalledTimes(1); // only called in constructor
@@ -114,6 +115,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
       expect.objectContaining({
         baseURL: 'https://bedrock-mantle.us-east-1.api.aws/v1',
         apiKey: 'test-bedrock-token',
+        compatibility: 'compatible',
       })
     );
   });
