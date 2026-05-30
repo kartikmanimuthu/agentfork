@@ -15,8 +15,10 @@ vi.mock('@ai-sdk/amazon-bedrock', () => ({
   createAmazonBedrock: vi.fn(() => vi.fn(() => 'mock-bedrock-model')),
 }));
 
+const mockMantleChat = vi.fn(() => 'mock-mantle-chat-model');
+const mockMantleClient = { chat: mockMantleChat };
 vi.mock('@ai-sdk/openai', () => ({
-  createOpenAI: vi.fn(() => vi.fn(() => 'mock-openai-model')),
+  createOpenAI: vi.fn(() => mockMantleClient),
 }));
 
 vi.mock('@aws-sdk/credential-provider-node', () => ({
@@ -51,6 +53,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMantleChat.mockClear();
     provider = new BedrockLLMProvider({ provider: 'bedrock', region: 'us-east-1' });
   });
 
@@ -87,7 +90,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
     expect(createOpenAI).not.toHaveBeenCalled();
   });
 
-  it('uses bedrock-mantle (createOpenAI) for deepseek with tools', () => {
+  it('uses bedrock-mantle (createOpenAI.chat) for deepseek with tools', () => {
     provider.streamChat({
       messages: MOCK_MESSAGES,
       model: 'deepseek.v3.2',
@@ -98,9 +101,9 @@ describe('BedrockLLMProvider — mantle routing', () => {
       expect.objectContaining({
         baseURL: 'https://bedrock-mantle.us-east-1.api.aws/v1',
         apiKey: 'test-bedrock-token',
-        compatibility: 'compatible',
       })
     );
+    expect(mockMantleChat).toHaveBeenCalledWith('deepseek.v3.2');
     expect(createAmazonBedrock).toHaveBeenCalledTimes(1); // only called in constructor
   });
 
@@ -115,9 +118,9 @@ describe('BedrockLLMProvider — mantle routing', () => {
       expect.objectContaining({
         baseURL: 'https://bedrock-mantle.us-east-1.api.aws/v1',
         apiKey: 'test-bedrock-token',
-        compatibility: 'compatible',
       })
     );
+    expect(mockMantleChat).toHaveBeenCalledWith('moonshotai.kimi-k2.5');
   });
 
   it('uses Converse API for deepseek WITHOUT tools', () => {
