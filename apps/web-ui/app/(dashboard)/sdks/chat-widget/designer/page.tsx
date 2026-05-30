@@ -57,6 +57,7 @@ interface Widget {
   agentId: string;
   agent?: { id: string; name: string };
   apiKeyId: string;
+  apiKey?: { id: string; status: string; name: string };
   status: string;
   primaryColor: string;
   secondaryColor: string;
@@ -274,7 +275,7 @@ export default function DesignerPage() {
       setApiKeys([]);
       return;
     }
-    fetch(`/api/agents/${agentId}/api-keys`)
+    fetch(`/api/agents/${agentId}/api-keys?status=active`)
       .then(r => r.json())
       .then(data => {
         const list: ApiKey[] = Array.isArray(data) ? data : [];
@@ -719,6 +720,15 @@ export default function DesignerPage() {
                   </div>
                 </div>
               </div>
+              {selectedWidget.apiKey && selectedWidget.apiKey.status !== 'active' && (
+                <div className="flex items-center gap-2 px-6 py-2.5 bg-destructive/10 border-b border-destructive/20 text-destructive text-sm">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    The linked API key <strong>{selectedWidget.apiKey.name}</strong> is{' '}
+                    <strong>{selectedWidget.apiKey.status}</strong>. The widget will return an error until you select an active key in the Behavior tab.
+                  </span>
+                </div>
+              )}
 
               {/* Content: tabs + preview */}
               <div className="flex-1 flex overflow-hidden">

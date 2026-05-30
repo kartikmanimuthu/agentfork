@@ -283,10 +283,10 @@ export default function WhatsAppChannelsPage() {
             <p className="text-sm text-muted-foreground">Connect and manage WhatsApp Business accounts.</p>
           </div>
         </div>
-        <Link href="/settings">
+        <Link href="/connectors">
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Settings
+            Back to Connectors
           </Button>
         </Link>
       </div>
