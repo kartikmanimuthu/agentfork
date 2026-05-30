@@ -19,20 +19,6 @@
         "command": "bun run dev",
         "cwd": "apps/web-ui"
       }
-    },
-    "e2e": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bunx playwright test",
-        "cwd": "{workspaceRoot}"
-      }
-    },
-    "e2e:ui": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bunx playwright test --ui",
-        "cwd": "{workspaceRoot}"
-      }
     }
   }
 }

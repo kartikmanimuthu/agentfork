@@ -6,7 +6,7 @@ dist/
 *.log
 .nx/
 .prisma/
-tests/e2e/.auth/
+apps/web-ui-e2e/src/.auth/
 .superpowers/
 playwright-report/
 test-results/

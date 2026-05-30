@@ -1,12 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './src',
+  outputDir: './test-results',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [['html'], ['list']],
+  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
   use: {
     baseURL: 'http://localhost:3005',
     trace: 'retain-on-failure',
@@ -22,7 +24,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'tests/e2e/.auth/session.json',
+        storageState: path.join(__dirname, 'src/.auth/session.json'),
       },
       dependencies: ['setup'],
       testIgnore: /auth\.setup\.ts/,
@@ -30,8 +32,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'cd apps/web-ui && NEXTAUTH_SECRET=test-secret-for-e2e NEXTAUTH_URL=http://localhost:3001 bun run dev',
+    command:
+      'cd ../web-ui && NEXTAUTH_SECRET=test-secret-for-e2e NEXTAUTH_URL=http://localhost:3005 bun run start',
     url: 'http://localhost:3005',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
 });
