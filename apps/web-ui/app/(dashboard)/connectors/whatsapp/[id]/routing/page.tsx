@@ -138,10 +138,10 @@ export default function RoutingPage({ params }: { params: Promise<{ id: string }
             <p className="text-sm text-muted-foreground">Configure how incoming messages are routed to agents.</p>
           </div>
         </div>
-        <Link href="/settings/channels/whatsapp">
+        <Link href="/connectors/whatsapp">
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Channels
+            Back to WhatsApp
           </Button>
         </Link>
       </div>

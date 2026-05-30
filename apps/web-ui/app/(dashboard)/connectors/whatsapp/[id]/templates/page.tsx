@@ -113,10 +113,10 @@ export default function TemplatesPage({ params }: { params: Promise<{ id: string
             <p className="text-sm text-muted-foreground">Manage WhatsApp message templates.</p>
           </div>
         </div>
-        <Link href="/settings/channels/whatsapp">
+        <Link href="/connectors/whatsapp">
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Channels
+            Back to WhatsApp
           </Button>
         </Link>
       </div>

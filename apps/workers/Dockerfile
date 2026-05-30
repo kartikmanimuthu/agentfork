@@ -76,7 +76,18 @@ RUN set -x; for d in node_modules/.bun/*/node_modules/*; do \
       fi; \
     done
 
-# ── Stage 3: Production runner ──
+# ── Stage 3: Browser cache (isolated for cacheability) ──
+# Download Chromium binaries into a separate stage so BuildKit can cache this
+# ~180MB layer independently. If Microsoft's CDN is flaky, only this layer
+# retries instead of invalidating the entire runner stage.
+FROM public.ecr.aws/docker/library/node:20-slim AS browser
+WORKDIR /app
+RUN npm install -g bun@1.3.6
+COPY --from=deps /app/node_modules ./node_modules
+ENV PLAYWRIGHT_BROWSERS_PATH=/browsers
+RUN mkdir -p /browsers && npx playwright install chromium
+
+# ── Stage 4: Production runner ──
 FROM public.ecr.aws/docker/library/node:20-slim AS runner
 WORKDIR /app
 
@@ -95,13 +106,13 @@ COPY apps/workers/docker-entrypoint.sh ./docker-entrypoint.sh
 # Create bun user early so we can chown the browser cache
 RUN groupadd -r bun && useradd -r -g bun bun
 
-# Install Playwright system dependencies and Chromium browser for headless crawling.
-# This is required by the new Crawlee-based web crawler (default: headless mode).
+# Install Playwright system dependencies for headless crawling.
+# Browser binaries are copied from the isolated browser stage to avoid
+# re-downloading ~180MB from Microsoft's CDN on every runner rebuild.
 RUN npx playwright install-deps chromium
 ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers
-RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH && \
-    npx playwright install chromium && \
-    chown -R bun:bun $PLAYWRIGHT_BROWSERS_PATH
+COPY --from=browser /browsers /usr/local/share/playwright-browsers
+RUN chown -R bun:bun /usr/local/share/playwright-browsers
 
 ENV NODE_ENV=production
 RUN chmod +x ./docker-entrypoint.sh

@@ -8,7 +8,6 @@ import { NotificationsForm } from '@/components/settings/notifications-form';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { Button } from '@/components/ui/button';
 import { Settings, Palette, Bell, Shield, User, Building2, ArrowRight, Users, ChevronRight } from 'lucide-react';
-import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -150,22 +149,6 @@ export default function SettingsPage() {
                 </Link>
               </Card>
 
-              <Card className="hover:bg-accent/30 transition-colors">
-                <Link href="/settings/channels/whatsapp" className="block">
-                  <CardContent className="flex items-center justify-between p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-                        <WhatsAppIcon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">Channels</p>
-                        <p className="text-xs text-muted-foreground">Connect and manage WhatsApp Business accounts.</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </CardContent>
-                </Link>
-              </Card>
             </div>
           </motion.div>
         </TabsContent>
