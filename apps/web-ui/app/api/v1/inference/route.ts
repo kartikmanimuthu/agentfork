@@ -8,11 +8,40 @@ import {
   LlmProviderService,
   TenantConfigService,
   WebhookService,
+  S3Service,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@chatbot/ai';
 import { validateInferenceApiKey } from './lib/auth';
+import { z } from 'zod';
 
 const logger = createLogger('api:inference');
+
+const contentPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({
+    type: z.literal('file'),
+    fileId: z.string(),
+    s3Key: z.string(),
+    mimeType: z.string().optional(),
+    fileName: z.string().optional(),
+    size: z.number().optional(),
+  }),
+]);
+
+const inferenceRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.union([z.string(), z.array(contentPartSchema)]).optional(),
+  })).min(1),
+  sessionId: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().positive().optional(),
+  stream: z.boolean().optional(),
+  noCache: z.boolean().optional(),
+  alias: z.string().optional(),
+  versionId: z.string().optional(),
+});
 
 async function resolveProviderForModel(
   tenantId: string,
@@ -70,6 +99,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const parsed = inferenceRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      logger.warn(
+        { tenantId, apiKeyId, validationError: parsed.error.issues[0]?.message },
+        'Inference request validation failed',
+      );
+      return new Response(
+        JSON.stringify({ error: { type: 'validation_error', message: parsed.error.issues[0]?.message ?? 'Invalid request body' } }),
+        { status: 400 }
+      );
+    }
+
     const {
       messages,
       sessionId,
@@ -80,17 +121,68 @@ export async function POST(req: NextRequest) {
       noCache = false,
       alias,
       versionId: requestedVersionId,
-    } = body as {
-      messages: Array<{ role: string; content?: string }>;
-      sessionId?: string;
-      systemPrompt?: string;
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-      noCache?: boolean;
-      alias?: string;
-      versionId?: string;
-    };
+    } = parsed.data;
+
+    // ─── Normalize content-parts messages ────────────────────────────────
+    // Each message content may be a plain string or an array of content parts.
+    // File metadata is extracted for session persistence; actual file resolution
+    // happens later via ContentResolver before LLM invocation.
+    const s3 = new S3Service();
+    const contentResolver = new ContentResolver(s3);
+
+    type NormalizedMessage = { role: string; content: string; attachments: MessageAttachment[] };
+    const normalizedMessages: NormalizedMessage[] = [];
+
+    let totalAttachments = 0;
+    let rejectedAttachments = 0;
+
+    for (const msg of messages) {
+      if (typeof msg.content === 'string' || msg.content == null) {
+        normalizedMessages.push({ role: msg.role, content: msg.content ?? '', attachments: [] });
+        continue;
+      }
+
+      // Array content — split into text parts and file parts
+      const textParts = msg.content.filter((p) => p.type === 'text').map((p) => p.text ?? '');
+      const fileParts = msg.content.filter((p) => p.type === 'file');
+
+      const validFileParts = fileParts.filter((p) => p.fileId && p.s3Key);
+      const cappedFileParts = validFileParts.slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
+
+      const attachments: MessageAttachment[] = cappedFileParts
+        .map((p) => ({
+          fileId: p.fileId!,
+          s3Key: p.s3Key!,
+          mimeType: p.mimeType ?? 'application/octet-stream',
+          fileName: p.fileName ?? p.fileId!,
+          size: p.size ?? 0,
+        }))
+        .filter((a) => a.s3Key.startsWith(`sdk-uploads/${tenantId}/`));
+
+      const rejected = cappedFileParts.length - attachments.length;
+      totalAttachments += attachments.length;
+      rejectedAttachments += rejected;
+
+      if (rejected > 0) {
+        logger.warn(
+          { tenantId, apiKeyId, sessionId, rejected, reason: 'tenant_prefix_mismatch' },
+          'Attachments rejected — s3Key does not match tenant prefix',
+        );
+      }
+
+      normalizedMessages.push({
+        role: msg.role,
+        content: textParts.join('\n').trim(),
+        attachments,
+      });
+    }
+
+    if (totalAttachments > 0) {
+      logger.info(
+        { tenantId, apiKeyId, sessionId, messageCount: messages.length, totalAttachments, rejectedAttachments },
+        'Multimodal request normalized — attachments extracted from content-parts',
+      );
+    }
 
     // Fetch agent
     const agent = await db.agent.findFirst({ where: { id: agentId, tenantId } });
@@ -150,11 +242,12 @@ export async function POST(req: NextRequest) {
     // ─── Session loading (stateful flow) ─────────────────────────────────
     // For stateful calls (sessionId present): load prior messages, persist agentVersionId
     // on the session if not yet set, and append the incoming user turn(s).
-    let priorMessages: Array<{ role: string; content: string }> = [];
+    let priorMessages: Array<{ role: string; content: string; attachments: MessageAttachment[] }> = [];
 
     if (sessionId) {
       const session = await sessionService.findActiveById(sessionId);
       if (!session) {
+        logger.warn({ tenantId, apiKeyId, sessionId }, 'Session not found or expired');
         return new Response(
           JSON.stringify({ error: { type: 'session_expired', message: 'Session not found, ended, or idle-expired' } }),
           { status: 410 }
@@ -164,7 +257,14 @@ export async function POST(req: NextRequest) {
       priorMessages = (session.messages ?? []).map((m) => ({
         role: m.role,
         content: m.content,
+        attachments: (m.attachments as MessageAttachment[]) ?? [],
       }));
+
+      const priorAttachmentCount = priorMessages.reduce((sum, m) => sum + m.attachments.length, 0);
+      logger.info(
+        { sessionId, priorTurns: priorMessages.length, priorAttachmentCount },
+        'Session loaded — prior messages retrieved',
+      );
 
       // Lock the session to this agent version (idempotent)
       if (!session.agentVersionId) {
@@ -175,18 +275,50 @@ export async function POST(req: NextRequest) {
       }
 
       // Append the inbound user turn(s) to the session before invoking the model
-      for (const msg of messages) {
+      for (const msg of normalizedMessages) {
         if (msg.role === 'user') {
           await sessionService.appendMessage(sessionId, {
             role: 'user',
-            content: msg.content ?? '',
+            content: msg.content,
+            ...(msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
           });
         }
       }
     }
 
     // Compose the prompt: prior session turns (if stateful) + the inbound turn(s).
-    const sessionMessages = sessionId ? [...priorMessages, ...messages] : messages;
+    // Resolve multimodal content — files are fetched from S3 only for the current turn.
+    const allMessages = sessionId ? [...priorMessages, ...normalizedMessages] : normalizedMessages;
+    const currentTurnIndex = allMessages.length - 1;
+
+    const storedMessages = allMessages.map((m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+      attachments: m.attachments ?? [],
+    }));
+
+    logger.info(
+      { tenantId, apiKeyId, sessionId, totalTurns: allMessages.length, currentTurnIndex },
+      'Resolving multimodal content before LLM invocation',
+    );
+
+    const resolveStartTime = Date.now();
+    const resolvedMessages = await contentResolver.resolve(storedMessages, currentTurnIndex);
+    const resolveMs = Date.now() - resolveStartTime;
+
+    const sessionMessages = resolvedMessages.map((m) => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content : m.content.map((p) => {
+        if (p.type === 'text') return { type: 'text' as const, text: p.text };
+        return { type: 'image' as const, image: p.image, mimeType: p.mimeType };
+      }),
+    }));
+
+    const hasMultimodalContent = resolvedMessages.some((m) => Array.isArray(m.content));
+    logger.info(
+      { tenantId, apiKeyId, sessionId, resolveMs, hasMultimodalContent, resolvedTurns: resolvedMessages.length },
+      'Content resolution complete — ready for LLM',
+    );
 
     // Create execution row, linked to session for stateful runs
     const execution = await db.apiKeyExecution.create({
@@ -263,7 +395,10 @@ export async function POST(req: NextRequest) {
         content: m.content ?? '',
       }));
 
-      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const lastUserContent = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      const userQuery = typeof lastUserContent === 'string'
+        ? lastUserContent
+        : (lastUserContent as Array<{ type: string; text?: string }>).filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ');
       const kbContext = await buildKbContext(agentId, tenantId, userQuery, db);
 
       const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
@@ -389,6 +524,12 @@ export async function POST(req: NextRequest) {
               controller.close();
             } catch (err) {
               const error = err instanceof Error ? err : new Error(String(err));
+              await mcpCleanup();
+              await db.apiKeyExecution.update({
+                where: { id: executionId },
+                data: { status: 'failed', output: { error: error.message }, completedAt: new Date() },
+              }).catch(() => {});
+              await deliverWebhook('failed', undefined, error.message).catch(() => {});
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`)
               );

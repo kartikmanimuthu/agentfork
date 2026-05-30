@@ -43,6 +43,7 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.0.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/turndown": "^5.0.5",

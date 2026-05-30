@@ -7,9 +7,10 @@ import {
   createLogger,
   TenantConfigService,
   LlmProviderService,
+  S3Service,
   playgroundRequestSchema,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 400 }
       );
     }
-    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId } = parsed.data;
+    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId, attachments: topLevelAttachments } = parsed.data;
     const { alias } = parsed.data;
 
     // Fetch agent
@@ -148,12 +149,60 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await provider.validate();
       logger.info({ requestId }, 'Provider validation passed');
 
-      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }>; data?: { attachments?: MessageAttachment[] } }>).map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content ?? m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') ?? '',
+        attachments: (m.data?.attachments ?? []) as MessageAttachment[],
       }));
 
-      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      // Top-level attachments (sent via useChat per-call body) apply to the current (last) turn.
+      if (topLevelAttachments && topLevelAttachments.length > 0 && coreMessages.length > 0) {
+        coreMessages[coreMessages.length - 1].attachments = topLevelAttachments as MessageAttachment[];
+      }
+
+      logger.debug(
+        {
+          requestId,
+          rawMessages: coreMessages.map((m) => ({ role: m.role, hasContent: !!m.content, attachmentCount: m.attachments.length })),
+          topLevelAttachmentCount: topLevelAttachments?.length ?? 0,
+        },
+        'Parsed messages from request body',
+      );
+
+      // Resolve multimodal content — fetch files from S3 for the current turn
+      const s3 = new S3Service();
+      const contentResolver = new ContentResolver(s3);
+      const currentTurnIndex = coreMessages.length - 1;
+      const hasAttachments = coreMessages.some((m) => m.attachments.length > 0);
+
+      let resolvedCoreMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string | Array<{ type: string; text?: string; image?: string; mimeType?: string }> }>;
+
+      if (hasAttachments) {
+        logger.info(
+          { requestId, currentTurnIndex, attachmentCount: coreMessages[currentTurnIndex]?.attachments.length ?? 0 },
+          'Resolving multimodal attachments for playground',
+        );
+        const storedMessages = coreMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments,
+        }));
+        const resolved = await contentResolver.resolve(storedMessages, currentTurnIndex);
+        resolvedCoreMessages = resolved.map((m) => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : m.content.map((p) => {
+            if (p.type === 'text') return { type: 'text' as const, text: p.text };
+            return { type: 'image' as const, image: p.image, mimeType: p.mimeType };
+          }),
+        }));
+      } else {
+        resolvedCoreMessages = coreMessages.map((m) => ({ role: m.role, content: m.content }));
+      }
+
+      const userQuery = typeof resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content === 'string'
+        ? resolvedCoreMessages[resolvedCoreMessages.length - 1].content as string
+        : (resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content as Array<{ type: string; text?: string }>)
+            ?.filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ') ?? '';
       const kbContext = await buildKbContext(id, tenantId, userQuery, db);
 
       // Discover MCP tools attached to this agent
@@ -168,17 +217,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
+      logger.info({ requestId, executionId: execution.id, messageCount: resolvedCoreMessages.length, hasKbContext: !!kbContext, hasMcpTools, hasAttachments }, 'Starting stream chat');
 
       const startTime = Date.now();
 
       const result = streamChat({
         provider,
-        messages: coreMessages,
+        messages: resolvedCoreMessages as any,
         model: effectiveModel,
         system: effectiveSystem,
         temperature: effectiveTemperature,
-        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
+        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? undefined,
         ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
@@ -201,6 +250,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           'x-execution-id': execution.id,
           'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
           'x-request-timestamp': String(startTime),
+        },
+        // By default AI SDK masks errors as "An error occurred". Surface the real
+        // message (e.g. unsupported model, token limit) so it reaches the UI.
+        onError: (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error({ requestId, executionId: execution.id, errorMessage: message }, 'Stream chat failed');
+          void mcpCleanup();
+          void db.agentExecution.update({
+            where: { id: execution.id },
+            data: { status: 'failed', error: message, completedAt: new Date() },
+          }).catch(() => {});
+          return message;
         },
       });
     }

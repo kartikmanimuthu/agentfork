@@ -37,6 +37,15 @@ export const playgroundMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
   content: z.string().optional(),
   parts: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
+  data: z.object({
+    attachments: z.array(z.object({
+      fileId: z.string(),
+      s3Key: z.string(),
+      mimeType: z.string(),
+      fileName: z.string(),
+      size: z.number(),
+    })).optional(),
+  }).optional(),
 }).refine((data) => Boolean(data.content || data.parts?.length), {
   message: 'Message content or parts is required',
 });
@@ -49,6 +58,13 @@ export const playgroundRequestSchema = z.object({
   maxTokens: z.number().int().min(1).max(100000).optional(),
   agentVersionId: z.string().optional(),
   alias: z.string().optional(),
+  attachments: z.array(z.object({
+    fileId: z.string(),
+    s3Key: z.string(),
+    mimeType: z.string(),
+    fileName: z.string(),
+    size: z.number(),
+  })).optional(),
 });
 
 // ─── MCP Server schemas ───────────────────────────────────────────────────────

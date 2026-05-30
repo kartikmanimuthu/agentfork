@@ -197,11 +197,18 @@ export function usePlayground({
   const setMessages = agentType === 'simple' ? setAiMessages : setGraphMessages;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachments?: Array<{ fileId: string; s3Key: string; mimeType: string; fileName: string; size: number }>) => {
       if (!agentId) return;
 
       if (agentType === 'simple') {
-        sendMessage({ text: content });
+        // Pass attachments via the per-call body option. useChat merges this into the
+        // request body at the top level and correctly parses the AI SDK v6 UI-message
+        // stream response (manual SSE parsing broke because it assumed the v3 protocol).
+        if (attachments && attachments.length > 0) {
+          sendMessage({ text: content }, { body: { attachments } });
+        } else {
+          sendMessage({ text: content });
+        }
         return;
       }
 
