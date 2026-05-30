@@ -1048,7 +1048,7 @@ new aws.iam.RolePolicy("workers-rds-connect-policy", {
 const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task-def", {
     family: `${appName}-ephemeral-worker-task`,
     cpu: "1024",
-    memory: "2048",
+    memory: "4096",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1092,6 +1092,7 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
             { name: "LOG_LEVEL", value: "info" },
             { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
             { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
+            { name: "CRAWLEE_MEMORY_MBYTES", value: "3072" },
         ],
     }])),
 }, { retainOnDelete: true });
@@ -1145,7 +1146,7 @@ const workersSecurityGroup = new aws.ec2.SecurityGroup("workers-sg", {
 const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
     family: `${appName}-workers-task`,
     cpu: "1024",
-    memory: "2048",
+    memory: "4096",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -1200,6 +1201,7 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
             { name: "TASK_TIMEOUT_MS", value: "900000" },
             { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
             { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
+            { name: "CRAWLEE_MEMORY_MBYTES", value: "3072" },
         ],
     }])),
 }, { retainOnDelete: true });
