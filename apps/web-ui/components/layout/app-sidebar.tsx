@@ -59,6 +59,7 @@ import {
   Code2,
   Palette,
   Play,
+  Plug,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
@@ -89,7 +90,6 @@ const settingsNav = [
   { name: 'Overview', href: '/settings', icon: Settings },
   { name: 'Members', href: '/settings/members', icon: Users },
   { name: 'Roles & Permissions', href: '/settings/roles', icon: Shield },
-  { name: 'WhatsApp', href: '/settings/channels/whatsapp', icon: WhatsAppIcon },
 ];
 
 const sdksNav = [
@@ -98,6 +98,8 @@ const sdksNav = [
     { name: 'Sandbox', href: '/sdks/chat-widget/sandbox', icon: Play },
   ]},
 ];
+
+
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -125,6 +127,8 @@ export function AppSidebar() {
 
   const isSdksActive = pathname === '/sdks' || pathname.startsWith('/sdks/');
   const [sdksOpen, setSdksOpen] = useState(isSdksActive);
+
+  const isConnectorsActive = pathname === '/connectors' || pathname.startsWith('/connectors/') || pathname.startsWith('/settings/channels/');
 
   const getUserInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -322,6 +326,22 @@ export function AppSidebar() {
                 </CollapsibleContent>
               </SidebarMenuItem>
             </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Connectors</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isConnectorsActive}
+                tooltip="Connectors"
+                onClick={() => router.push('/connectors')}
+              >
+                <Plug className="size-4" />
+                <span>Connectors</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
