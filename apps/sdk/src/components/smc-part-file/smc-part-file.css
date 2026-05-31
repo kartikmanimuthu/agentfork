@@ -1,0 +1,104 @@
+:host { display: block; }
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--smc-space-3);
+  padding: var(--smc-space-3);
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-md);
+  background: var(--smc-surface);
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--smc-radius-sm);
+  position: relative;
+  background: var(--smc-surface-2);
+}
+
+.icon::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--smc-fs-xs);
+  font-weight: var(--smc-fw-bold);
+  color: #fff;
+}
+
+.icon.pdf { background: var(--smc-error); }
+.icon.pdf::after { content: 'PDF'; }
+.icon.sheet { background: var(--smc-success); }
+.icon.sheet::after { content: 'XLS'; }
+.icon.generic { background: var(--smc-text-muted); }
+.icon.generic::after { content: 'FILE'; font-size: 9px; }
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--smc-space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font: var(--smc-fw-medium) var(--smc-fs-sm) var(--smc-font);
+  color: var(--smc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  font-size: var(--smc-fs-xs);
+  color: var(--smc-text-faint);
+}
+
+.download {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--smc-radius-full);
+  background: var(--smc-primary);
+  color: var(--smc-primary-fg);
+  text-decoration: none;
+  font-size: var(--smc-fs-lg);
+  transition: transform var(--smc-dur-fast) var(--smc-ease);
+}
+
+.download:hover { transform: scale(1.08); }
+
+.file.error {
+  gap: var(--smc-space-2);
+  border-color: var(--smc-error);
+}
+
+.file.error .msg {
+  flex: 1;
+  font-size: var(--smc-fs-sm);
+  color: var(--smc-error);
+}
+
+.retry {
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-sm);
+  background: var(--smc-surface);
+  color: var(--smc-text);
+  padding: var(--smc-space-1) var(--smc-space-3);
+  font: var(--smc-fw-medium) var(--smc-fs-sm) var(--smc-font);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
