@@ -1,4 +1,4 @@
-import type { ModelMessage, LanguageModelUsage, ToolSet } from 'ai';
+import type { ModelMessage, LanguageModelUsage, ToolSet, TextStreamPart } from 'ai';
 import type { ProviderName } from './types';
 
 export interface BaseStreamChatOptions {
@@ -20,6 +20,8 @@ export interface StreamChatResult {
   text: PromiseLike<string>;
   usage: PromiseLike<LanguageModelUsage>;
   textStream: AsyncIterable<string>;
+  /** Full typed event stream: text-delta, tool-call, tool-result, finish, error, … */
+  fullStream: AsyncIterable<TextStreamPart<ToolSet>>;
 }
 
 export interface LLMProvider {
