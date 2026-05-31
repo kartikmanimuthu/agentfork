@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAgent } from '@/hooks/use-agents';
 import { useAgentVersions, usePublishAgent } from '@/hooks/use-agent-versions';
 import { AgentCanvas } from '@/components/agents/canvas/agent-canvas';
+import { WorkflowCanvas } from '@/components/agents/workflow/workflow-canvas';
 import { SimpleAgentForm } from '@/components/agents/config/simple-agent-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -223,6 +224,7 @@ export default function AgentDetailPage() {
           <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="workflow">Workflow</TabsTrigger>
         </TabsList>
         <TabsContent value="configuration">
           <Card>
@@ -266,6 +268,13 @@ export default function AgentDetailPage() {
               <ApiKeyTable keys={keys} loading={keysLoading} onRevoke={revokeKey} />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="workflow">
+          <WorkflowCanvas
+            agentId={agentId}
+            initialActive={false}
+            initialShowThinking={(agent as any).showThinking !== false}
+          />
         </TabsContent>
       </Tabs>
     </div>
