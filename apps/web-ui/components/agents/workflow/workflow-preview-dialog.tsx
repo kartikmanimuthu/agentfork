@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import type { WorkflowDefinition } from '@chatbot/shared';
+import type { WorkflowDefinition } from '@chatbot/shared/client';
 
 interface Props { agentId: string; getDefinition: () => WorkflowDefinition }
 

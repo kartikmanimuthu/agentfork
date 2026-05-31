@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import type { GraphNode, MenuOption } from '@chatbot/shared';
+import type { GraphNode, MenuOption } from '@chatbot/shared/client';
 
 interface Props {
   node: GraphNode | null;

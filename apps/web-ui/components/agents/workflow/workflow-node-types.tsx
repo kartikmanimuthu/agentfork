@@ -1,6 +1,6 @@
 'use client';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { MenuOption } from '@chatbot/shared';
+import type { MenuOption } from '@chatbot/shared/client';
 
 export function MenuNode({ data }: NodeProps) {
   const d = data as { title?: string; options?: MenuOption[] };
