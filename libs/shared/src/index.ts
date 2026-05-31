@@ -56,3 +56,23 @@ export type { SubmitCsatInput } from './services/csat-service';
 
 // Validation
 export * from './validation';
+
+// Workflow
+export {
+  workflowDefinitionSchema,
+  workflowNodeSchema,
+  workflowTransitionSchema,
+  workflowCursorSchema,
+  type WorkflowDefinition,
+  type WorkflowNode,
+  type WorkflowTransition,
+  type WorkflowCursor,
+  type MenuOption,
+} from './workflow/workflow-types';
+
+export {
+  WorkflowEngine,
+  type FileRefResolver,
+  type WorkflowStreamEvent,
+  type ResolveResult,
+} from './workflow/workflow-engine';
