@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Connection, type Node, type Edge, type OnConnect,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { graphToDefinition, definitionToGraph, validateGraph, type GraphNode } from '@chatbot/shared';
+import { graphToDefinition, definitionToGraph, validateGraph, type GraphNode } from '@chatbot/shared/client';
 import { workflowNodeTypes } from './workflow-node-types';
 import { WorkflowPalette } from './workflow-palette';
 import { WorkflowInspector } from './workflow-inspector';
@@ -42,6 +42,11 @@ export function WorkflowCanvas({ agentId, initialActive, initialShowThinking }: 
         setRfEdges(g.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined })));
         setActive(!!wf.isActive);
       }
+    }).catch(() => {});
+    // Self-heal showThinking from the agent record — the parent may seed it from a
+    // partial agent projection (e.g. the widget list omits showThinking).
+    fetch(`/api/agents/${agentId}`).then((r) => r.json()).then((agent) => {
+      if (agent && typeof agent.showThinking === 'boolean') setShowThinking(agent.showThinking);
     }).catch(() => {});
   }, [agentId, setRfNodes, setRfEdges]);
 
