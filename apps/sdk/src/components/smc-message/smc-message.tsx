@@ -1,4 +1,4 @@
-import { Component, Prop, h } from '@stencil/core';
+import { Component, Prop, Event, EventEmitter, h } from '@stencil/core';
 import type { Message } from '../../types';
 
 @Component({
@@ -9,6 +9,7 @@ import type { Message } from '../../types';
 export class SmcMessage {
   @Prop() message!: Message;
   @Prop() showFeedback = false;
+  @Event() messageRetry!: EventEmitter<string>;
 
   render() {
     const m = this.message;
@@ -21,7 +22,7 @@ export class SmcMessage {
             <smc-message-part partData={part} key={i}></smc-message-part>
           ))}
           {m.status === 'error' ? (
-            <button class="retry" type="button">Retry</button>
+            <button class="retry" type="button" onClick={() => this.messageRetry.emit(m.id)}>Retry</button>
           ) : null}
         </div>
         {!isUser && m.status === 'complete' && this.showFeedback ? (

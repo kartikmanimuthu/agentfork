@@ -124,7 +124,7 @@ export class SmcChatWidget {
 
     const cssVars = {
       '--smc-primary': config.primaryColor,
-      '--smc-primary-hover': config.primaryColor,
+      '--smc-primary-hover': `color-mix(in srgb, ${config.primaryColor} 85%, black)`,
       '--smc-primary-faint': `color-mix(in srgb, ${config.primaryColor} 8%, transparent)`,
       '--smc-primary-gradient': `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`,
       '--smc-accent': config.secondaryColor,

@@ -20,7 +20,27 @@ export class SmcPartFile {
   @Prop() partData!: { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number };
   @State() failed = false;
 
-  private onError = () => { this.failed = true; };
+  // Fetch the file as a blob so a genuine load failure is observable (an `error`
+  // event never fires on a download anchor), surfacing the retry affordance.
+  private handleDownload = async (e: MouseEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(this.partData.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = this.partData.name;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+      this.failed = false;
+    } catch (err) {
+      console.error('[smc-widget] file download failed', err);
+      this.failed = true;
+    }
+  };
+
   private retry = () => { this.failed = false; };
 
   render() {
@@ -44,7 +64,7 @@ export class SmcPartFile {
           class="download"
           href={this.partData.url}
           download={this.partData.name}
-          onError={this.onError}
+          onClick={this.handleDownload}
           aria-label={`Download ${this.partData.name}`}
         >↓</a>
       </div>

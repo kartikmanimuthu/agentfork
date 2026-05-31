@@ -83,6 +83,10 @@ export namespace Components {
     interface SmcTypingIndicator {
     }
 }
+export interface SmcMessageCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLSmcMessageElement;
+}
 export interface SmcPartCardCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLSmcPartCardElement;
@@ -156,7 +160,18 @@ declare global {
         prototype: HTMLSmcMarkdownElement;
         new (): HTMLSmcMarkdownElement;
     };
+    interface HTMLSmcMessageElementEventMap {
+        "messageRetry": string;
+    }
     interface HTMLSmcMessageElement extends Components.SmcMessage, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLSmcMessageElementEventMap>(type: K, listener: (this: HTMLSmcMessageElement, ev: SmcMessageCustomEvent<HTMLSmcMessageElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLSmcMessageElementEventMap>(type: K, listener: (this: HTMLSmcMessageElement, ev: SmcMessageCustomEvent<HTMLSmcMessageElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
     }
     var HTMLSmcMessageElement: {
         prototype: HTMLSmcMessageElement;
@@ -338,6 +353,7 @@ declare namespace LocalJSX {
     }
     interface SmcMessage {
         "message": Message;
+        "onMessageRetry"?: (event: SmcMessageCustomEvent<string>) => void;
         /**
           * @default false
          */

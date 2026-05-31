@@ -23,6 +23,24 @@ export class SmcMessageList {
     window.dispatchEvent(new CustomEvent('smc:send', { detail: e.detail }));
   }
 
+  // Retry re-sends the user message that preceded the errored assistant turn.
+  @Listen('messageRetry')
+  handleMessageRetry(e: CustomEvent<string>) {
+    const erroredId = e.detail;
+    const msgs = state.messages;
+    const idx = msgs.findIndex((m) => m.id === erroredId);
+    if (idx === -1) return;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') {
+        const textPart = msgs[i].parts.find((p) => p.type === 'text');
+        if (textPart && textPart.type === 'text') {
+          window.dispatchEvent(new CustomEvent('smc:send', { detail: textPart.text }));
+        }
+        return;
+      }
+    }
+  }
+
   componentDidLoad() {
     this.scrollToBottom();
     onChange('messages', () => {
