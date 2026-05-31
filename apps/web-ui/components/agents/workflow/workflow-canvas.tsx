@@ -67,6 +67,12 @@ export function WorkflowCanvas({ agentId, initialActive, initialShowThinking }: 
     setRfNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data } : n)));
   }, [setRfNodes]);
 
+  const handleDeleteNode = useCallback((id: string) => {
+    setRfNodes((nds) => nds.filter((n) => n.id !== id));
+    setRfEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+    setSelectedId((cur) => (cur === id ? null : cur));
+  }, [setRfNodes, setRfEdges]);
+
   const buildGraph = useCallback(() => {
     const nodes = rfNodes.map(toGraphNode);
     const edges = rfEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? null }));
@@ -121,7 +127,7 @@ export function WorkflowCanvas({ agentId, initialActive, initialShowThinking }: 
             <Background /><Controls /><MiniMap zoomable pannable />
           </ReactFlow>
         </div>
-        <WorkflowInspector node={selectedNode ? toGraphNode(selectedNode) : null} onChange={onInspectorChange} onClose={() => setSelectedId(null)} />
+        <WorkflowInspector node={selectedNode ? toGraphNode(selectedNode) : null} onChange={onInspectorChange} onDelete={handleDeleteNode} onClose={() => setSelectedId(null)} />
       </div>
     </div>
   );

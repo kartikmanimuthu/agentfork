@@ -8,10 +8,11 @@ import type { GraphNode, MenuOption } from '@chatbot/shared/client';
 interface Props {
   node: GraphNode | null;
   onChange: (id: string, data: GraphNode['data']) => void;
+  onDelete: (id: string) => void;
   onClose: () => void;
 }
 
-export function WorkflowInspector({ node, onChange, onClose }: Props) {
+export function WorkflowInspector({ node, onChange, onDelete, onClose }: Props) {
   if (!node) return <div className="w-72 border-l p-4 text-sm text-muted-foreground">Select a node to edit.</div>;
   const d = node.data;
   const set = (patch: Partial<GraphNode['data']>) => onChange(node.id, { ...d, ...patch });
@@ -58,6 +59,12 @@ export function WorkflowInspector({ node, onChange, onClose }: Props) {
         <div className="space-y-1"><Label>File reference</Label>
           <Input value={d.fileRef ?? ''} onChange={(e) => set({ fileRef: e.target.value })} placeholder="s3://… or /path" /></div>
       )}
+
+      <div className="pt-3 border-t">
+        <Button variant="destructive" size="sm" className="w-full" onClick={() => onDelete(node.id)}>
+          Delete node
+        </Button>
+      </div>
     </div>
   );
 }
