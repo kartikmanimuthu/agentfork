@@ -36,6 +36,31 @@ export {
   type ResolvedContent,
 } from './content-resolver';
 
+export {
+  type StreamEvent,
+  type MessagePart,
+  type MessagePartType,
+  type ThinkingStep,
+  type MenuOption,
+  type CardButton,
+  toSseFrame,
+} from './stream-events';
+
+export { toolLabel } from './tool-label';
+
+export { PartStreamEmitter, isFileGenTool } from './part-stream-emitter';
+
+export {
+  generateSpreadsheet,
+  generatePdf,
+  type FileUploader,
+  type FilePart,
+  type FileGenResult,
+  type SpreadsheetInput,
+  type SheetDef,
+  type PdfInput,
+} from './file-generation';
+
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.
 export { getBedrockProvider } from './bedrock-client';
