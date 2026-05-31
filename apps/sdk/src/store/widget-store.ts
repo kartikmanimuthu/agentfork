@@ -1,5 +1,5 @@
 import { createStore } from '@stencil/store';
-import type { WidgetState, Message, KbArticle, SdkWidgetConfig, SessionInfo } from '../types';
+import type { WidgetState, Message, MessagePart, ThinkingStep, KbArticle, SdkWidgetConfig, SessionInfo } from '../types';
 
 const { state, onChange, reset } = createStore<WidgetState>({
   config: null,
@@ -39,21 +39,66 @@ export function addMessage(message: Message) {
   state.messages = [...state.messages, message];
 }
 
-export function updateLastMessage(content: string) {
+function patchMessage(messageId: string, fn: (m: Message) => Message) {
+  const idx = state.messages.findIndex((m) => m.id === messageId);
+  if (idx === -1) return;
   const msgs = [...state.messages];
-  const last = msgs[msgs.length - 1];
-  if (last && last.role === 'assistant') {
-    msgs[msgs.length - 1] = { ...last, content, status: 'streaming' };
-    state.messages = msgs;
-  }
+  msgs[idx] = fn(msgs[idx]);
+  state.messages = msgs;
+}
+
+export function appendPart(messageId: string, part: MessagePart) {
+  patchMessage(messageId, (m) => ({ ...m, status: 'streaming', parts: [...m.parts, part] }));
+}
+
+export function appendTokenToPart(messageId: string, partIndex: number, content: string) {
+  patchMessage(messageId, (m) => {
+    const parts = [...m.parts];
+    const p = parts[partIndex];
+    if (p && p.type === 'text') parts[partIndex] = { ...p, text: p.text + content };
+    return { ...m, parts };
+  });
+}
+
+export function upsertThinkingStep(messageId: string, partIndex: number, step: ThinkingStep) {
+  patchMessage(messageId, (m) => {
+    const parts = [...m.parts];
+    const p = parts[partIndex];
+    if (p && p.type === 'thinking') {
+      const steps = [...p.steps];
+      const i = steps.findIndex((s) => s.id === step.id);
+      if (i === -1) steps.push(step);
+      else steps[i] = { ...steps[i], ...step };
+      parts[partIndex] = { ...p, steps };
+    }
+    return { ...m, parts };
+  });
+}
+
+export function completePart(messageId: string, partIndex: number) {
+  patchMessage(messageId, (m) => {
+    const parts = [...m.parts];
+    const p = parts[partIndex];
+    if (p && p.type === 'thinking') parts[partIndex] = { ...p, status: 'done' };
+    return { ...m, parts };
+  });
 }
 
 export function finalizeLastMessage(messageId: string) {
-  const msgs = [...state.messages];
-  const last = msgs[msgs.length - 1];
+  const last = state.messages[state.messages.length - 1];
   if (last && last.role === 'assistant') {
-    msgs[msgs.length - 1] = { ...last, id: messageId, status: 'sent' };
-    state.messages = msgs;
+    patchMessage(last.id, (m) => ({ ...m, id: messageId, status: 'complete' }));
+  }
+}
+
+export function markLastMessageError(text = 'Sorry, something went wrong. Please try again.') {
+  const last = state.messages[state.messages.length - 1];
+  if (last && last.role === 'assistant') {
+    patchMessage(last.id, (m) => ({
+      ...m,
+      status: 'error',
+      parts: m.parts.length ? m.parts : [{ type: 'text', text }],
+    }));
   }
 }
 
