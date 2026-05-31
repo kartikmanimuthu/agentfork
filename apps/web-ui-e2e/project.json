@@ -3,6 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "implicitDependencies": ["web-ui"],
+  "tags": ["scope:web-ui", "type:e2e"],
   "targets": {
     "e2e": {
       "executor": "nx:run-commands",
@@ -12,10 +13,100 @@
         "cwd": "apps/web-ui-e2e"
       }
     },
+    "e2e:dev": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
     "e2e:ui": {
       "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
       "options": {
         "command": "bunx playwright test --ui",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "codegen": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx playwright codegen http://localhost:3005",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:auth": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @auth",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:sso": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @sso",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:marketing": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @marketing",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:docs": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @docs",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:navigation": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @navigation",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:api": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @inference-api",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:smoke": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @smoke",
+        "cwd": "apps/web-ui-e2e"
+      }
+    },
+    "e2e:regression": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "bunx playwright test --grep @regression",
         "cwd": "apps/web-ui-e2e"
       }
     }

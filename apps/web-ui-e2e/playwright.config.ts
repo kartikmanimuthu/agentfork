@@ -1,16 +1,26 @@
 import { defineConfig, devices } from '@playwright/test';
-import path from 'path';
+import path from 'node:path';
+import { env } from './src/config/env';
 
 export default defineConfig({
   testDir: './src',
   outputDir: './test-results',
   fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  forbidOnly: !!env.CI,
+  retries: env.CI ? 2 : 0,
   workers: 1,
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  timeout: 90_000,
+  grep: env.E2E_GREP ? new RegExp(env.E2E_GREP) : undefined,
+  grepInvert: env.E2E_GREP_INVERT ? new RegExp(env.E2E_GREP_INVERT) : undefined,
+  reporter: env.CI
+    ? [
+        ['list'],
+        ['html', { outputFolder: 'playwright-report', open: 'never' }],
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+      ]
+    : [['html', { outputFolder: 'playwright-report' }], ['list']],
   use: {
-    baseURL: 'http://localhost:3005',
+    baseURL: env.BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -18,7 +28,7 @@ export default defineConfig({
   projects: [
     {
       name: 'setup',
-      testMatch: /auth\.setup\.ts/,
+      testMatch: /setup\/auth\.setup\.ts/,
     },
     {
       name: 'chromium',
@@ -27,15 +37,14 @@ export default defineConfig({
         storageState: path.join(__dirname, 'src/.auth/session.json'),
       },
       dependencies: ['setup'],
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: /setup\/auth\.setup\.ts/,
     },
   ],
 
   webServer: {
-    command:
-      'cd ../web-ui && NEXTAUTH_SECRET=test-secret-for-e2e NEXTAUTH_URL=http://localhost:3005 bun run start',
-    url: 'http://localhost:3005',
-    reuseExistingServer: !process.env.CI,
+    command: 'cd ../.. && bun run dev:all',
+    url: env.BASE_URL,
+    reuseExistingServer: !env.CI,
     timeout: 120_000,
   },
 });

@@ -1,6 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/base';
+import { TAG } from '../../constants/tags';
 
-test.describe('Inference API', () => {
+test.describe('Inference API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke, TAG.critical] }, () => {
   test('should reject request without API key', async ({ request }) => {
     const response = await request.post('/api/v1/inference', {
       data: { messages: [{ role: 'user', content: 'Hello' }] },
@@ -26,7 +27,7 @@ test.describe('Inference API', () => {
   });
 });
 
-test.describe('Inference Sessions API', () => {
+test.describe('Inference Sessions API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke, TAG.critical] }, () => {
   test('POST /sessions rejects without API key', async ({ request }) => {
     const response = await request.post('/api/v1/inference/sessions', {
       data: { name: 'test', channel: 'API' },
@@ -55,7 +56,7 @@ test.describe('Inference Sessions API', () => {
   });
 });
 
-test.describe('Sessions Dashboard API', () => {
+test.describe('Sessions Dashboard API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke, TAG.critical] }, () => {
   test('GET /api/sessions rejects unauthenticated', async ({ request }) => {
     const response = await request.get('/api/sessions');
     // Either 401 (unauthenticated) or 403 (signed in but no role) — both acceptable.
@@ -63,7 +64,7 @@ test.describe('Sessions Dashboard API', () => {
   });
 });
 
-test.describe('Inferences Dashboard API', () => {
+test.describe('Inferences Dashboard API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke, TAG.critical] }, () => {
   test('GET /api/inferences rejects unauthenticated', async ({ request }) => {
     const response = await request.get('/api/inferences');
     expect([401, 403]).toContain(response.status());
