@@ -77,9 +77,6 @@ export namespace Components {
     }
     interface SmcQuickReplies {
     }
-    interface SmcRichCard {
-        "cardData": string;
-    }
     interface SmcTimestamp {
         "timestamp": string;
     }
@@ -264,12 +261,6 @@ declare global {
         prototype: HTMLSmcQuickRepliesElement;
         new (): HTMLSmcQuickRepliesElement;
     };
-    interface HTMLSmcRichCardElement extends Components.SmcRichCard, HTMLStencilElement {
-    }
-    var HTMLSmcRichCardElement: {
-        prototype: HTMLSmcRichCardElement;
-        new (): HTMLSmcRichCardElement;
-    };
     interface HTMLSmcTimestampElement extends Components.SmcTimestamp, HTMLStencilElement {
     }
     var HTMLSmcTimestampElement: {
@@ -305,7 +296,6 @@ declare global {
         "smc-pre-chat-form": HTMLSmcPreChatFormElement;
         "smc-proactive-engine": HTMLSmcProactiveEngineElement;
         "smc-quick-replies": HTMLSmcQuickRepliesElement;
-        "smc-rich-card": HTMLSmcRichCardElement;
         "smc-timestamp": HTMLSmcTimestampElement;
         "smc-typing-indicator": HTMLSmcTypingIndicatorElement;
     }
@@ -385,9 +375,6 @@ declare namespace LocalJSX {
     interface SmcQuickReplies {
         "onSmcQuickReply"?: (event: SmcQuickRepliesCustomEvent<{ text: string }>) => void;
     }
-    interface SmcRichCard {
-        "cardData": string;
-    }
     interface SmcTimestamp {
         "timestamp": string;
     }
@@ -414,9 +401,6 @@ declare namespace LocalJSX {
     }
     interface SmcMessageAttributes {
         "showFeedback": boolean;
-    }
-    interface SmcRichCardAttributes {
-        "cardData": string;
     }
     interface SmcTimestampAttributes {
         "timestamp": string;
@@ -445,7 +429,6 @@ declare namespace LocalJSX {
         "smc-pre-chat-form": SmcPreChatForm;
         "smc-proactive-engine": SmcProactiveEngine;
         "smc-quick-replies": SmcQuickReplies;
-        "smc-rich-card": Omit<SmcRichCard, keyof SmcRichCardAttributes> & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes]?: SmcRichCard[K] } & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes as `attr:${K}`]?: SmcRichCardAttributes[K] } & { [K in keyof SmcRichCard & keyof SmcRichCardAttributes as `prop:${K}`]?: SmcRichCard[K] } & OneOf<"cardData", SmcRichCard["cardData"], SmcRichCardAttributes["cardData"]>;
         "smc-timestamp": Omit<SmcTimestamp, keyof SmcTimestampAttributes> & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes]?: SmcTimestamp[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `attr:${K}`]?: SmcTimestampAttributes[K] } & { [K in keyof SmcTimestamp & keyof SmcTimestampAttributes as `prop:${K}`]?: SmcTimestamp[K] } & OneOf<"timestamp", SmcTimestamp["timestamp"], SmcTimestampAttributes["timestamp"]>;
         "smc-typing-indicator": SmcTypingIndicator;
     }
@@ -476,7 +459,6 @@ declare module "@stencil/core" {
             "smc-pre-chat-form": LocalJSX.IntrinsicElements["smc-pre-chat-form"] & JSXBase.HTMLAttributes<HTMLSmcPreChatFormElement>;
             "smc-proactive-engine": LocalJSX.IntrinsicElements["smc-proactive-engine"] & JSXBase.HTMLAttributes<HTMLSmcProactiveEngineElement>;
             "smc-quick-replies": LocalJSX.IntrinsicElements["smc-quick-replies"] & JSXBase.HTMLAttributes<HTMLSmcQuickRepliesElement>;
-            "smc-rich-card": LocalJSX.IntrinsicElements["smc-rich-card"] & JSXBase.HTMLAttributes<HTMLSmcRichCardElement>;
             "smc-timestamp": LocalJSX.IntrinsicElements["smc-timestamp"] & JSXBase.HTMLAttributes<HTMLSmcTimestampElement>;
             "smc-typing-indicator": LocalJSX.IntrinsicElements["smc-typing-indicator"] & JSXBase.HTMLAttributes<HTMLSmcTypingIndicatorElement>;
         }
