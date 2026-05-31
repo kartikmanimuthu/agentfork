@@ -26,7 +26,7 @@ export class PartStreamEmitter {
   private textIndex: number | null = null;
   private stepByToolCallId = new Map<string, string>();
 
-  constructor(private readonly messageId: string) {}
+  constructor(private readonly messageId: string, private readonly opts: { showThinking?: boolean } = {}) {}
 
   private seed(t: MessagePart['type']): MessagePart {
     if (t === 'thinking') return { type: 'thinking', status: 'active', steps: [] };
@@ -59,6 +59,7 @@ export class PartStreamEmitter {
 
   private onToolCall(chunk: { toolCallId: string; toolName: string }): StreamEvent[] {
     if (isFileGenTool(chunk.toolName)) return [];
+    if (this.opts.showThinking === false) return [];
     const events: StreamEvent[] = [];
     if (this.thinkingIndex === null) {
       events.push(this.startEvent('thinking'));

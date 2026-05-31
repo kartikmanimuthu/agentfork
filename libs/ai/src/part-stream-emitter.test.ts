@@ -81,4 +81,21 @@ describe('PartStreamEmitter', () => {
     expect(emitter.parts).toEqual([{ type: 'text', text: 'hi' }]);
     expect(emitter.usage).toEqual({ inputTokens: 1, outputTokens: 1, totalTokens: 2 });
   });
+
+  it('with showThinking:false, suppresses thinking events and text becomes partIndex 0', async () => {
+    async function* g(chunks: any[]) { for (const c of chunks) yield c; }
+    const emitter = new PartStreamEmitter('m1', { showThinking: false });
+    const out: import('./stream-events').StreamEvent[] = [];
+    for await (const ev of emitter.run(g([
+      { type: 'tool-call', toolCallId: 't1', toolName: 'search_knowledge_base' },
+      { type: 'tool-result', toolCallId: 't1', toolName: 'search_knowledge_base', output: { hits: 4 } },
+      { type: 'text-delta', text: 'Answer.' },
+      { type: 'finish', usage: { inputTokens: 1, outputTokens: 1 } },
+    ]))) out.push(ev);
+    expect(out.some((e) => e.partType === 'thinking')).toBe(false);
+    expect(out.some((e) => e.type === 'thinking_step')).toBe(false);
+    const textStart = out.find((e) => e.type === 'part_start' && e.partType === 'text');
+    expect(textStart!.partIndex).toBe(0);
+    expect(out.at(-1)!.type).toBe('done');
+  });
 });

@@ -232,9 +232,10 @@ model Agent {
   description String?
   type        String   @default("simple")
   status      String   @default("draft")
-  config      Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  config        Json
+  showThinking  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   versions           AgentVersion[]
