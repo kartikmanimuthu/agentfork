@@ -735,7 +735,7 @@ export default function DesignerPage() {
               {/* Content: tabs + preview */}
               <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 min-w-0 overflow-y-auto">
-                  <div className="max-w-2xl mx-auto p-6">
+                  <div className={`${activeTab === 'workflow' ? 'max-w-none' : 'max-w-2xl mx-auto'} p-6`}>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                       <TabsList className="grid grid-rows-2 grid-cols-4 mb-6 h-auto p-1 gap-1">
                         <TabsTrigger value="appearance" className="text-xs gap-1.5 h-9">
@@ -1143,7 +1143,8 @@ export default function DesignerPage() {
                   </div>
                 </div>
 
-                {/* Right preview panel */}
+                {/* Right preview panel — hidden on the workflow tab so the canvas gets full width */}
+                {activeTab !== 'workflow' && (
                 <div className="w-[420px] flex-shrink-0 border-l bg-muted/30 flex flex-col">
                   <div className="px-4 py-3 border-b bg-background flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1174,6 +1175,7 @@ export default function DesignerPage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
             </>
           )}
