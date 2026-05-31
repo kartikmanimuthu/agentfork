@@ -4,26 +4,26 @@ import { z } from 'zod';
 // Node schemas
 // ---------------------------------------------------------------------------
 
-const menuOptionSchema = z.object({
+export const menuOptionSchema = z.object({
   label: z.string().min(1),
   value: z.string().min(1),
   icon: z.string().optional(),
 });
 
-const menuNodeSchema = z.object({
+export const menuNodeSchema = z.object({
   id: z.string().min(1),
   type: z.literal('menu'),
   title: z.string().optional(),
   options: z.array(menuOptionSchema).min(1),
 });
 
-const textNodeSchema = z.object({
+export const textNodeSchema = z.object({
   id: z.string().min(1),
   type: z.literal('text'),
   text: z.string().min(1),
 });
 
-const fileNodeSchema = z.object({
+export const fileNodeSchema = z.object({
   id: z.string().min(1),
   type: z.literal('file'),
   fileRef: z.string().min(1),
@@ -72,3 +72,39 @@ export type WorkflowNode = z.infer<typeof workflowNodeSchema>;
 export type WorkflowTransition = z.infer<typeof workflowTransitionSchema>;
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
 export type WorkflowCursor = z.infer<typeof workflowCursorSchema>;
+
+// ---------------------------------------------------------------------------
+// Editor graph types — structural mirrors of React Flow node/edge shapes.
+// Kept dependency-free (no @xyflow import) so the graph<->definition mapping
+// stays pure and unit-testable in the libs Vitest harness.
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: string;
+  /** node kind */
+  type: 'menu' | 'text' | 'file';
+  position: { x: number; y: number };
+  data: {
+    // menu
+    title?: string;
+    options?: MenuOption[];
+    // text
+    text?: string;
+    // file
+    fileRef?: string;
+  };
+}
+
+/** Structural mirror of a React Flow edge. sourceHandle = the menu option's value. */
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+}
+
+export interface GraphError {
+  code: 'no-entry' | 'multiple-entry' | 'dup-option-value' | 'dangling-transition' | 'missing-target' | 'unreachable';
+  message: string;
+  nodeId?: string;
+}
