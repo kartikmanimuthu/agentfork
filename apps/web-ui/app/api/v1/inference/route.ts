@@ -676,7 +676,7 @@ export async function POST(req: NextRequest) {
 
         const readable = new ReadableStream({
           async start(controller) {
-            const emitter = new PartStreamEmitter(executionId);
+            const emitter = new PartStreamEmitter(executionId, { showThinking: (agent as any)?.showThinking !== false });
             try {
               const sseResult = streamChat({
                 provider,

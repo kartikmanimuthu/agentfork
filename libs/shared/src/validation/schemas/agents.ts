@@ -14,6 +14,7 @@ export const updateAgentSchema = z.object({
   description: z.string().max(500).optional(),
   status: z.enum(['draft', 'active', 'inactive']).optional(),
   config: z.any().optional(),
+  showThinking: z.boolean().optional(),
 });
 
 export const createAliasSchema = z.object({
