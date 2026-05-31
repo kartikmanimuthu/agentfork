@@ -1,19 +1,19 @@
 .kb-suggestions {
-  padding: 8px 16px;
-  border-top: 1px solid #f0f0f0;
+  padding: var(--smc-space-2) var(--smc-space-4);
+  border-top: 1px solid var(--smc-border);
 }
 
 .kb-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--smc-space-2);
 }
 
 .kb-header span {
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
+  font-size: var(--smc-fs-xs);
+  font-weight: var(--smc-fw-medium);
+  color: var(--smc-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -21,10 +21,10 @@
 .dismiss {
   border: none;
   background: none;
-  color: #9ca3af;
+  color: var(--smc-text-faint);
   cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
+  font-size: var(--smc-fs-lg);
+  padding: 0 var(--smc-space-1);
 }
 
 .kb-list {
@@ -34,29 +34,33 @@
 }
 
 .kb-card {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px 12px;
+  background: var(--smc-surface);
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-sm);
+  padding: var(--smc-space-2) var(--smc-space-3);
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--smc-dur-fast) var(--smc-ease);
 }
 
 .kb-card:hover {
-  border-color: var(--smc-secondary, #3b82f6);
+  border-color: var(--smc-accent);
 }
 
 .kb-title {
   font-size: 12px;
-  font-weight: 500;
-  color: #374151;
+  font-weight: var(--smc-fw-medium);
+  color: var(--smc-text);
 }
 
 .kb-snippet {
-  font-size: 11px;
-  color: #6b7280;
+  font-size: var(--smc-fs-xs);
+  color: var(--smc-text-muted);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after { animation: none !important; transition: none !important; }
 }
