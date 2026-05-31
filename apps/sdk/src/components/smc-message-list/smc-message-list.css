@@ -1,10 +1,10 @@
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: var(--smc-space-4);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--smc-space-2);
   scroll-behavior: smooth;
 }
 
@@ -17,6 +17,10 @@
 }
 
 .message-list::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--smc-border);
   border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-list { scroll-behavior: auto; }
 }

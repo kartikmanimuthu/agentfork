@@ -3,7 +3,7 @@ import type { MenuOption } from '../../types';
 
 @Component({ tag: 'smc-part-menu', styleUrl: 'smc-part-menu.css', shadow: true })
 export class SmcPartMenu {
-  @Prop() part!: { type: 'menu'; title?: string; options: MenuOption[] };
+  @Prop() partData!: { type: 'menu'; title?: string; options: MenuOption[] };
   @State() chosen: string | null = null;
   @Event() menuSelect!: EventEmitter<string>;
 
@@ -16,9 +16,9 @@ export class SmcPartMenu {
   render() {
     return (
       <div class="menu">
-        {this.part.title ? <div class="menu-title">{this.part.title}</div> : null}
+        {this.partData.title ? <div class="menu-title">{this.partData.title}</div> : null}
         <div class="options">
-          {this.part.options.map((o, i) => (
+          {this.partData.options.map((o, i) => (
             <button
               class={`option ${this.chosen === o.value ? 'chosen' : ''} ${this.chosen && this.chosen !== o.value ? 'dimmed' : ''}`}
               style={{ '--i': String(i) }}

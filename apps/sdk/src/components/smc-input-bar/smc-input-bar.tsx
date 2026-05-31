@@ -1,8 +1,23 @@
 import { Component, h, State, Element } from '@stencil/core';
-import { state, addMessage, setStreaming, updateLastMessage, finalizeLastMessage, setKbSuggestions, setSession } from '../../store/widget-store';
+import {
+  state,
+  addMessage,
+  setStreaming,
+  appendPart,
+  appendTokenToPart,
+  upsertThinkingStep,
+  completePart,
+  finalizeLastMessage,
+  markLastMessageError,
+  setKbSuggestions,
+  setSession,
+} from '../../store/widget-store';
 import { ApiService } from '../../services/api.service';
 import { StorageService } from '../../services/storage.service';
 import { StreamService } from '../../services/stream.service';
+import { MockTransport } from '../../services/mock-transport';
+import type { ScenarioKey } from '../../services/mock-scenarios';
+import type { MessagePart, StreamEvent } from '../../types';
 
 @Component({
   tag: 'smc-input-bar',
@@ -17,6 +32,21 @@ export class SmcInputBar {
   private textareaEl!: HTMLTextAreaElement;
   private kbDebounce: ReturnType<typeof setTimeout> | null = null;
 
+  private onExternalSend = (e: Event) => {
+    const detail = (e as CustomEvent<string>).detail;
+    if (detail) void this.sendValue(detail);
+  };
+
+  connectedCallback() {
+    // Outbound menu-option / card-button selections bubble up as a window event
+    // (re-dispatched by the message list) and are sent as normal user messages.
+    window.addEventListener('smc:send', this.onExternalSend);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('smc:send', this.onExternalSend);
+  }
+
   private handleInput = (e: Event) => {
     const target = e.target as HTMLTextAreaElement;
     this.text = target.value;
@@ -26,9 +56,13 @@ export class SmcInputBar {
       if (this.kbDebounce) clearTimeout(this.kbDebounce);
       if (this.text.length >= 3) {
         this.kbDebounce = setTimeout(async () => {
-          const api = new ApiService(state.baseUrl, state.apiKey!);
-          const articles = await api.suggestKb(state.session!.id, this.text);
-          setKbSuggestions(articles);
+          try {
+            const api = new ApiService(state.baseUrl, state.apiKey!);
+            const articles = await api.suggestKb(state.session!.id, this.text);
+            setKbSuggestions(articles);
+          } catch (err) {
+            console.error('[smc-widget] kb suggest failed', err);
+          }
         }, 300);
       } else {
         setKbSuggestions([]);
@@ -48,78 +82,114 @@ export class SmcInputBar {
     }
   };
 
-  private async send() {
-    const content = this.text.trim();
-    if (!content || this.sending || !state.apiKey) return;
+  private resolveMockScenario(): ScenarioKey | null {
+    const widgetEl = document.querySelector('smc-chat-widget') as any;
+    const fromProp = widgetEl?.mockScenario as string | undefined;
+    const fromUrl = new URLSearchParams(location.search).get('mock');
+    const key = fromProp || (fromUrl ? 'thinking' : null);
+    return (key as ScenarioKey) || null;
+  }
 
+  private send() {
+    const content = this.text.trim();
+    if (!content || this.sending) return;
+    this.text = '';
+    setKbSuggestions([]);
+    if (this.textareaEl) this.textareaEl.style.height = 'auto';
+    void this.sendValue(content);
+  }
+
+  private async sendValue(content: string) {
+    if (!content || this.sending) return;
     this.sending = true;
 
-    // Auto-create session on first send if none exists
-    if (!state.session) {
-      try {
-        const widgetEl = document.querySelector('smc-chat-widget') as any;
-        const sdkId = widgetEl?.sdkId;
-        const storage = new StorageService(sdkId);
-        const visitorId = storage.getVisitorId();
-        const api = new ApiService(state.baseUrl, state.apiKey);
-        const session = await api.createSession({ visitorId });
-        storage.setSessionId(session.id);
-        setSession({ id: session.id, status: 'active', visitorId });
-      } catch {
+    const mock = this.resolveMockScenario();
+
+    // Real path needs an API key + a session; mock path needs neither.
+    if (!mock) {
+      if (!state.apiKey) {
         this.sending = false;
         return;
       }
+      if (!state.session) {
+        try {
+          const widgetEl = document.querySelector('smc-chat-widget') as any;
+          const sdkId = widgetEl?.sdkId;
+          const storage = new StorageService(sdkId);
+          const visitorId = storage.getVisitorId();
+          const api = new ApiService(state.baseUrl, state.apiKey);
+          const session = await api.createSession({ visitorId });
+          storage.setSessionId(session.id);
+          setSession({ id: session.id, status: 'active', visitorId });
+        } catch (err) {
+          console.error('[smc-widget] session create failed', err);
+          this.sending = false;
+          return;
+        }
+      }
     }
 
-    this.text = '';
-    setKbSuggestions([]);
-
-    if (this.textareaEl) {
-      this.textareaEl.style.height = 'auto';
-    }
-
+    const now = new Date().toISOString();
     addMessage({
-      id: `temp_${Date.now()}`,
-      content,
+      id: `u_${Date.now()}`,
       role: 'user',
-      timestamp: new Date().toISOString(),
-      status: 'sent',
+      createdAt: now,
+      status: 'complete',
+      parts: [{ type: 'text', text: content }],
     });
 
+    const assistantId = `a_${Date.now()}`;
     addMessage({
-      id: `stream_${Date.now()}`,
-      content: '',
+      id: assistantId,
       role: 'assistant',
-      timestamp: new Date().toISOString(),
+      createdAt: now,
       status: 'streaming',
+      parts: [],
     });
 
     setStreaming(true);
 
     try {
-      const api = new ApiService(state.baseUrl, state.apiKey);
-      const response = await api.sendMessage(state.session!.id, content);
+      const iterator: AsyncGenerator<StreamEvent> = mock
+        ? new MockTransport(mock).parseSSE()
+        : new StreamService().parseSSE(
+            await new ApiService(state.baseUrl, state.apiKey!).sendMessage(state.session!.id, content),
+          );
 
-      const streamService = new StreamService();
-      let fullContent = '';
-
-      for await (const event of streamService.parseSSE(response)) {
-        if (event.type === 'token' && event.content) {
-          fullContent += event.content;
-          updateLastMessage(fullContent);
-        } else if (event.type === 'done') {
-          finalizeLastMessage(event.messageId ?? `msg_${Date.now()}`);
-        } else if (event.type === 'error') {
-          updateLastMessage('Sorry, something went wrong. Please try again.');
-          finalizeLastMessage(`err_${Date.now()}`);
-        }
+      for await (const ev of iterator) {
+        this.applyEvent(assistantId, ev);
       }
-    } catch {
-      updateLastMessage('Connection error. Please try again.');
-      finalizeLastMessage(`err_${Date.now()}`);
+    } catch (err) {
+      console.error('[smc-widget] stream failed', err);
+      markLastMessageError('Connection error. Please try again.');
     } finally {
       setStreaming(false);
       this.sending = false;
+    }
+  }
+
+  // Maps an SSE event onto our local assistant placeholder. The transport's own
+  // messageId is ignored — all events for this turn target `assistantId`.
+  private applyEvent(assistantId: string, ev: StreamEvent) {
+    if (ev.type === 'part_start') {
+      const seed: MessagePart | null =
+        ev.part ??
+        (ev.partType === 'text'
+          ? { type: 'text', text: '' }
+          : ev.partType === 'thinking'
+            ? { type: 'thinking', status: 'active', steps: [] }
+            : null);
+      if (seed) appendPart(assistantId, seed);
+    } else if (ev.type === 'token' && ev.partIndex != null && ev.content) {
+      appendTokenToPart(assistantId, ev.partIndex, ev.content);
+    } else if (ev.type === 'thinking_step' && ev.partIndex != null && ev.step) {
+      upsertThinkingStep(assistantId, ev.partIndex, ev.step);
+    } else if (ev.type === 'part_complete' && ev.partIndex != null) {
+      completePart(assistantId, ev.partIndex);
+    } else if (ev.type === 'done') {
+      finalizeLastMessage(ev.messageId ?? `msg_${Date.now()}`);
+    } else if (ev.type === 'error') {
+      markLastMessageError(ev.message);
     }
   }
 
@@ -133,8 +203,8 @@ export class SmcInputBar {
       const api = new ApiService(state.baseUrl, state.apiKey);
       try {
         await api.uploadFile(state.session.id, file);
-      } catch {
-        // handled silently
+      } catch (err) {
+        console.error('[smc-widget] file upload failed', err);
       }
     };
     input.click();

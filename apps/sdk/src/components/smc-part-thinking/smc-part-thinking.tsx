@@ -3,18 +3,18 @@ import type { ThinkingStep } from '../../types';
 
 @Component({ tag: 'smc-part-thinking', styleUrl: 'smc-part-thinking.css', shadow: true })
 export class SmcPartThinking {
-  @Prop() part!: { type: 'thinking'; status: 'active' | 'done'; steps: ThinkingStep[] };
+  @Prop() partData!: { type: 'thinking'; status: 'active' | 'done'; steps: ThinkingStep[] };
   @State() manualExpanded: boolean | null = null;
 
   private get expanded(): boolean {
     if (this.manualExpanded !== null) return this.manualExpanded;
-    return this.part.status === 'active';
+    return this.partData.status === 'active';
   }
 
   private toggle = () => { this.manualExpanded = !this.expanded; };
 
   render() {
-    const { status, steps } = this.part;
+    const { status, steps } = this.partData;
     const label = status === 'active'
       ? 'Thinking…'
       : `Thought for ${steps.length} step${steps.length === 1 ? '' : 's'}`;

@@ -17,14 +17,14 @@ function kind(mimeType: string): 'pdf' | 'sheet' | 'generic' {
 
 @Component({ tag: 'smc-part-file', styleUrl: 'smc-part-file.css', shadow: true })
 export class SmcPartFile {
-  @Prop() part!: { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number };
+  @Prop() partData!: { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number };
   @State() failed = false;
 
   private onError = () => { this.failed = true; };
   private retry = () => { this.failed = false; };
 
   render() {
-    const k = kind(this.part.mimeType);
+    const k = kind(this.partData.mimeType);
     if (this.failed) {
       return (
         <div class="file error">
@@ -37,15 +37,15 @@ export class SmcPartFile {
       <div class="file">
         <span class={`icon ${k}`} aria-hidden="true"></span>
         <div class="meta">
-          <span class="name">{this.part.name}</span>
-          {this.part.sizeBytes ? <span class="size">{fmtSize(this.part.sizeBytes)}</span> : null}
+          <span class="name">{this.partData.name}</span>
+          {this.partData.sizeBytes ? <span class="size">{fmtSize(this.partData.sizeBytes)}</span> : null}
         </div>
         <a
           class="download"
-          href={this.part.url}
-          download={this.part.name}
+          href={this.partData.url}
+          download={this.partData.name}
           onError={this.onError}
-          aria-label={`Download ${this.part.name}`}
+          aria-label={`Download ${this.partData.name}`}
         >↓</a>
       </div>
     );

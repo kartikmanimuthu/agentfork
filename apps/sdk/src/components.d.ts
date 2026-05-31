@@ -5,10 +5,16 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
+import { CardButton, MenuOption, Message, MessagePart, ThinkingStep } from "./types";
+export { CardButton, MenuOption, Message, MessagePart, ThinkingStep } from "./types";
 export namespace Components {
     interface SmcChatWidget {
         "apiUrl"?: string;
         "mockConfig"?: string;
+        /**
+          * When set, the widget streams from the mock transport using this scenario key (thinking | menu | files | image | error) instead of the real backend.
+         */
+        "mockScenario"?: string;
         "sdkId": string;
     }
     interface SmcChatWindow {
@@ -36,13 +42,34 @@ export namespace Components {
         "content": string;
     }
     interface SmcMessage {
-        "content": string;
-        "messageId": string;
-        "role": 'user' | 'assistant';
-        "status"?: string;
-        "timestamp": string;
+        "message": Message;
+        /**
+          * @default false
+         */
+        "showFeedback": boolean;
     }
     interface SmcMessageList {
+    }
+    interface SmcMessagePart {
+        "partData": MessagePart;
+    }
+    interface SmcPartCard {
+        "partData": { type: 'card'; title: string; description?: string; buttons?: CardButton[] };
+    }
+    interface SmcPartFile {
+        "partData": { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number };
+    }
+    interface SmcPartImage {
+        "partData": { type: 'image'; url: string; alt?: string };
+    }
+    interface SmcPartMenu {
+        "partData": { type: 'menu'; title?: string; options: MenuOption[] };
+    }
+    interface SmcPartText {
+        "partData": { type: 'text'; text: string };
+    }
+    interface SmcPartThinking {
+        "partData": { type: 'thinking'; status: 'active' | 'done'; steps: ThinkingStep[] };
     }
     interface SmcPreChatForm {
     }
@@ -58,6 +85,14 @@ export namespace Components {
     }
     interface SmcTypingIndicator {
     }
+}
+export interface SmcPartCardCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLSmcPartCardElement;
+}
+export interface SmcPartMenuCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLSmcPartMenuElement;
 }
 export interface SmcQuickRepliesCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -136,6 +171,70 @@ declare global {
         prototype: HTMLSmcMessageListElement;
         new (): HTMLSmcMessageListElement;
     };
+    interface HTMLSmcMessagePartElement extends Components.SmcMessagePart, HTMLStencilElement {
+    }
+    var HTMLSmcMessagePartElement: {
+        prototype: HTMLSmcMessagePartElement;
+        new (): HTMLSmcMessagePartElement;
+    };
+    interface HTMLSmcPartCardElementEventMap {
+        "cardAction": string;
+    }
+    interface HTMLSmcPartCardElement extends Components.SmcPartCard, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLSmcPartCardElementEventMap>(type: K, listener: (this: HTMLSmcPartCardElement, ev: SmcPartCardCustomEvent<HTMLSmcPartCardElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLSmcPartCardElementEventMap>(type: K, listener: (this: HTMLSmcPartCardElement, ev: SmcPartCardCustomEvent<HTMLSmcPartCardElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLSmcPartCardElement: {
+        prototype: HTMLSmcPartCardElement;
+        new (): HTMLSmcPartCardElement;
+    };
+    interface HTMLSmcPartFileElement extends Components.SmcPartFile, HTMLStencilElement {
+    }
+    var HTMLSmcPartFileElement: {
+        prototype: HTMLSmcPartFileElement;
+        new (): HTMLSmcPartFileElement;
+    };
+    interface HTMLSmcPartImageElement extends Components.SmcPartImage, HTMLStencilElement {
+    }
+    var HTMLSmcPartImageElement: {
+        prototype: HTMLSmcPartImageElement;
+        new (): HTMLSmcPartImageElement;
+    };
+    interface HTMLSmcPartMenuElementEventMap {
+        "menuSelect": string;
+    }
+    interface HTMLSmcPartMenuElement extends Components.SmcPartMenu, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLSmcPartMenuElementEventMap>(type: K, listener: (this: HTMLSmcPartMenuElement, ev: SmcPartMenuCustomEvent<HTMLSmcPartMenuElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLSmcPartMenuElementEventMap>(type: K, listener: (this: HTMLSmcPartMenuElement, ev: SmcPartMenuCustomEvent<HTMLSmcPartMenuElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLSmcPartMenuElement: {
+        prototype: HTMLSmcPartMenuElement;
+        new (): HTMLSmcPartMenuElement;
+    };
+    interface HTMLSmcPartTextElement extends Components.SmcPartText, HTMLStencilElement {
+    }
+    var HTMLSmcPartTextElement: {
+        prototype: HTMLSmcPartTextElement;
+        new (): HTMLSmcPartTextElement;
+    };
+    interface HTMLSmcPartThinkingElement extends Components.SmcPartThinking, HTMLStencilElement {
+    }
+    var HTMLSmcPartThinkingElement: {
+        prototype: HTMLSmcPartThinkingElement;
+        new (): HTMLSmcPartThinkingElement;
+    };
     interface HTMLSmcPreChatFormElement extends Components.SmcPreChatForm, HTMLStencilElement {
     }
     var HTMLSmcPreChatFormElement: {
@@ -196,6 +295,13 @@ declare global {
         "smc-markdown": HTMLSmcMarkdownElement;
         "smc-message": HTMLSmcMessageElement;
         "smc-message-list": HTMLSmcMessageListElement;
+        "smc-message-part": HTMLSmcMessagePartElement;
+        "smc-part-card": HTMLSmcPartCardElement;
+        "smc-part-file": HTMLSmcPartFileElement;
+        "smc-part-image": HTMLSmcPartImageElement;
+        "smc-part-menu": HTMLSmcPartMenuElement;
+        "smc-part-text": HTMLSmcPartTextElement;
+        "smc-part-thinking": HTMLSmcPartThinkingElement;
         "smc-pre-chat-form": HTMLSmcPreChatFormElement;
         "smc-proactive-engine": HTMLSmcProactiveEngineElement;
         "smc-quick-replies": HTMLSmcQuickRepliesElement;
@@ -210,6 +316,10 @@ declare namespace LocalJSX {
     interface SmcChatWidget {
         "apiUrl"?: string;
         "mockConfig"?: string;
+        /**
+          * When set, the widget streams from the mock transport using this scenario key (thinking | menu | files | image | error) instead of the real backend.
+         */
+        "mockScenario"?: string;
         "sdkId": string;
     }
     interface SmcChatWindow {
@@ -237,13 +347,36 @@ declare namespace LocalJSX {
         "content": string;
     }
     interface SmcMessage {
-        "content": string;
-        "messageId": string;
-        "role": 'user' | 'assistant';
-        "status"?: string;
-        "timestamp": string;
+        "message": Message;
+        /**
+          * @default false
+         */
+        "showFeedback"?: boolean;
     }
     interface SmcMessageList {
+    }
+    interface SmcMessagePart {
+        "partData": MessagePart;
+    }
+    interface SmcPartCard {
+        "onCardAction"?: (event: SmcPartCardCustomEvent<string>) => void;
+        "partData": { type: 'card'; title: string; description?: string; buttons?: CardButton[] };
+    }
+    interface SmcPartFile {
+        "partData": { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number };
+    }
+    interface SmcPartImage {
+        "partData": { type: 'image'; url: string; alt?: string };
+    }
+    interface SmcPartMenu {
+        "onMenuSelect"?: (event: SmcPartMenuCustomEvent<string>) => void;
+        "partData": { type: 'menu'; title?: string; options: MenuOption[] };
+    }
+    interface SmcPartText {
+        "partData": { type: 'text'; text: string };
+    }
+    interface SmcPartThinking {
+        "partData": { type: 'thinking'; status: 'active' | 'done'; steps: ThinkingStep[] };
     }
     interface SmcPreChatForm {
     }
@@ -265,6 +398,7 @@ declare namespace LocalJSX {
         "sdkId": string;
         "apiUrl": string;
         "mockConfig": string;
+        "mockScenario": string;
     }
     interface SmcFeedbackAttributes {
         "messageId": string;
@@ -279,11 +413,7 @@ declare namespace LocalJSX {
         "content": string;
     }
     interface SmcMessageAttributes {
-        "content": string;
-        "role": 'user' | 'assistant';
-        "timestamp": string;
-        "messageId": string;
-        "status": string;
+        "showFeedback": boolean;
     }
     interface SmcRichCardAttributes {
         "cardData": string;
@@ -303,8 +433,15 @@ declare namespace LocalJSX {
         "smc-kb-suggestions": SmcKbSuggestions;
         "smc-launcher": SmcLauncher;
         "smc-markdown": Omit<SmcMarkdown, keyof SmcMarkdownAttributes> & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes]?: SmcMarkdown[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `attr:${K}`]?: SmcMarkdownAttributes[K] } & { [K in keyof SmcMarkdown & keyof SmcMarkdownAttributes as `prop:${K}`]?: SmcMarkdown[K] } & OneOf<"content", SmcMarkdown["content"], SmcMarkdownAttributes["content"]>;
-        "smc-message": Omit<SmcMessage, keyof SmcMessageAttributes> & { [K in keyof SmcMessage & keyof SmcMessageAttributes]?: SmcMessage[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `attr:${K}`]?: SmcMessageAttributes[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `prop:${K}`]?: SmcMessage[K] } & OneOf<"content", SmcMessage["content"], SmcMessageAttributes["content"]> & OneOf<"role", SmcMessage["role"], SmcMessageAttributes["role"]> & OneOf<"timestamp", SmcMessage["timestamp"], SmcMessageAttributes["timestamp"]> & OneOf<"messageId", SmcMessage["messageId"], SmcMessageAttributes["messageId"]>;
+        "smc-message": Omit<SmcMessage, keyof SmcMessageAttributes> & { [K in keyof SmcMessage & keyof SmcMessageAttributes]?: SmcMessage[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `attr:${K}`]?: SmcMessageAttributes[K] } & { [K in keyof SmcMessage & keyof SmcMessageAttributes as `prop:${K}`]?: SmcMessage[K] };
         "smc-message-list": SmcMessageList;
+        "smc-message-part": SmcMessagePart;
+        "smc-part-card": SmcPartCard;
+        "smc-part-file": SmcPartFile;
+        "smc-part-image": SmcPartImage;
+        "smc-part-menu": SmcPartMenu;
+        "smc-part-text": SmcPartText;
+        "smc-part-thinking": SmcPartThinking;
         "smc-pre-chat-form": SmcPreChatForm;
         "smc-proactive-engine": SmcProactiveEngine;
         "smc-quick-replies": SmcQuickReplies;
@@ -329,6 +466,13 @@ declare module "@stencil/core" {
             "smc-markdown": LocalJSX.IntrinsicElements["smc-markdown"] & JSXBase.HTMLAttributes<HTMLSmcMarkdownElement>;
             "smc-message": LocalJSX.IntrinsicElements["smc-message"] & JSXBase.HTMLAttributes<HTMLSmcMessageElement>;
             "smc-message-list": LocalJSX.IntrinsicElements["smc-message-list"] & JSXBase.HTMLAttributes<HTMLSmcMessageListElement>;
+            "smc-message-part": LocalJSX.IntrinsicElements["smc-message-part"] & JSXBase.HTMLAttributes<HTMLSmcMessagePartElement>;
+            "smc-part-card": LocalJSX.IntrinsicElements["smc-part-card"] & JSXBase.HTMLAttributes<HTMLSmcPartCardElement>;
+            "smc-part-file": LocalJSX.IntrinsicElements["smc-part-file"] & JSXBase.HTMLAttributes<HTMLSmcPartFileElement>;
+            "smc-part-image": LocalJSX.IntrinsicElements["smc-part-image"] & JSXBase.HTMLAttributes<HTMLSmcPartImageElement>;
+            "smc-part-menu": LocalJSX.IntrinsicElements["smc-part-menu"] & JSXBase.HTMLAttributes<HTMLSmcPartMenuElement>;
+            "smc-part-text": LocalJSX.IntrinsicElements["smc-part-text"] & JSXBase.HTMLAttributes<HTMLSmcPartTextElement>;
+            "smc-part-thinking": LocalJSX.IntrinsicElements["smc-part-thinking"] & JSXBase.HTMLAttributes<HTMLSmcPartThinkingElement>;
             "smc-pre-chat-form": LocalJSX.IntrinsicElements["smc-pre-chat-form"] & JSXBase.HTMLAttributes<HTMLSmcPreChatFormElement>;
             "smc-proactive-engine": LocalJSX.IntrinsicElements["smc-proactive-engine"] & JSXBase.HTMLAttributes<HTMLSmcProactiveEngineElement>;
             "smc-quick-replies": LocalJSX.IntrinsicElements["smc-quick-replies"] & JSXBase.HTMLAttributes<HTMLSmcQuickRepliesElement>;

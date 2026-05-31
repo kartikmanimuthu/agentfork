@@ -1,4 +1,5 @@
 import { Component, Prop, h } from '@stencil/core';
+import type { Message } from '../../types';
 
 @Component({
   tag: 'smc-message',
@@ -6,26 +7,25 @@ import { Component, Prop, h } from '@stencil/core';
   shadow: true,
 })
 export class SmcMessage {
-  @Prop() content!: string;
-  @Prop() role!: 'user' | 'assistant';
-  @Prop() timestamp!: string;
-  @Prop() messageId!: string;
-  @Prop() status?: string;
+  @Prop() message!: Message;
+  @Prop() showFeedback = false;
 
   render() {
-    const isUser = this.role === 'user';
+    const m = this.message;
+    const isUser = m.role === 'user';
 
     return (
-      <div class={`message ${isUser ? 'user' : 'bot'}`}>
+      <div class={`row ${isUser ? 'user' : 'bot'} status-${m.status}`}>
         <div class="bubble">
-          {isUser ? (
-            <span class="text">{this.content}</span>
-          ) : (
-            <smc-markdown content={this.content}></smc-markdown>
-          )}
+          {m.parts.map((part, i) => (
+            <smc-message-part partData={part} key={i}></smc-message-part>
+          ))}
+          {m.status === 'error' ? (
+            <button class="retry" type="button">Retry</button>
+          ) : null}
         </div>
-        {!isUser && this.messageId && this.messageId !== 'welcome' && this.status === 'sent' ? (
-          <smc-feedback messageId={this.messageId}></smc-feedback>
+        {!isUser && m.status === 'complete' && this.showFeedback ? (
+          <smc-feedback messageId={m.id}></smc-feedback>
         ) : null}
       </div>
     );

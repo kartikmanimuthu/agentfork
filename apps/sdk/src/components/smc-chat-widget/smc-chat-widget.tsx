@@ -1,4 +1,4 @@
-import { Component, Prop, h, State } from '@stencil/core';
+import { Component, Prop, h, State, Element } from '@stencil/core';
 import { state, setConfig, setApiKey, setBaseUrl, setSession, setMessages, setPreChatDone, setUiState } from '../../store/widget-store';
 import { ConfigService } from '../../services/config.service';
 import { ApiService } from '../../services/api.service';
@@ -14,6 +14,11 @@ export class SmcChatWidget {
   @Prop() sdkId!: string;
   @Prop() apiUrl?: string;
   @Prop() mockConfig?: string;
+  /** When set, the widget streams from the mock transport using this scenario key
+   *  (thinking | menu | files | image | error) instead of the real backend. */
+  @Prop() mockScenario?: string;
+
+  @Element() host!: HTMLElement;
 
   @State() ready = false;
   @State() bootError: string | null = null;
@@ -55,6 +60,11 @@ export class SmcChatWidget {
       setApiKey(config.apiKeyPrefix);
       setBaseUrl(baseUrl);
 
+      // Apply theme as a host class so tokens.css :host(.theme-*) maps take effect.
+      const theme = config.theme ?? 'auto';
+      this.host.classList.remove('theme-light', 'theme-dark', 'theme-auto');
+      this.host.classList.add(`theme-${theme}`);
+
       this.apiService = new ApiService(baseUrl, config.apiKeyPrefix);
 
       const existingSessionId = this.storage.getSessionId();
@@ -65,10 +75,10 @@ export class SmcChatWidget {
           setSession({ id: session.id, status: session.status, visitorId: this.storage.getVisitorId() });
           const messages: Message[] = session.messages.map((m) => ({
             id: m.id,
-            content: m.content,
             role: m.role as 'user' | 'assistant',
-            timestamp: m.createdAt,
-            status: 'sent',
+            createdAt: m.createdAt,
+            status: 'complete',
+            parts: [{ type: 'text', text: m.content }],
           }));
           setMessages(messages);
           setPreChatDone(true);
@@ -114,7 +124,10 @@ export class SmcChatWidget {
 
     const cssVars = {
       '--smc-primary': config.primaryColor,
-      '--smc-secondary': config.secondaryColor,
+      '--smc-primary-hover': config.primaryColor,
+      '--smc-primary-faint': `color-mix(in srgb, ${config.primaryColor} 8%, transparent)`,
+      '--smc-primary-gradient': `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`,
+      '--smc-accent': config.secondaryColor,
     };
 
     return (
