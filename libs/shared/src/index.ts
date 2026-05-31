@@ -47,6 +47,8 @@ export { S3Service } from './services/s3-service';
 export { EncryptionService } from './services/encryption-service';
 export { SdkWidgetService } from './services/sdk-widget-service';
 export type { CreateSdkWidgetInput, SdkWidgetDb } from './services/sdk-widget-service';
+export { AgentWorkflowService } from './services/agent-workflow-service';
+export type { AgentWorkflowDb } from './services/agent-workflow-service';
 export { FeedbackService } from './services/feedback-service';
 export type { SubmitFeedbackInput } from './services/feedback-service';
 export { CsatService } from './services/csat-service';
@@ -76,3 +78,10 @@ export {
   type WorkflowStreamEvent,
   type ResolveResult,
 } from './workflow/workflow-engine';
+
+export {
+  graphToDefinition,
+  definitionToGraph,
+  validateGraph,
+} from './workflow/workflow-graph';
+export type { GraphNode, GraphEdge, GraphError } from './workflow/workflow-types';
