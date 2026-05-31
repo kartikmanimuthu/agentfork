@@ -1,4 +1,4 @@
-import { streamText, embed, embedMany } from 'ai';
+import { streamText, embed, embedMany, stepCountIs } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createOpenAI } from '@ai-sdk/openai';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
@@ -74,7 +74,7 @@ export class BedrockLLMProvider implements LLMProvider {
         temperature,
         maxOutputTokens,
         tools,
-        maxSteps: maxSteps ?? 5,
+        stopWhen: stepCountIs(maxSteps ?? 5),
         onFinish,
       });
     }
@@ -86,7 +86,7 @@ export class BedrockLLMProvider implements LLMProvider {
       system,
       temperature,
       maxOutputTokens,
-      ...(hasTools ? { tools, maxSteps: maxSteps ?? 5 } : {}),
+      ...(hasTools ? { tools, stopWhen: stepCountIs(maxSteps ?? 5) } : {}),
       onFinish,
     });
   }

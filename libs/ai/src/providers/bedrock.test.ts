@@ -7,6 +7,7 @@ vi.mock('ai', () => ({
     text: Promise.resolve(''),
     usage: Promise.resolve({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
   }),
+  stepCountIs: vi.fn((n) => ({ _stepCountIs: n })),
   embed: vi.fn(),
   embedMany: vi.fn(),
 }));
@@ -142,7 +143,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
     expect(createOpenAI).not.toHaveBeenCalled();
   });
 
-  it('passes tools and maxSteps to streamText when using mantle', () => {
+  it('passes tools and stopWhen(maxSteps) to streamText when using mantle', () => {
     provider.streamChat({
       messages: MOCK_MESSAGES,
       model: 'deepseek.v3.2',
@@ -153,7 +154,7 @@ describe('BedrockLLMProvider — mantle routing', () => {
     expect(streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         tools: MOCK_TOOL,
-        maxSteps: 3,
+        stopWhen: { _stepCountIs: 3 },
       })
     );
   });
