@@ -104,6 +104,26 @@ const definitions: NodeDefinition[] = [
     },
   },
   {
+    type: 'condition',
+    label: 'Condition',
+    description: 'Evaluates a single expression and branches to true or false path.',
+    defaultConfig: {
+      type: 'condition',
+      expression: '',
+      trueBranch: '',
+      falseBranch: '',
+    },
+    validate(config) {
+      const result = conditionNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
     type: 'state_schema',
     label: 'State Schema',
     description: 'Defines the shared state shape passed between nodes.',

@@ -27,7 +27,8 @@ export default function NewMcpServerPage() {
       description,
       transport,
       config: {
-        ...transportConfig,
+        transport,
+        transportConfig,
         timeoutMs,
         retryCount,
       },

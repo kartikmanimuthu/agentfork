@@ -3,8 +3,9 @@
 import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { NodePicker } from './node-picker';
+import type { NodeOption } from './node-picker';
 import type { ConditionNodeConfig } from '@chatbot/agent-studio';
 
 const schema = z.object({
@@ -18,9 +19,10 @@ type ConditionFormValues = z.infer<typeof schema>;
 interface ConditionNodeFormProps {
   config: ConditionNodeConfig;
   onChange: (config: ConditionNodeConfig) => void;
+  allNodes: NodeOption[];
 }
 
-export function ConditionNodeForm({ config, onChange }: ConditionNodeFormProps) {
+export function ConditionNodeForm({ config, onChange, allNodes }: ConditionNodeFormProps) {
   const form = useForm({
     defaultValues: {
       expression: config.expression ?? '',
@@ -71,13 +73,12 @@ export function ConditionNodeForm({ config, onChange }: ConditionNodeFormProps) 
       <form.Field name="trueBranch">
         {(field) => (
           <div className="grid gap-1.5">
-            <Label htmlFor={field.name}>True Branch (Node ID)</Label>
-            <Input
-              id={field.name}
+            <Label>True Branch</Label>
+            <NodePicker
+              nodes={allNodes}
               value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="node_id_if_true"
+              onChange={(id) => { field.handleChange(id); handleBlur(); }}
+              placeholder="Node when true…"
             />
             {field.state.meta.errors.length > 0 && (
               <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
@@ -89,13 +90,12 @@ export function ConditionNodeForm({ config, onChange }: ConditionNodeFormProps) 
       <form.Field name="falseBranch">
         {(field) => (
           <div className="grid gap-1.5">
-            <Label htmlFor={field.name}>False Branch (Node ID)</Label>
-            <Input
-              id={field.name}
+            <Label>False Branch</Label>
+            <NodePicker
+              nodes={allNodes}
               value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="node_id_if_false"
+              onChange={(id) => { field.handleChange(id); handleBlur(); }}
+              placeholder="Node when false…"
             />
             {field.state.meta.errors.length > 0 && (
               <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>

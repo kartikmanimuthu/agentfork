@@ -1,5 +1,4 @@
-import { getPrismaClient } from '@chatbot/shared/workers';
-import { LlmProviderService } from '@chatbot/shared/workers';
+import { getPrismaClient, LlmProviderService } from '@chatbot/shared/workers';
 import { createLogger } from '@chatbot/shared/workers';
 import {
   createDocumentChunkRepository,

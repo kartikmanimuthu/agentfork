@@ -2,7 +2,7 @@
 // Do NOT import this from client-side code (use @chatbot/agent-studio for types/registry)
 
 export { GraphExecutor } from './execution/graph-executor';
-export {
+import {
   LlmNodeExecutor,
   RouterNodeExecutor,
   ToolNodeExecutor,
@@ -20,7 +20,26 @@ export {
   SubAgentNodeExecutor,
   DelayNodeExecutor,
 } from './execution/node-executors';
+export {
+  LlmNodeExecutor,
+  RouterNodeExecutor,
+  ToolNodeExecutor,
+  StateSchemaNodeExecutor,
+  InputNodeExecutor,
+  OutputNodeExecutor,
+  MemoryNodeExecutor,
+  KnowledgeBaseNodeExecutor,
+  McpServerNodeExecutor,
+  CodeNodeExecutor,
+  ConditionNodeExecutor,
+  HttpNodeExecutor,
+  HumanNodeExecutor,
+  ParallelNodeExecutor,
+  SubAgentNodeExecutor,
+  DelayNodeExecutor,
+};
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
+import type { NodeExecutor } from './execution/types';
 export type {
   GraphState,
   ExecutionServices,
@@ -31,6 +50,27 @@ export type {
   ExecutionEvent,
   ExecutionOptions,
 } from './execution/types';
+
+export function createNodeExecutors(): NodeExecutor[] {
+  return [
+    new LlmNodeExecutor(),
+    new RouterNodeExecutor(),
+    new ToolNodeExecutor(),
+    new StateSchemaNodeExecutor(),
+    new InputNodeExecutor(),
+    new OutputNodeExecutor(),
+    new MemoryNodeExecutor(),
+    new KnowledgeBaseNodeExecutor(),
+    new McpServerNodeExecutor(),
+    new CodeNodeExecutor(),
+    new ConditionNodeExecutor(),
+    new HttpNodeExecutor(),
+    new HumanNodeExecutor(),
+    new ParallelNodeExecutor(),
+    new SubAgentNodeExecutor(),
+    new DelayNodeExecutor(),
+  ];
+}
 
 // MCP Client — runtime tool discovery and execution
 export { McpClientService, buildMcpToolsForAgent } from './services/mcp-client.service';

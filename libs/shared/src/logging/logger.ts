@@ -1,3 +1,4 @@
+import pino from 'pino';
 import { env } from '../env';
 
 interface Logger {
@@ -25,8 +26,6 @@ const noopLogger: Logger = {
 let baseLogger: Logger | undefined;
 
 function createBaseLogger(): Logger {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pino = require('pino');
   const isDev = env.NODE_ENV !== 'production';
 
   return pino({

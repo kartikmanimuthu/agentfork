@@ -8,6 +8,7 @@ import {
   TenantConfigService,
   LlmProviderService,
   S3Service,
+  PausedExecutionService,
   playgroundRequestSchema,
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
@@ -251,18 +252,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
           'x-request-timestamp': String(startTime),
         },
-        // By default AI SDK masks errors as "An error occurred". Surface the real
-        // message (e.g. unsupported model, token limit) so it reaches the UI.
-        onError: (error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
-          logger.error({ requestId, executionId: execution.id, errorMessage: message }, 'Stream chat failed');
-          void mcpCleanup();
-          void db.agentExecution.update({
-            where: { id: execution.id },
-            data: { status: 'failed', error: message, completedAt: new Date() },
-          }).catch(() => {});
-          return message;
-        },
       });
     }
 
@@ -318,6 +307,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       let fullText = '';
       const graphStartTime = Date.now();
       let graphTtftMs: number | undefined;
+      let paused = false;
+      const pausedExecService = new PausedExecutionService(db);
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -347,28 +338,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                   }
                   sendEvent(event.type, event);
                   if (event.type === 'text_delta') {
-                    fullText += event.delta;
+                    fullText += (event as any).delta;
                   }
+                },
+                onPause: async (pauseInfo) => {
+                  paused = true;
+                  await pausedExecService.create({
+                    tenantId,
+                    agentId: id,
+                    executionId: execution.id,
+                    graphState: pauseInfo.state,
+                    prompt: pauseInfo.prompt,
+                    outputChannel: pauseInfo.outputChannel,
+                    nextNodeId: pauseInfo.nextNodeId,
+                    resumeToken: pauseInfo.resumeToken,
+                  });
+                  await db.agentExecution.update({
+                    where: { id: execution.id },
+                    data: { status: 'paused' },
+                  });
+                  sendEvent('execution_paused', {
+                    resumeToken: pauseInfo.resumeToken,
+                    prompt: pauseInfo.prompt,
+                  });
+                  logger.info({ executionId: execution.id, resumeToken: pauseInfo.resumeToken }, 'Playground execution paused at human node');
                 },
               }
             );
 
-            const durationMs = Date.now() - graphStartTime;
-            sendEvent('execution_end', {
-              usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
-              durationMs,
-              ttftMs: graphTtftMs ?? durationMs,
-              model: 'graph',
-            });
+            if (!paused) {
+              const durationMs = Date.now() - graphStartTime;
+              sendEvent('execution_end', {
+                usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
+                durationMs,
+                ttftMs: graphTtftMs ?? durationMs,
+                model: 'graph',
+              });
 
-            await db.agentExecution.update({
-              where: { id: execution.id },
-              data: {
-                status: 'completed',
-                output: { text: fullText },
-                completedAt: new Date(),
-              },
-            });
+              await db.agentExecution.update({
+                where: { id: execution.id },
+                data: {
+                  status: 'completed',
+                  output: { text: fullText },
+                  completedAt: new Date(),
+                },
+              });
+            }
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             const durationMs = Date.now() - graphStartTime;

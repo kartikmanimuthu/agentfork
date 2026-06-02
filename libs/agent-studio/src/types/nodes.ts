@@ -24,8 +24,10 @@ export interface LlmNodeConfig {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
-  /** Tool names wired into this node */
-  tools?: string[];
+  /** MCP server IDs whose tools are made available to the LLM at inference time */
+  mcpServerIds?: string[];
+  /** Channel names whose string values are injected as RAG context into the last user message */
+  contextChannels?: string[];
 }
 
 export interface ToolNodeConfig {
@@ -37,13 +39,17 @@ export interface ToolNodeConfig {
 
 export interface RouterNodeConfig {
   type: 'router';
+  mode?: 'expression' | 'natural_language';
   conditions: Array<{
-    /** Boolean expression evaluated at runtime */
+    /** Boolean JS expression (expression mode) or plain English (natural_language mode) */
     condition: string;
-    /** Target node id */
     target: string;
   }>;
   defaultTarget?: string;
+  /** Temperature for LLM classification in natural_language mode (0–1, default 0) */
+  nlTemperature?: number;
+  /** Model ID to use for NLP classification — must match a model in your LLM Providers */
+  classifierModel?: string;
 }
 
 export interface StateSchemaNodeConfig {
@@ -69,6 +75,7 @@ export interface MemoryNodeConfig {
   maxMessages?: number;
   maxTokens?: number;
   messagesChannel: string;
+  keepRecent?: number;
 }
 
 export interface KnowledgeBaseNodeConfig {
@@ -83,7 +90,10 @@ export interface KnowledgeBaseNodeConfig {
 export interface McpServerNodeConfig {
   type: 'mcp_server';
   serverId: string;
-  toolName: string;
+  serverName?: string;
+  toolMode?: 'single' | 'selected' | 'all';
+  toolName?: string;
+  toolNames?: string[];
   argumentSource: 'from_state' | 'static';
   staticArguments?: Record<string, unknown>;
   channelMappings?: Record<string, string>;

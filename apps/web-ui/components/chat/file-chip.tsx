@@ -97,7 +97,7 @@ export function FileChip({
 
       {status === 'error' && !onRetry && (
         <Tooltip>
-          <TooltipTrigger asChild>
+          <TooltipTrigger>
             <AlertCircle className="h-3 w-3 shrink-0 text-destructive cursor-help" aria-hidden />
           </TooltipTrigger>
           <TooltipContent side="top">
