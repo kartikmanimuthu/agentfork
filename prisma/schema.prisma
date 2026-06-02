@@ -30,6 +30,8 @@ model Tenant {
   mcpServers        McpServer[]
   llmProviders      LlmProvider[]
   apiKeys           ApiKey[]
+  whatsappAccounts  WhatsAppAccount[]
+  sdkWidgets        SdkWidget[]
 
   @@index([status])
   @@map("tenants")
@@ -243,6 +245,8 @@ model Agent {
   inferenceSessions  InferenceSession[]
   knowledgeBases     AgentKnowledgeBase[]
   aliases            AgentAlias[]
+  apiKeyExecutions   ApiKeyExecution[]
+  sdkWidgets         SdkWidget[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -265,6 +269,7 @@ model AgentVersion {
   playgroundSessions PlaygroundSession[]
   aliases            AgentAlias[]
   inferenceSessions  InferenceSession[]
+  apiKeyExecutions   ApiKeyExecution[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -452,6 +457,7 @@ model ApiKey {
   executions   ApiKeyExecution[]
   usages       ApiKeyUsage[]
   sessions     InferenceSession[]
+  sdkWidgets   SdkWidget[]
 
   @@index([keyHash])
   @@index([tenantId, agentId, status])
@@ -497,8 +503,10 @@ model ApiKeyExecution {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  apiKey  ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  session InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  apiKey       ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  session      InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent        Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion?     @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
@@ -529,6 +537,9 @@ model InferenceSession {
   messages     InferenceSessionMessage[]
   executions   ApiKeyExecution[]
   analytics    SessionAnalytics?
+  sdkSession   SdkSession?
+  feedbacks    MessageFeedback[]
+  csatResponse CsatResponse?
 
   @@index([apiKeyId])
   @@index([tenantId, agentId])
@@ -539,15 +550,17 @@ model InferenceSession {
 }
 
 model InferenceSessionMessage {
-  id         String                       @id @default(cuid())
-  sessionId  String
-  role       String
-  content    String                       @db.Text
-  tokenCount Int?
-  embedding  Unsupported("vector(1024)")?
-  createdAt  DateTime                     @default(now())
+  id          String                       @id @default(cuid())
+  sessionId   String
+  role        String
+  content     String                       @db.Text
+  attachments Json?                        @default("[]")
+  tokenCount  Int?
+  embedding   Unsupported("vector(1024)")?
+  createdAt   DateTime                     @default(now())
 
-  session InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session  InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  feedback MessageFeedback?
 
   @@index([sessionId])
   @@index([sessionId, createdAt])
@@ -678,4 +691,221 @@ model LlmResponseCache {
   @@index([cacheKey])
   @@index([expiresAt])
   @@map("llm_response_cache")
+}
+
+model WhatsAppAccount {
+  id             String   @id @default(cuid())
+  tenantId       String
+  wabaId         String
+  phoneNumberId  String   @unique
+  displayPhone   String
+  displayName    String
+  accessToken    String
+  webhookSecret  String
+  status         String   @default("active")
+  qualityRating  String?
+  messagingLimit String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  routingConfig WhatsAppRouting?
+  sessions      WhatsAppSession[]
+  messages      WhatsAppMessage[]
+  templates     WhatsAppTemplate[]
+
+  @@unique([tenantId, wabaId])
+  @@index([tenantId])
+  @@map("whatsapp_accounts")
+}
+
+model WhatsAppRouting {
+  id              String   @id @default(cuid())
+  accountId       String   @unique
+  strategy        String
+  config          Json     @default("{}")
+  fallbackAgentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account WhatsAppAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  rules   WhatsAppRoutingRule[]
+
+  @@map("whatsapp_routing")
+}
+
+model WhatsAppRoutingRule {
+  id        String  @id @default(cuid())
+  routingId String
+  agentId   String
+  priority  Int     @default(0)
+  condition Json
+  isActive  Boolean @default(true)
+
+  routing WhatsAppRouting @relation(fields: [routingId], references: [id], onDelete: Cascade)
+
+  @@index([routingId, priority])
+  @@map("whatsapp_routing_rules")
+}
+
+model WhatsAppSession {
+  id              String   @id @default(cuid())
+  accountId       String
+  contactPhone    String
+  contactName     String?
+  agentId         String
+  state           String   @default("active")
+  context         Json     @default("{}")
+  lastMessageAt   DateTime
+  windowExpiresAt DateTime
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account  WhatsAppAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages WhatsAppMessage[]
+
+  @@unique([accountId, contactPhone, state])
+  @@index([accountId, contactPhone])
+  @@index([windowExpiresAt])
+  @@map("whatsapp_sessions")
+}
+
+model WhatsAppMessage {
+  id              String    @id @default(cuid())
+  accountId       String
+  sessionId       String?
+  waMessageId     String    @unique
+  direction       String
+  contactPhone    String
+  type            String
+  content         Json
+  status          String    @default("received")
+  statusTimestamp DateTime?
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+
+  account WhatsAppAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  session WhatsAppSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, contactPhone, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("whatsapp_messages")
+}
+
+model WhatsAppTemplate {
+  id         String   @id @default(cuid())
+  accountId  String
+  name       String
+  language   String
+  category   String
+  status     String
+  components Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  account WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, name, language])
+  @@map("whatsapp_templates")
+}
+
+model SdkWidget {
+  id               String   @id @default(cuid())
+  tenantId         String
+  agentId          String
+  apiKeyId         String
+  name             String
+  sdkId            String   @unique
+
+  primaryColor     String   @default("#1a1a2e")
+  secondaryColor   String   @default("#3b82f6")
+  theme            String   @default("auto")
+  position         String   @default("right")
+  headerText       String   @default("Hey there!")
+  headerIcon       String?
+  botName          String   @default("AI Assistant")
+  botAvatar        String?
+  welcomeMessage   String   @default("How can I help you today?")
+  inputPlaceholder String   @default("Write a message...")
+  customCss        String?
+
+  preChatForm      Json?
+  quickReplies     Json?
+  proactiveRules   Json?
+  kbEnabled        Boolean  @default(false)
+  fileUpload       Boolean  @default(false)
+  csatEnabled      Boolean  @default(false)
+  csatType         String   @default("thumbs")
+
+  allowedOrigins   String[]
+  rateLimitRpm     Int      @default(60)
+
+  status           String   @default("active")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent         Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  apiKey        ApiKey         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  sessions      SdkSession[]
+  csatResponses CsatResponse[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([agentId])
+  @@map("sdk_widgets")
+}
+
+model SdkSession {
+  id                 String   @id @default(cuid())
+  sdkWidgetId        String
+  inferenceSessionId String   @unique
+  visitorId          String
+  visitorName        String?
+  visitorEmail       String?
+  metadata           Json?
+  status             String   @default("active")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sdkWidget        SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+  inferenceSession InferenceSession @relation(fields: [inferenceSessionId], references: [id], onDelete: Cascade)
+
+  @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
+  @@index([visitorId])
+  @@map("sdk_sessions")
+}
+
+model MessageFeedback {
+  id        String   @id @default(cuid())
+  messageId String   @unique
+  sessionId String
+  rating    String
+  comment   String?
+  createdAt DateTime @default(now())
+
+  message InferenceSessionMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  session InferenceSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("message_feedbacks")
+}
+
+model CsatResponse {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  sdkWidgetId String
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  session   InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sdkWidget SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+
+  @@index([sdkWidgetId])
+  @@index([sdkWidgetId, createdAt])
+  @@map("csat_responses")
 }
