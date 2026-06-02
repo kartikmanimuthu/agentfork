@@ -7,10 +7,11 @@ import {
   createLogger,
   TenantConfigService,
   LlmProviderService,
+  S3Service,
   PausedExecutionService,
   playgroundRequestSchema,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 400 }
       );
     }
-    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId } = parsed.data;
+    const { messages, systemPrompt, model, temperature, maxTokens, agentVersionId, attachments: topLevelAttachments } = parsed.data;
     const { alias } = parsed.data;
 
     // Fetch agent
@@ -149,14 +150,60 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await provider.validate();
       logger.info({ requestId }, 'Provider validation passed');
 
-      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>)
-        .map((m) => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content || m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') || '',
-        }))
-        .filter((m) => m.content.trim() !== '');
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }>; data?: { attachments?: MessageAttachment[] } }>).map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content ?? m.parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') ?? '',
+        attachments: (m.data?.attachments ?? []) as MessageAttachment[],
+      }));
 
-      const userQuery = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+      // Top-level attachments (sent via useChat per-call body) apply to the current (last) turn.
+      if (topLevelAttachments && topLevelAttachments.length > 0 && coreMessages.length > 0) {
+        coreMessages[coreMessages.length - 1].attachments = topLevelAttachments as MessageAttachment[];
+      }
+
+      logger.debug(
+        {
+          requestId,
+          rawMessages: coreMessages.map((m) => ({ role: m.role, hasContent: !!m.content, attachmentCount: m.attachments.length })),
+          topLevelAttachmentCount: topLevelAttachments?.length ?? 0,
+        },
+        'Parsed messages from request body',
+      );
+
+      // Resolve multimodal content — fetch files from S3 for the current turn
+      const s3 = new S3Service();
+      const contentResolver = new ContentResolver(s3);
+      const currentTurnIndex = coreMessages.length - 1;
+      const hasAttachments = coreMessages.some((m) => m.attachments.length > 0);
+
+      let resolvedCoreMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string | Array<{ type: string; text?: string; image?: string; mimeType?: string }> }>;
+
+      if (hasAttachments) {
+        logger.info(
+          { requestId, currentTurnIndex, attachmentCount: coreMessages[currentTurnIndex]?.attachments.length ?? 0 },
+          'Resolving multimodal attachments for playground',
+        );
+        const storedMessages = coreMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments,
+        }));
+        const resolved = await contentResolver.resolve(storedMessages, currentTurnIndex);
+        resolvedCoreMessages = resolved.map((m) => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : m.content.map((p) => {
+            if (p.type === 'text') return { type: 'text' as const, text: p.text };
+            return { type: 'image' as const, image: p.image, mimeType: p.mimeType };
+          }),
+        }));
+      } else {
+        resolvedCoreMessages = coreMessages.map((m) => ({ role: m.role, content: m.content }));
+      }
+
+      const userQuery = typeof resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content === 'string'
+        ? resolvedCoreMessages[resolvedCoreMessages.length - 1].content as string
+        : (resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content as Array<{ type: string; text?: string }>)
+            ?.filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ') ?? '';
       const kbContext = await buildKbContext(id, tenantId, userQuery, db);
 
       // Discover MCP tools attached to this agent
@@ -171,34 +218,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      logger.info({ requestId, executionId: execution.id, messageCount: coreMessages.length, hasKbContext: !!kbContext, hasMcpTools }, 'Starting stream chat');
+      logger.info({ requestId, executionId: execution.id, messageCount: resolvedCoreMessages.length, hasKbContext: !!kbContext, hasMcpTools, hasAttachments }, 'Starting stream chat');
+
+      const startTime = Date.now();
 
       const result = streamChat({
         provider,
-        messages: coreMessages,
+        messages: resolvedCoreMessages as any,
         model: effectiveModel,
         system: effectiveSystem,
         temperature: effectiveTemperature,
-        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? 4096,
+        maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? undefined,
         ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
           const completedAt = new Date();
+          const durationMs = Date.now() - startTime;
           await db.agentExecution.update({
             where: { id: execution.id },
             data: {
               status: 'completed',
-              output: { text, usage },
+              output: { text, usage, durationMs, model: effectiveModel ?? llmConfig?.chatModel ?? 'unknown' },
               completedAt,
             },
           });
-          logger.info({ requestId, executionId: execution.id, usage }, 'Execution completed');
+          logger.info({ requestId, executionId: execution.id, usage, durationMs }, 'Execution completed');
         },
       });
 
       return result.toUIMessageStreamResponse({
         headers: {
           'x-execution-id': execution.id,
+          'x-model-id': effectiveModel ?? llmConfig?.chatModel ?? 'unknown',
+          'x-request-timestamp': String(startTime),
         },
       });
     }
@@ -215,12 +267,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return new Response(JSON.stringify({ error: 'Graph has no nodes' }), { status: 400 });
       }
 
-      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>)
-        .map((m) => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content || m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || '',
-        }))
-        .filter((m) => m.content.trim() !== '');
+      const coreMessages = (messages as Array<{ role: string; content?: string; parts?: Array<{ type: string; text: string }> }>).map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content ?? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') ?? '',
+      }));
 
       const llmProviderService = new LlmProviderService(tenantId);
 
@@ -255,7 +305,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       executor.register(new DelayNodeExecutor());
 
       let fullText = '';
+      const graphStartTime = Date.now();
+      let graphTtftMs: number | undefined;
       let paused = false;
+      const pausedExecService = new PausedExecutionService(db);
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -265,7 +318,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
           };
 
-          const pausedExecService = new PausedExecutionService(db);
+          sendEvent('execution_start', {
+            executionId: execution.id,
+            model: 'graph',
+            temperature: 0,
+            maxTokens: 0,
+            timestamp: graphStartTime,
+          });
 
           try {
             await executor.execute(
@@ -274,6 +333,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               { executionId: execution.id, agentId: id, tenantId, userId },
               {
                 onEvent: (event) => {
+                  if (event.type === 'text_delta' && graphTtftMs === undefined) {
+                    graphTtftMs = Date.now() - graphStartTime;
+                  }
                   sendEvent(event.type, event);
                   if (event.type === 'text_delta') {
                     fullText += (event as any).delta;
@@ -295,12 +357,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                     where: { id: execution.id },
                     data: { status: 'paused' },
                   });
+                  sendEvent('execution_paused', {
+                    resumeToken: pauseInfo.resumeToken,
+                    prompt: pauseInfo.prompt,
+                  });
                   logger.info({ executionId: execution.id, resumeToken: pauseInfo.resumeToken }, 'Playground execution paused at human node');
                 },
               }
             );
 
             if (!paused) {
+              const durationMs = Date.now() - graphStartTime;
+              sendEvent('execution_end', {
+                usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
+                durationMs,
+                ttftMs: graphTtftMs ?? durationMs,
+                model: 'graph',
+              });
+
               await db.agentExecution.update({
                 where: { id: execution.id },
                 data: {
@@ -312,7 +386,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            sendEvent('execution_error', { error: errorMessage });
+            const durationMs = Date.now() - graphStartTime;
+            sendEvent('error', { code: 'EXECUTION_ERROR', message: errorMessage, timestamp: Date.now() });
+            sendEvent('execution_end', {
+              usage: { inputTokens: 0, outputTokens: 0, thinkingTokens: 0 },
+              durationMs,
+              ttftMs: graphTtftMs ?? durationMs,
+              model: 'graph',
+              error: errorMessage,
+            });
             await db.agentExecution.update({
               where: { id: execution.id },
               data: { status: 'failed', output: { error: errorMessage }, completedAt: new Date() },

@@ -21,6 +21,7 @@ export interface SessionMessageRecord {
   sessionId: string;
   role: string;
   content: string;
+  attachments: unknown;
   tokenCount: number | null;
   createdAt: Date;
 }
