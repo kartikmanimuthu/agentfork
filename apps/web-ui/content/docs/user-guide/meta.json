@@ -1,0 +1,12 @@
+{
+  "title": "User Guide",
+  "pages": [
+    "getting-started",
+    "agents",
+    "knowledge-bases",
+    "mcp-servers",
+    "llm-providers",
+    "analytics",
+    "sessions"
+  ]
+}

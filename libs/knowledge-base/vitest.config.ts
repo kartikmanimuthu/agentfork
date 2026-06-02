@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   test: {
@@ -17,19 +18,19 @@ export default defineConfig({
     alias: [
       {
         find: /^@chatbot\/shared\/workers$/,
-        replacement: '/Users/kartik/.superset/worktrees/chatbot/kb/libs/shared/src/workers.ts',
+        replacement: path.resolve(__dirname, '../shared/src/workers.ts'),
       },
       {
         find: /^@chatbot\/shared\/client$/,
-        replacement: '/Users/kartik/.superset/worktrees/chatbot/kb/libs/shared/src/client.ts',
+        replacement: path.resolve(__dirname, '../shared/src/client.ts'),
       },
       {
         find: /^@chatbot\/shared$/,
-        replacement: '/Users/kartik/.superset/worktrees/chatbot/kb/libs/shared/src/index.ts',
+        replacement: path.resolve(__dirname, '../shared/src/index.ts'),
       },
       {
         find: /^@chatbot\/ai$/,
-        replacement: '/Users/kartik/.superset/worktrees/chatbot/kb/libs/ai/src/index.ts',
+        replacement: path.resolve(__dirname, '../ai/src/index.ts'),
       },
     ],
   },

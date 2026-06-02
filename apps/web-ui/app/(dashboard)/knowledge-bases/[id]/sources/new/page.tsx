@@ -10,6 +10,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Globe, Database, Plug } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const schema = z.object({
   crawlDepth: z.string().optional(),
   includePatterns: z.string().optional(),
   excludePatterns: z.string().optional(),
+  restrictToSameSubdomain: z.boolean().optional(),
   syncSchedule: z.string().optional(),
 });
 
@@ -44,6 +46,7 @@ export default function NewDataSourcePage() {
       crawlDepth: '0',
       includePatterns: '',
       excludePatterns: '',
+      restrictToSameSubdomain: false,
       syncSchedule: 'manual',
     } as SourceFormValues,
     validators: { onChange: schema },
@@ -74,6 +77,7 @@ export default function NewDataSourcePage() {
           crawlDepth: Number(value.crawlDepth),
           ...(includeArray.length > 0 ? { includePatterns: includeArray } : {}),
           ...(excludeArray.length > 0 ? { excludePatterns: excludeArray } : {}),
+          restrictToSameSubdomain: value.restrictToSameSubdomain ?? false,
         };
       }
 
@@ -239,6 +243,23 @@ export default function NewDataSourcePage() {
                         value={field.state.value ?? ''}
                         onChange={(e) => field.handleChange(e.target.value)}
                         rows={3}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="restrictToSameSubdomain">
+                  {(field) => (
+                    <div className="flex items-center justify-between rounded-md border p-3">
+                      <div className="space-y-0.5">
+                        <Label htmlFor={field.name}>Restrict to Same Subdomain</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Only crawl pages that share the exact hostname of the seed URLs.
+                        </p>
+                      </div>
+                      <Switch
+                        id={field.name}
+                        checked={field.state.value ?? false}
+                        onCheckedChange={field.handleChange}
                       />
                     </div>
                   )}

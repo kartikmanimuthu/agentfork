@@ -431,13 +431,24 @@ const ecrPublicLogin = new command.local.Command("ecr-public-login", {
 // produces a new imageTag, forcing a Docker rebuild + new ECS task definition revision.
 const webUiSrcHash = crypto.createHash("sha256")
     .update(hashDirectory(path.join(repoRoot, "apps/web-ui")))
+    .update(hashDirectory(path.join(repoRoot, "apps/sdk")))
     .update(hashDirectory(path.join(repoRoot, "prisma")))
     .update(hashDirectory(path.join(repoRoot, "libs")))
     .digest("hex")
     .substring(0, 12);
 
-// Use pre-built image tag to avoid Docker Desktop OOM during Next.js build
-const webUiImageUri = pulumi.interpolate`${ecrRepository.repositoryUrl}:20260520-225811`;
+// Build and push WebUI Docker image automatically on source change
+const webUiImage = new awsx.ecr.Image("web-ui-image", {
+    repositoryUrl: ecrRepository.repositoryUrl,
+    context: repoRoot,
+    dockerfile: path.join(repoRoot, "apps/web-ui/Dockerfile"),
+    platform: "linux/arm64",
+    imageTag: webUiSrcHash,
+    args: {
+        BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
+    },
+    cacheFrom: [pulumi.interpolate`${ecrRepository.repositoryUrl}:latest`],
+}, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
 
 // ECS Cluster
 const ecsCluster = new aws.ecs.Cluster("web-ui-ecs-cluster", {
@@ -569,12 +580,12 @@ new aws.iam.RolePolicy("ecs-task-logs-policy", {
     ),
 });
 
-// WebUI Task Definition — ARM64, FARGATE, 2048 CPU / 4096 MiB
+// WebUI Task Definition — ARM64, FARGATE, 1024 CPU / 2048 MiB
 // retainOnDelete: true — Pulumi must NOT deactivate old task definition revisions on replace.
 const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
     family: `${appName}-web-ui-task`,
-    cpu: "2048",
-    memory: "4096",
+    cpu: "1024",
+    memory: "2048",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
     executionRoleArn: ecsTaskExecutionRole.arn,
@@ -590,7 +601,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         appBucket.bucket,
         webUiLogGroup.name,
         accountId,
-        webUiImageUri,
+        webUiImage.imageUri,
         nextauthSecretSm.arn,
         databaseUrlSm.arn,
         encryptionKeySm.arn,
@@ -628,6 +639,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "COGNITO_ISSUER", value: `https://cognito-idp.${region}.amazonaws.com/${cognitoPoolId}` },
             { name: "NEXTAUTH_URL", value: appUrl },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "DATA_DIR", value: "/tmp" },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
@@ -921,8 +933,18 @@ const workersSrcHash = crypto.createHash("sha256")
     .digest("hex")
     .substring(0, 12);
 
-// Use pre-built image tag to avoid Docker Desktop OOM during build
-const workersImageUri = pulumi.interpolate`${workersEcrRepo.repositoryUrl}:20260520-225811`;
+// Build and push Workers Docker image automatically on source change
+const workersImage = new awsx.ecr.Image("workers-image", {
+    repositoryUrl: workersEcrRepo.repositoryUrl,
+    context: repoRoot,
+    dockerfile: path.join(repoRoot, "apps/workers/Dockerfile"),
+    platform: "linux/arm64",
+    imageTag: workersSrcHash,
+    args: {
+        BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
+    },
+    cacheFrom: [pulumi.interpolate`${workersEcrRepo.repositoryUrl}:latest`],
+}, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
 
 const workersLogGroup = new aws.cloudwatch.LogGroup("workers-log-group", {
     name: `/ecs/${appName}-workers`,
@@ -1025,7 +1047,7 @@ new aws.iam.RolePolicy("workers-rds-connect-policy", {
 // Ephemeral worker task definition — lightweight tasks for horizontal dispatch
 const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task-def", {
     family: `${appName}-ephemeral-worker-task`,
-    cpu: "2048",
+    cpu: "1024",
     memory: "4096",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
@@ -1039,7 +1061,7 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         appBucket.bucket,
         ephemeralWorkersLogGroup.name,
         snsTopic.arn,
-        workersImageUri,
+        workersImage.imageUri,
         databaseUrlSm.arn,
         encryptionKeySm.arn,
     ]).apply(([
@@ -1064,9 +1086,13 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
+            { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
+            { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
+            { name: "CRAWLEE_MEMORY_MBYTES", value: "3072" },
         ],
     }])),
 }, { retainOnDelete: true });
@@ -1119,7 +1145,7 @@ const workersSecurityGroup = new aws.ec2.SecurityGroup("workers-sg", {
 
 const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
     family: `${appName}-workers-task`,
-    cpu: "2048",
+    cpu: "1024",
     memory: "4096",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
@@ -1133,7 +1159,7 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         appBucket.bucket,
         workersLogGroup.name,
         snsTopic.arn,
-        workersImageUri,
+        workersImage.imageUri,
         ecsCluster.arn,
         ephemeralWorkerTaskDef.arn,
         workersSecurityGroup.id,
@@ -1163,15 +1189,19 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         environment: [
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
             { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
-            { name: "WORKER_ARCH", value: "horizontal" },
+            { name: "WORKER_ARCH", value: "vertical" },
             { name: "ECS_CLUSTER_ARN", value: clusterArn },
             { name: "WORKER_TASK_DEFINITION_ARN", value: ephTaskDefArn },
             { name: "PRIVATE_SUBNET_IDS", value: subnetsJoined },
             { name: "SECURITY_GROUP_IDS", value: workersSgId },
             { name: "TASK_TIMEOUT_MS", value: "900000" },
+            { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
+            { name: "CRAWLEE_STORAGE_DIR", value: "/tmp/crawlee-storage" },
+            { name: "CRAWLEE_MEMORY_MBYTES", value: "3072" },
         ],
     }])),
 }, { retainOnDelete: true });

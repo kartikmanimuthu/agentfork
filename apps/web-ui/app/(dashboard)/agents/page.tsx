@@ -17,8 +17,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
-import { Bot, Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { Bot, Plus, Search, Trash2, Pencil, Play, Code2 } from 'lucide-react';
 import { CreateAgentDialog } from '@/components/agents/create-agent-dialog';
+import { ApiGuideDialog } from '@/components/api-keys/api-guide-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -146,7 +147,29 @@ export default function AgentsPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => router.push(`/agents/${row.original.id}`)}
+              onClick={() => router.push(`/agents/${row.original.id}/playground`)}
+              aria-label="Open playground"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+            <ApiGuideDialog
+              keyName={row.original.name}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label="Integration guide"
+                >
+                  <Code2 className="h-4 w-4" />
+                </Button>
+              }
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => router.push(`/agents/${row.original.id}/edit`)}
               aria-label="Edit agent"
             >
               <Pencil className="h-4 w-4" />

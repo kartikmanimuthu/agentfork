@@ -89,9 +89,9 @@ export class ApiKeyService {
     });
   }
 
-  async findByAgentId(agentId: string) {
+  async findByAgentId(agentId: string, status?: string) {
     return this.db.apiKey.findMany({
-      where: { agentId, tenantId: this.tenantId },
+      where: { agentId, tenantId: this.tenantId, ...(status ? { status } : {}) },
       orderBy: { createdAt: 'desc' },
     });
   }

@@ -55,16 +55,23 @@ import {
   Server,
   Sparkles,
   BarChart3,
+  Zap,
+  Code2,
+  Palette,
+  Play,
+  Plug,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
 const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
+  { name: 'Sessions', href: '/sessions', icon: History },
+  { name: 'Inferences', href: '/inferences', icon: Zap },
 ];
 
 const agentStudioNav = [
@@ -85,6 +92,15 @@ const settingsNav = [
   { name: 'Roles & Permissions', href: '/settings/roles', icon: Shield },
 ];
 
+const sdksNav = [
+  { name: 'Chat Widget', href: '/sdks/chat-widget', icon: MessageSquare, children: [
+    { name: 'Designer', href: '/sdks/chat-widget/designer', icon: Palette },
+    { name: 'Sandbox', href: '/sdks/chat-widget/sandbox', icon: Play },
+  ]},
+];
+
+
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -97,11 +113,22 @@ export function AppSidebar() {
   const isKbActive = pathname === '/knowledge-bases' || pathname.startsWith('/knowledge-bases/');
   const [kbOpen, setKbOpen] = useState(isKbActive);
 
-  const isAnalyticsActive = pathname === '/analytics' || pathname.startsWith('/analytics/');
+  const isAnalyticsActive =
+    pathname === '/analytics' ||
+    pathname.startsWith('/analytics/') ||
+    pathname === '/sessions' ||
+    pathname.startsWith('/sessions/') ||
+    pathname === '/inferences' ||
+    pathname.startsWith('/inferences/');
   const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
 
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
   const [agentStudioOpen, setAgentStudioOpen] = useState(isAgentStudioActive);
+
+  const isSdksActive = pathname === '/sdks' || pathname.startsWith('/sdks/');
+  const [sdksOpen, setSdksOpen] = useState(isSdksActive);
+
+  const isConnectorsActive = pathname === '/connectors' || pathname.startsWith('/connectors/') || pathname.startsWith('/settings/channels/');
 
   const getUserInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -154,7 +181,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isAnalyticsActive}
                       tooltip="Analytics"
                     >
                       <BarChart3 className="size-4" />
@@ -194,7 +220,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isAgentStudioActive}
                       tooltip="Agent Studio"
                     >
                       <Bot className="size-4" />
@@ -234,7 +259,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isKbActive}
                       tooltip="Knowledge Base"
                     >
                       <Database className="size-4" />
@@ -267,6 +291,61 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel>SDKs</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={sdksOpen} onOpenChange={setSdksOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton
+                      tooltip="SDKs"
+                    >
+                      <Code2 className="size-4" />
+                      <span>Chat Widget</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {sdksNav[0].children.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton
+                            isActive={isActive}
+                            onClick={() => router.push(item.href)}
+                          >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Connectors</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isConnectorsActive}
+                tooltip="Connectors"
+                onClick={() => router.push('/connectors')}
+              >
+                <Plug className="size-4" />
+                <span>Connectors</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarMenu>
             <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="group/collapsible">
@@ -274,7 +353,6 @@ export function AppSidebar() {
                 <CollapsibleTrigger
                   render={
                     <SidebarMenuButton
-                      isActive={isSettingsActive}
                       tooltip="Settings"
                     >
                       <Settings className="size-4" />

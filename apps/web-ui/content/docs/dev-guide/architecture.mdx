@@ -1,0 +1,98 @@
+---
+title: Architecture
+description: System design, monorepo structure, and data flow.
+---
+
+## System Overview
+
+```mermaid
+graph TB
+    subgraph Client
+        A[Browser / Chat Widget]
+    end
+    subgraph "Next.js App"
+        B[App Router / API Routes]
+        C[NextAuth Middleware]
+    end
+    subgraph Services
+        D[AI Service - Bedrock]
+        E[pg-boss Workers]
+    end
+    subgraph Storage
+        F[PostgreSQL + pgvector]
+        G[S3 - Documents]
+    end
+    A --> C --> B
+    B --> D
+    B --> F
+    B --> G
+    E --> F
+    E --> D
+    E --> G
+```
+
+## Monorepo Structure
+
+```
+chatbot/
+├── apps/
+│   ├── web-ui/          # Next.js 15 frontend + API routes
+│   └── workers/         # pg-boss background job processor
+├── libs/
+│   ├── shared/          # Database, auth, RBAC, services
+│   └── ai/              # AWS Bedrock client, chat, embeddings
+├── prisma/              # Schema and migrations
+└── infra/               # Pulumi AWS infrastructure
+```
+
+## Data Flow
+
+### Chat Inference
+1. User sends a message via the chat UI or Agent Playground
+2. `POST /api/v1/inference` or agent playground endpoint receives the request
+3. `streamChat()` from `@chatbot/ai` calls the configured LLM provider (AWS Bedrock, etc.) via the Vercel AI SDK
+4. Response streams back to the client via server-sent events
+5. Message is persisted via `@chatbot/shared` repositories
+6. Session and inference records are created/updated
+
+### Knowledge Base Sync & Ingestion
+1. User uploads a file or adds a web URL source in the KB UI
+2. API returns a pre-signed S3 URL; client uploads the file
+3. `POST /api/knowledge-bases/{id}/ingest` enqueues a `document-ingestion` job
+4. Worker picks up the job: parses, chunks, embeds, and stores searchable vectors
+5. For web sources, `POST .../sync` enqueues a `web-crawl` job that crawls pages and creates documents
+
+### Agent Lifecycle
+1. User creates an agent with name, system prompt, and model
+2. Agent can be tested in the Playground with live streaming, console events, and metrics
+3. Versions are saved snapshots; the latest version can be published (public/private)
+4. Published agents expose a public inference API authenticated via API keys
+5. Agents can attach knowledge bases and MCP servers for RAG and tool use
+
+## Multi-Tenant Isolation
+
+All database queries pass through `getTenantClient()` which uses Prisma client extensions to automatically inject `tenantId` into every query for tenant-scoped models (Conversation, AuditLog, CustomRole, UserTenantRole, TenantConfig, Invitation, Agent, KnowledgeBase, etc.).
+
+## Technology Choices
+
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Runtime | Bun | Fast package management and script execution |
+| Frontend | Next.js 15 + React 19 | App Router, server components, streaming |
+| AI | Vercel AI SDK + LLM providers | Streaming support, multi-provider flexibility |
+| Database | PostgreSQL + pgvector | Relational data + vector embeddings |
+| Auth | NextAuth + Cognito | Flexible auth with enterprise SSO |
+| Jobs | pg-boss | PostgreSQL-native job queue, no Redis needed |
+| Monorepo | Nx | Task orchestration, caching, dependency graph |
+| Infra | Pulumi + AWS | Infrastructure as code for ECS, RDS, ALB |
+
+## Deployment Architecture
+
+```
+CloudFront (CDN)
+    → ALB (Application Load Balancer)
+        → ECS Fargate (web-ui + workers)
+            → RDS PostgreSQL with pgvector
+            → AWS Bedrock (AI inference)
+            → S3 (document storage)
+```

@@ -1,0 +1,51 @@
+.markdown {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.markdown code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 12px;
+}
+
+.markdown pre {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 12px;
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+
+.markdown a {
+  color: var(--smc-secondary, #3b82f6);
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.markdown li {
+  margin: 2px 0;
+}

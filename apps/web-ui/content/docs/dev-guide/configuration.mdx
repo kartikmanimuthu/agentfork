@@ -1,0 +1,70 @@
+---
+title: Configuration
+description: Configure AWS Bedrock, Cognito, database, and application settings.
+---
+
+## Environment Variables
+
+> **Security:** Never commit `.env` files to version control. Use environment-specific secrets management (AWS Secrets Manager, Vault, etc.) in production.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string with pgvector |
+| `AWS_REGION` | Yes | AWS region (e.g., `ap-south-1`) |
+| `NEXTAUTH_SECRET` | Yes | Random secret for session JWT encryption |
+| `NEXTAUTH_URL` | Yes | Application URL (e.g., `http://localhost:3001`) |
+| `COGNITO_CLIENT_ID` | No | AWS Cognito app client ID for SSO |
+| `COGNITO_CLIENT_SECRET` | No | AWS Cognito app client secret |
+| `COGNITO_ISSUER` | No | Cognito issuer URL |
+
+## AWS Bedrock
+
+The platform uses AWS Bedrock for AI model access. The default model is `anthropic.claude-sonnet-4-20250514`.
+
+Ensure your AWS credentials have access to:
+- `bedrock:InvokeModel`
+- `bedrock:InvokeModelWithResponseStream`
+
+The embedding model is `amazon.titan-embed-text-v2:0` for RAG vector generation.
+
+## Cognito SSO
+
+To enable SSO login via AWS Cognito:
+
+1. Create a Cognito User Pool
+2. Create an App Client with authorization code grant
+3. Set the callback URL to `{NEXTAUTH_URL}/api/auth/callback/cognito`
+4. Set `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, and `COGNITO_ISSUER`
+
+## Database
+
+PostgreSQL 16+ with the `pgvector` extension is required:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Run migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+## RBAC
+
+Four predefined roles control access:
+
+| Role | Chat | Conversations | Settings |
+|------|------|---------------|----------|
+| Owner | CRUD | CRUD | CRUD |
+| Admin | CRUD | CRUD | CRU |
+| Member | CR | CR | R |
+| Viewer | R | R | R |
+
+## Worker Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKER_ARCH` | `vertical` | Execution strategy: `vertical` (single process) or `horizontal` (multi-process) |
+| `WORKER_CONCURRENCY` | `5` | Number of concurrent jobs per worker |
+| `WORKER_POLL_INTERVAL` | `2000` | Job polling interval in milliseconds |

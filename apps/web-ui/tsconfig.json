@@ -42,6 +42,9 @@
       ],
       "@chatbot/knowledge-base": [
         "../../libs/knowledge-base/src/index.ts"
+      ],
+      "@chatbot/whatsapp": [
+        "../../libs/whatsapp/src/index.ts"
       ]
     },
     "isolatedModules": true

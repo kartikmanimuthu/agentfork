@@ -1,0 +1,11 @@
+{
+  "title": "Developer Guide",
+  "pages": [
+    "installation",
+    "configuration",
+    "architecture",
+    "faq",
+    "kb-worker-testing",
+    "web-crawler-rewrite"
+  ]
+}

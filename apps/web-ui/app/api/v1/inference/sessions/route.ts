@@ -27,12 +27,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, channel, channelMetadata, idleMinutes } = body as {
+    const { name, channel, channelMetadata, idleMinutes, visitorId, visitorName, visitorEmail, metadata } = body as {
       name?: string;
       channel?: string;
       channelMetadata?: Record<string, unknown> | null;
       idleMinutes?: number;
+      visitorId?: string;
+      visitorName?: string;
+      visitorEmail?: string;
+      metadata?: Record<string, unknown>;
     };
+
+    const effectiveChannelMetadata = channelMetadata ?? (visitorId ? { visitorId, visitorName, visitorEmail, ...metadata } : null);
+    const effectiveChannel = channel ?? (visitorId ? 'SDK' : 'API');
 
     const db = getPrismaClient();
     const service = new InferenceSessionService(db);
@@ -40,9 +47,9 @@ export async function POST(req: NextRequest) {
       apiKeyId,
       tenantId,
       agentId,
-      name,
-      channel,
-      channelMetadata,
+      name: name ?? visitorName,
+      channel: effectiveChannel,
+      channelMetadata: effectiveChannelMetadata,
       idleMinutes,
     });
 

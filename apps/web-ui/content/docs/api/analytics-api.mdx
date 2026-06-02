@@ -1,0 +1,147 @@
+---
+title: Analytics API
+description: Dashboard summary, audit logs, inferences, and sessions.
+---
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/analytics/summary` | Dashboard summary |
+| GET | `/api/audit` | Audit logs |
+| GET | `/api/inferences` | Inference list |
+| GET | `/api/inferences/[id]` | Inference detail |
+| GET | `/api/sessions` | Session list |
+| GET | `/api/sessions/[id]` | Session detail |
+
+## Dashboard Summary
+
+### GET /api/analytics/summary
+
+Get high-level analytics for the current tenant.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `startDate`: ISO date string
+- `endDate`: ISO date string
+
+**Response:**
+```json
+{
+  "totalInferences": 1523,
+  "totalUsers": 45,
+  "totalAgents": 8,
+  "avgResponseTimeMs": 1240,
+  "topAgents": [
+    { "agentId": "agent-1", "name": "Support Bot", "inferenceCount": 890 }
+  ]
+}
+```
+
+## Audit Logs
+
+### GET /api/audit
+
+Query audit logs with filtering and pagination.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `eventType`: e.g. `agent.create`, `inference.run`
+- `severity`: `info`, `warn`, `error`
+- `userId`: Filter by user
+- `startDate`: ISO date string
+- `endDate`: ISO date string
+- `limit`: Default 20
+- `offset`: Default 0
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "audit-1",
+      "eventType": "agent.create",
+      "severity": "info",
+      "userId": "user-1",
+      "tenantId": "tenant-1",
+      "metadata": { "agentId": "agent-1" },
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ],
+  "total": 150
+}
+```
+
+## Inferences
+
+### GET /api/inferences
+
+List inferences with optional stats.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `agentId`: Filter by agent
+- `sessionId`: Filter by session
+- `limit`: Default 20
+- `offset`: Default 0
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "inf-1",
+      "agentId": "agent-1",
+      "sessionId": "sess-1",
+      "inputTokens": 120,
+      "outputTokens": 450,
+      "cost": 0.012,
+      "durationMs": 2340,
+      "createdAt": "2026-05-01T00:00:00Z"
+    }
+  ],
+  "total": 500
+}
+```
+
+### GET /api/inferences/[id]
+
+Get a single inference with full message history.
+
+## Sessions
+
+### GET /api/sessions
+
+List sessions.
+
+**Auth:** Session cookie required.
+
+**Query params:**
+- `agentId`: Filter by agent
+- `status`: `active` or `closed`
+- `limit`: Default 20
+- `offset`: Default 0
+
+### GET /api/sessions/[id]
+
+Get session detail with messages and metadata.
+
+**Response:**
+```json
+{
+  "id": "sess-1",
+  "agentId": "agent-1",
+  "status": "closed",
+  "messages": [
+    { "role": "user", "content": "Hello" },
+    { "role": "assistant", "content": "Hi there!" }
+  ],
+  "metadata": { "source": "widget" },
+  "inputTokens": 120,
+  "outputTokens": 450,
+  "cost": 0.012,
+  "createdAt": "2026-05-01T00:00:00Z",
+  "closedAt": "2026-05-01T00:05:00Z"
+}
+```

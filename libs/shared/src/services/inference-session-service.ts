@@ -14,6 +14,7 @@ export interface SessionMessageInput {
   role: string;
   content: string;
   tokenCount?: number;
+  attachments?: import('@chatbot/ai').MessageAttachment[];
 }
 
 export interface SessionMessageRecord {
@@ -168,6 +169,7 @@ export class InferenceSessionService {
         role: message.role,
         content: message.content,
         tokenCount: message.tokenCount ?? null,
+        attachments: message.attachments ? (message.attachments as unknown as import('@prisma/client').Prisma.InputJsonValue) : undefined,
       },
     });
 

@@ -1,0 +1,93 @@
+.pre-chat {
+  flex: 1;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.pre-chat-header {
+  margin-bottom: 20px;
+}
+
+.pre-chat-header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--smc-text, #374151);
+}
+
+.pre-chat-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  text-transform: capitalize;
+}
+
+.field input, .field select {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus, .field select:focus {
+  border-color: var(--smc-secondary, #3b82f6);
+}
+
+.error {
+  font-size: 11px;
+  color: #ef4444;
+}
+
+.form-error {
+  font-size: 12px;
+  color: #ef4444;
+  text-align: center;
+  padding: 8px;
+  background: #fef2f2;
+  border-radius: 6px;
+}
+
+.submit-btn {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--smc-primary, #1a1a2e);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.submit-btn:hover {
+  opacity: 0.9;
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
