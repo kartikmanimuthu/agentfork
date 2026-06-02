@@ -3,14 +3,14 @@
 **Date:** 2026-06-02  
 **Branch:** `omar-updating-graph-agent`  
 **Operator:** Claude (automated merge)  
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 ---
 
 ## Pre-Merge State
 
 ```
-omar-updating-graph-agent HEAD: 7135a17
+omar-updating-graph-agent HEAD before merge: 7135a17
 bitbucket/main HEAD: 8be1225
 Common ancestor: 0b1e8f6
 ```
@@ -30,13 +30,11 @@ Common ancestor: 0b1e8f6
 - `package.json`
 
 **SHA before:** 7135a17  
-**SHA after:** TBD  
+**SHA after:** 0011037  
 
 **Revert command:**
 ```bash
-git revert <SHA>
-# or
-git reset --hard 7135a17
+git revert 0011037
 ```
 
 ---
@@ -46,13 +44,17 @@ git reset --hard 7135a17
 **Files:**
 - `apps/web-ui/app/api/v1/inference/route.ts`
 - `apps/web-ui/app/api/agents/[id]/playground/route.ts`
+- `libs/ai/src/content-resolver.ts` (new)
+- `libs/ai/src/multimodal-types.ts` (new)
+- `libs/ai/src/index.ts`
+- `libs/shared/src/services/inference-session-service.ts`
 
-**SHA before:** (Commit 1 SHA)  
-**SHA after:** TBD  
+**SHA before:** 0011037  
+**SHA after:** 91157c1  
 
 **Revert command:**
 ```bash
-git revert <SHA>
+git revert 91157c1
 ```
 
 ---
@@ -61,14 +63,20 @@ git revert <SHA>
 
 **Files:**
 - `apps/web-ui/hooks/use-playground.ts`
+- `apps/web-ui/hooks/use-console.ts` (new)
 - `apps/web-ui/app/(dashboard)/agents/[id]/playground/page.tsx`
+- `apps/web-ui/components/agents/playground/` (8 new files)
+- `apps/web-ui/components/chat/chat-input.tsx`
+- `apps/web-ui/components/chat/chat-messages.tsx`
+- `apps/web-ui/components/chat/file-chip.tsx` (new)
+- `apps/web-ui/lib/playground/` (3 new files)
 
-**SHA before:** (Commit 2 SHA)  
-**SHA after:** TBD  
+**SHA before:** 91157c1  
+**SHA after:** d3c48ce  
 
 **Revert command:**
 ```bash
-git revert <SHA>
+git revert d3c48ce
 ```
 
 ---
@@ -79,7 +87,7 @@ git revert <SHA>
 bun install   # regenerate bun.lock
 ```
 
-**bun.lock SHA after:** TBD
+**bun.lock SHA after:** d3c48ce (included in Commit 3)
 
 ---
 
