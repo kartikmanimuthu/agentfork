@@ -19,6 +19,9 @@ import {
   ParallelNodeExecutor,
   SubAgentNodeExecutor,
   DelayNodeExecutor,
+  WhatsAppTriggerNodeExecutor,
+  WhatsAppSendNodeExecutor,
+  WhatsAppSendTemplateNodeExecutor,
 } from './execution/node-executors';
 export {
   LlmNodeExecutor,
@@ -37,6 +40,9 @@ export {
   ParallelNodeExecutor,
   SubAgentNodeExecutor,
   DelayNodeExecutor,
+  WhatsAppTriggerNodeExecutor,
+  WhatsAppSendNodeExecutor,
+  WhatsAppSendTemplateNodeExecutor,
 };
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 import type { NodeExecutor } from './execution/types';
@@ -69,6 +75,9 @@ export function createNodeExecutors(): NodeExecutor[] {
     new ParallelNodeExecutor(),
     new SubAgentNodeExecutor(),
     new DelayNodeExecutor(),
+    new WhatsAppTriggerNodeExecutor(),
+    new WhatsAppSendNodeExecutor(),
+    new WhatsAppSendTemplateNodeExecutor(),
   ];
 }
 

@@ -14,3 +14,6 @@ export { HumanNodeExecutor } from './human-executor';
 export { ParallelNodeExecutor } from './parallel-executor';
 export { SubAgentNodeExecutor } from './sub-agent-executor';
 export { DelayNodeExecutor } from './delay-executor';
+export { WhatsAppTriggerNodeExecutor } from './whatsapp-trigger-executor';
+export { WhatsAppSendNodeExecutor } from './whatsapp-send-executor';
+export { WhatsAppSendTemplateNodeExecutor } from './whatsapp-send-template-executor';
