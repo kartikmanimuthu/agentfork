@@ -19,6 +19,9 @@ import { HumanNodeForm } from './human-node-form';
 import { ParallelNodeForm } from './parallel-node-form';
 import { SubAgentNodeForm } from './sub-agent-node-form';
 import { DelayNodeForm } from './delay-node-form';
+import { WhatsAppTriggerNodeForm } from './whatsapp-trigger-node-form';
+import { WhatsAppSendNodeForm } from './whatsapp-send-node-form';
+import { WhatsAppSendTemplateNodeForm } from './whatsapp-send-template-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 import type { NodeOption } from './node-picker';
@@ -105,6 +108,15 @@ export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete 
           )}
           {node.config.type === 'delay' && (
             <DelayNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_trigger' && (
+            <WhatsAppTriggerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send' && (
+            <WhatsAppSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send_template' && (
+            <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>
