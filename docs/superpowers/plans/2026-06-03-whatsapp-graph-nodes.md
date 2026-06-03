@@ -30,6 +30,11 @@
 | `libs/whatsapp/src/processor/message-processor.ts` | Modify — enrich context, conditional send |
 | `libs/whatsapp/src/processor/agent-executor.ts` | Modify — replace stub with real GraphExecutor call |
 | `libs/whatsapp/src/processor/agent-executor.test.ts` | Modify — add graph agent test |
+| `libs/agent-studio/src/index.ts` | Modify — export 3 new config types for frontend consumption |
+| `apps/web-ui/components/agents/config/whatsapp-trigger-node-form.tsx` | Create — config form for WhatsApp Trigger node |
+| `apps/web-ui/components/agents/config/whatsapp-send-node-form.tsx` | Create — config form for WhatsApp Send node |
+| `apps/web-ui/components/agents/config/whatsapp-send-template-node-form.tsx` | Create — config form for WhatsApp Send Template node |
+| `apps/web-ui/components/agents/config/config-panel.tsx` | Modify — import and wire the 3 new forms |
 
 ---
 
@@ -1278,7 +1283,356 @@ git commit -m "feat(whatsapp): replace executeGraphAgent stub with real GraphExe
 
 ---
 
-## Task 9: Push and Verify
+## Task 9: Frontend Node Config Forms
+
+**Files:**
+- Modify: `libs/agent-studio/src/index.ts`
+- Create: `apps/web-ui/components/agents/config/whatsapp-trigger-node-form.tsx`
+- Create: `apps/web-ui/components/agents/config/whatsapp-send-node-form.tsx`
+- Create: `apps/web-ui/components/agents/config/whatsapp-send-template-node-form.tsx`
+- Modify: `apps/web-ui/components/agents/config/config-panel.tsx`
+
+The graph canvas config panel renders a form component per node type. Without forms, clicking a WhatsApp node shows the panel header but nothing else. This task adds the three forms and wires them in.
+
+**Pattern:** Follow `human-node-form.tsx` exactly — `useForm` from `@tanstack/react-form`, Zod schema for validation, `onBlur` triggers `form.handleSubmit()`, props are `{ config, onChange }`.
+
+- [ ] **Step 1: Export the 3 new config types from `libs/agent-studio/src/index.ts`**
+
+Open `libs/agent-studio/src/index.ts`. Add the three new types to the existing `export type { ... } from './types/nodes'` block alongside `DelayNodeConfig`:
+
+```typescript
+  DelayNodeConfig,
+  WhatsAppTriggerNodeConfig,
+  WhatsAppSendNodeConfig,
+  WhatsAppSendTemplateNodeConfig,
+```
+
+- [ ] **Step 2: Create `whatsapp-trigger-node-form.tsx`**
+
+Create `apps/web-ui/components/agents/config/whatsapp-trigger-node-form.tsx`:
+
+```typescript
+'use client';
+
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import type { WhatsAppTriggerNodeConfig } from '@chatbot/agent-studio';
+
+const schema = z.object({
+  senderIdChannel: z.string().optional(),
+  messageTextChannel: z.string().optional(),
+  messageTypeChannel: z.string().optional(),
+  mediaIdChannel: z.string().optional(),
+  withinWindowChannel: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+interface Props {
+  config: WhatsAppTriggerNodeConfig;
+  onChange: (config: WhatsAppTriggerNodeConfig) => void;
+}
+
+export function WhatsAppTriggerNodeForm({ config, onChange }: Props) {
+  const map = config.channelMap ?? {};
+
+  const form = useForm({
+    defaultValues: {
+      senderIdChannel: map.senderIdChannel ?? '',
+      messageTextChannel: map.messageTextChannel ?? '',
+      messageTypeChannel: map.messageTypeChannel ?? '',
+      mediaIdChannel: map.mediaIdChannel ?? '',
+      withinWindowChannel: map.withinWindowChannel ?? '',
+    } as FormValues,
+    validators: { onChange: schema },
+    onSubmit: ({ value }) => {
+      const channelMap: WhatsAppTriggerNodeConfig['channelMap'] = {};
+      if (value.senderIdChannel) channelMap.senderIdChannel = value.senderIdChannel;
+      if (value.messageTextChannel) channelMap.messageTextChannel = value.messageTextChannel;
+      if (value.messageTypeChannel) channelMap.messageTypeChannel = value.messageTypeChannel;
+      if (value.mediaIdChannel) channelMap.mediaIdChannel = value.mediaIdChannel;
+      if (value.withinWindowChannel) channelMap.withinWindowChannel = value.withinWindowChannel;
+      onChange({ type: 'whatsapp_trigger', channelMap: Object.keys(channelMap).length ? channelMap : undefined });
+    },
+  });
+
+  const handleBlur = () => form.handleSubmit();
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-4">
+      <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground space-y-1">
+        <p className="font-medium text-foreground">Available channels (auto-populated)</p>
+        <p><code className="font-mono">wa_sender_id</code> — customer phone</p>
+        <p><code className="font-mono">wa_message_text</code> — message body</p>
+        <p><code className="font-mono">wa_message_type</code> — text / image / etc.</p>
+        <p><code className="font-mono">wa_media_id</code> — media ID if media message</p>
+        <p><code className="font-mono">wa_within_window</code> — true if within 24h window</p>
+      </div>
+      <p className="text-xs text-muted-foreground">Optionally remap channels to custom names. Leave blank to use defaults above.</p>
+      {[
+        { name: 'senderIdChannel' as const, label: 'Sender ID Channel', placeholder: 'wa_sender_id' },
+        { name: 'messageTextChannel' as const, label: 'Message Text Channel', placeholder: 'wa_message_text' },
+        { name: 'messageTypeChannel' as const, label: 'Message Type Channel', placeholder: 'wa_message_type' },
+        { name: 'mediaIdChannel' as const, label: 'Media ID Channel', placeholder: 'wa_media_id' },
+        { name: 'withinWindowChannel' as const, label: 'Within Window Channel', placeholder: 'wa_within_window' },
+      ].map(({ name, label, placeholder }) => (
+        <form.Field key={name} name={name}>
+          {(field) => (
+            <div className="grid gap-1.5">
+              <Label htmlFor={field.name}>{label}</Label>
+              <Input
+                id={field.name}
+                value={field.state.value ?? ''}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={() => { field.handleBlur(); handleBlur(); }}
+                placeholder={placeholder}
+              />
+            </div>
+          )}
+        </form.Field>
+      ))}
+    </form>
+  );
+}
+```
+
+- [ ] **Step 3: Create `whatsapp-send-node-form.tsx`**
+
+Create `apps/web-ui/components/agents/config/whatsapp-send-node-form.tsx`:
+
+```typescript
+'use client';
+
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { WhatsAppSendNodeConfig } from '@chatbot/agent-studio';
+
+const schema = z.object({
+  messageType: z.enum(['text', 'image', 'document', 'audio', 'video']),
+  messageChannel: z.string().min(1, 'Message channel is required'),
+  mediaIdChannel: z.string().optional(),
+  filenameChannel: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+interface Props {
+  config: WhatsAppSendNodeConfig;
+  onChange: (config: WhatsAppSendNodeConfig) => void;
+}
+
+export function WhatsAppSendNodeForm({ config, onChange }: Props) {
+  const form = useForm({
+    defaultValues: {
+      messageType: config.messageType ?? 'text',
+      messageChannel: config.messageChannel ?? 'llm_output',
+      mediaIdChannel: config.mediaIdChannel ?? '',
+      filenameChannel: config.filenameChannel ?? '',
+    } as FormValues,
+    validators: { onChange: schema },
+    onSubmit: ({ value }) => {
+      onChange({
+        type: 'whatsapp_send',
+        messageType: value.messageType,
+        messageChannel: value.messageChannel,
+        mediaIdChannel: value.mediaIdChannel || undefined,
+        filenameChannel: value.filenameChannel || undefined,
+      });
+    },
+  });
+
+  const handleBlur = () => form.handleSubmit();
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-4">
+      <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        Only valid within the 24-hour customer service window. Use <strong>WhatsApp Send Template</strong> to contact customers outside that window.
+      </div>
+      <form.Field name="messageType">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label>Message Type</Label>
+            <Select value={field.state.value} onValueChange={(v) => { field.handleChange(v as FormValues['messageType']); handleBlur(); }}>
+              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="messageChannel">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Message Channel</Label>
+            <Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="llm_output" />
+            <p className="text-[10px] text-muted-foreground">Channel containing the text body (or caption for media)</p>
+            {field.state.meta.errors.length > 0 && <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>}
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="mediaIdChannel">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Media ID Channel</Label>
+            <Input id={field.name} value={field.state.value ?? ''} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="wa_media_id" />
+            <p className="text-[10px] text-muted-foreground">Required for image / document / audio / video types</p>
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="filenameChannel">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Filename Channel</Label>
+            <Input id={field.name} value={field.state.value ?? ''} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="optional" />
+            <p className="text-[10px] text-muted-foreground">Document filename (document type only)</p>
+          </div>
+        )}
+      </form.Field>
+    </form>
+  );
+}
+```
+
+- [ ] **Step 4: Create `whatsapp-send-template-node-form.tsx`**
+
+Create `apps/web-ui/components/agents/config/whatsapp-send-template-node-form.tsx`:
+
+```typescript
+'use client';
+
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import type { WhatsAppSendTemplateNodeConfig } from '@chatbot/agent-studio';
+
+const schema = z.object({
+  templateName: z.string().min(1, 'Template name is required'),
+  languageCode: z.string().min(2, 'Language code is required'),
+  componentsChannel: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+interface Props {
+  config: WhatsAppSendTemplateNodeConfig;
+  onChange: (config: WhatsAppSendTemplateNodeConfig) => void;
+}
+
+export function WhatsAppSendTemplateNodeForm({ config, onChange }: Props) {
+  const form = useForm({
+    defaultValues: {
+      templateName: config.templateName ?? '',
+      languageCode: config.languageCode ?? 'en',
+      componentsChannel: config.componentsChannel ?? '',
+    } as FormValues,
+    validators: { onChange: schema },
+    onSubmit: ({ value }) => {
+      onChange({
+        type: 'whatsapp_send_template',
+        templateName: value.templateName,
+        languageCode: value.languageCode,
+        componentsChannel: value.componentsChannel || undefined,
+      });
+    },
+  });
+
+  const handleBlur = () => form.handleSubmit();
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-4">
+      <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+        Works outside the 24-hour customer service window. Template must be approved in your Meta Business account.
+      </div>
+      <form.Field name="templateName">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Template Name</Label>
+            <Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="hello_world" />
+            <p className="text-[10px] text-muted-foreground">Exact name of the approved Meta template</p>
+            {field.state.meta.errors.length > 0 && <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>}
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="languageCode">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Language Code</Label>
+            <Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="en" />
+            <p className="text-[10px] text-muted-foreground">e.g. en, en_US, hi, ar</p>
+            {field.state.meta.errors.length > 0 && <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>}
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="componentsChannel">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Components Channel</Label>
+            <Input id={field.name} value={field.state.value ?? ''} onChange={(e) => field.handleChange(e.target.value)} onBlur={() => { field.handleBlur(); handleBlur(); }} placeholder="optional" />
+            <p className="text-[10px] text-muted-foreground">Channel with template variable components as JSON array. Leave blank for templates with no variables.</p>
+          </div>
+        )}
+      </form.Field>
+    </form>
+  );
+}
+```
+
+- [ ] **Step 5: Wire forms into `config-panel.tsx`**
+
+Open `apps/web-ui/components/agents/config/config-panel.tsx`. Add imports after the existing `DelayNodeForm` import:
+
+```typescript
+import { WhatsAppTriggerNodeForm } from './whatsapp-trigger-node-form';
+import { WhatsAppSendNodeForm } from './whatsapp-send-node-form';
+import { WhatsAppSendTemplateNodeForm } from './whatsapp-send-template-node-form';
+```
+
+Add the three cases inside the `<ScrollArea>` div, after the `delay` case:
+
+```typescript
+          {node.config.type === 'whatsapp_trigger' && (
+            <WhatsAppTriggerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send' && (
+            <WhatsAppSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send_template' && (
+            <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
+          )}
+```
+
+- [ ] **Step 6: TypeScript check**
+
+```bash
+bunx tsc --noEmit -p apps/web-ui/tsconfig.json 2>&1 | grep "whatsapp-"
+```
+Expected: no output (zero errors on the new files).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add libs/agent-studio/src/index.ts \
+        apps/web-ui/components/agents/config/whatsapp-trigger-node-form.tsx \
+        apps/web-ui/components/agents/config/whatsapp-send-node-form.tsx \
+        apps/web-ui/components/agents/config/whatsapp-send-template-node-form.tsx \
+        apps/web-ui/components/agents/config/config-panel.tsx
+git commit -m "feat(web-ui): add WhatsApp node config forms and wire into canvas config panel"
+```
+
+---
+
+## Task 10: Push and Verify
 
 - [ ] **Step 1: Push to Bitbucket**
 
@@ -1310,7 +1664,10 @@ To verify end-to-end:
 - [x] MessageProcessor conditional send — Task 7
 - [x] executeGraphAgent stub replaced — Task 8
 - [x] All tests — Tasks 3–8
+- [x] Frontend config forms for all 3 node types — Task 9
+- [x] Forms wired into canvas config panel — Task 9
+- [x] New config types exported from agent-studio index — Task 9
 
 **No placeholders:** All code blocks are complete and runnable.
 
-**Type consistency:** `WhatsAppTriggerNodeConfig`, `WhatsAppSendNodeConfig`, `WhatsAppSendTemplateNodeConfig` used consistently across types.ts, schema files, and executor files.
+**Type consistency:** `WhatsAppTriggerNodeConfig`, `WhatsAppSendNodeConfig`, `WhatsAppSendTemplateNodeConfig` used consistently across types.ts, schema files, executor files, and frontend forms.
