@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WhatsAppAgentExecutor } from './agent-executor';
 
 const mockPrisma = {
@@ -70,5 +70,51 @@ describe('WhatsAppAgentExecutor', () => {
   it('throws when agent not found', async () => {
     mockPrisma.agent.findFirst.mockResolvedValueOnce(null);
     await expect(executor.execute('nonexistent', { text: 'Hi' }, {})).rejects.toThrow('Agent not found: nonexistent');
+  });
+
+  it('executes a graph agent using GraphExecutor and returns text from output channel', async () => {
+    const mockExecuteFromState = vi.fn().mockResolvedValue({
+      channels: { response: 'Hello from graph!' },
+      messages: [],
+      currentNodeId: null,
+      metadata: { executionId: 'e1', agentId: 'graph_1', tenantId: 't1', userId: 'whatsapp', startedAt: new Date() },
+    });
+
+    const mockRegister = vi.fn();
+
+    vi.doMock('@chatbot/agent-studio/server', () => ({
+      GraphExecutor: vi.fn().mockImplementation(() => ({
+        register: mockRegister,
+        executeFromState: mockExecuteFromState,
+      })),
+      createNodeExecutors: vi.fn().mockReturnValue([]),
+    }));
+
+    mockPrisma.agent.findFirst.mockResolvedValueOnce({
+      id: 'graph_1',
+      type: 'graph',
+      config: {
+        nodes: [{ id: 'n1', type: 'whatsapp_trigger', config: { type: 'whatsapp_trigger' } }],
+        edges: [],
+      },
+    });
+
+    const result = await executor.execute(
+      'graph_1',
+      { text: 'Hi from WhatsApp' },
+      {
+        wa_sender_id: '919876543210',
+        wa_phone_number_id: 'phone_123',
+        wa_account_id: 'acc_1',
+        wa_session_id: 'sess_1',
+        wa_within_window: true,
+        wa_message_type: 'text',
+        wa_media_id: null,
+        tenantId: 'tenant_1',
+      },
+    );
+
+    expect(result.text).toBe('Hello from graph!');
+    expect(mockExecuteFromState).toHaveBeenCalledOnce();
   });
 });
