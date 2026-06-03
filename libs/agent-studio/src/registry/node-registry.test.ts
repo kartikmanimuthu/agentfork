@@ -20,7 +20,7 @@ describe('NodeRegistry', () => {
       expect(types).toContain('parallel');
       expect(types).toContain('sub_agent');
       expect(types).toContain('delay');
-      expect(all).toHaveLength(14);
+      expect(all).toHaveLength(17);
     });
   });
 

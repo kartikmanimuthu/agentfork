@@ -364,7 +364,7 @@ const definitions: NodeDefinition[] = [
     description: 'Sends a pre-approved template message. Works outside the 24-hour window.',
     defaultConfig: {
       type: 'whatsapp_send_template',
-      templateName: '',
+      templateName: 'my_template',
       languageCode: 'en',
     },
     validate(config) {
