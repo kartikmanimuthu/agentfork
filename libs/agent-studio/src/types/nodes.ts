@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay' | 'whatsapp_trigger' | 'whatsapp_send' | 'whatsapp_send_template';
 
 export interface SchemaField {
   name: string;
@@ -156,6 +156,32 @@ export interface DelayNodeConfig {
   delayChannel?: string;
 }
 
+export interface WhatsAppTriggerNodeConfig {
+  type: 'whatsapp_trigger';
+  channelMap?: {
+    senderIdChannel?: string;
+    messageTextChannel?: string;
+    messageTypeChannel?: string;
+    mediaIdChannel?: string;
+    withinWindowChannel?: string;
+  };
+}
+
+export interface WhatsAppSendNodeConfig {
+  type: 'whatsapp_send';
+  messageType: 'text' | 'image' | 'document' | 'audio' | 'video';
+  messageChannel: string;
+  mediaIdChannel?: string;
+  filenameChannel?: string;
+}
+
+export interface WhatsAppSendTemplateNodeConfig {
+  type: 'whatsapp_send_template';
+  templateName: string;
+  languageCode: string;
+  componentsChannel?: string;
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
@@ -173,7 +199,10 @@ export type NodeConfig =
   | HumanNodeConfig
   | ParallelNodeConfig
   | SubAgentNodeConfig
-  | DelayNodeConfig;
+  | DelayNodeConfig
+  | WhatsAppTriggerNodeConfig
+  | WhatsAppSendNodeConfig
+  | WhatsAppSendTemplateNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
