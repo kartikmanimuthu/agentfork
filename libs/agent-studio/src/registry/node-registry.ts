@@ -15,6 +15,9 @@ import { humanNodeSchema } from './schemas/human';
 import { parallelNodeSchema } from './schemas/parallel';
 import { subAgentNodeSchema } from './schemas/sub-agent';
 import { delayNodeSchema } from './schemas/delay';
+import { whatsappTriggerNodeSchema } from './schemas/whatsapp-trigger';
+import { whatsappSendNodeSchema } from './schemas/whatsapp-send';
+import { whatsappSendTemplateNodeSchema } from './schemas/whatsapp-send-template';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -35,6 +38,9 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   parallelNodeSchema,
   subAgentNodeSchema,
   delayNodeSchema,
+  whatsappTriggerNodeSchema,
+  whatsappSendNodeSchema,
+  whatsappSendTemplateNodeSchema,
 ]);
 
 export interface NodeDefinition {
@@ -308,6 +314,61 @@ const definitions: NodeDefinition[] = [
     },
     validate(config) {
       const result = delayNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_trigger',
+    label: 'WhatsApp Trigger',
+    description: 'Entry point for WhatsApp-driven graphs. Reads inbound message data into state channels.',
+    defaultConfig: {
+      type: 'whatsapp_trigger',
+    },
+    validate(config) {
+      const result = whatsappTriggerNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_send',
+    label: 'WhatsApp Send',
+    description: 'Sends a freeform message to the WhatsApp sender. Only valid within the 24-hour customer service window.',
+    defaultConfig: {
+      type: 'whatsapp_send',
+      messageType: 'text',
+      messageChannel: 'llm_output',
+    },
+    validate(config) {
+      const result = whatsappSendNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_send_template',
+    label: 'WhatsApp Send Template',
+    description: 'Sends a pre-approved template message. Works outside the 24-hour window.',
+    defaultConfig: {
+      type: 'whatsapp_send_template',
+      templateName: '',
+      languageCode: 'en',
+    },
+    validate(config) {
+      const result = whatsappSendTemplateNodeSchema.safeParse(config);
       if (result.success) return [];
       return result.error.issues.map((issue) => ({
         field: issue.path.join('.'),
