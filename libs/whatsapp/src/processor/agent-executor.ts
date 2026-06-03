@@ -16,7 +16,7 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
 
   async execute(
     agentId: string,
-    message: { text?: string; mediaUrl?: string; mediaType?: string },
+    message: { text?: string; mediaUrl?: string; mediaType?: string; mediaId?: string },
     context: Record<string, unknown>,
   ): Promise<{ text: string }> {
     const agent = await (this.prisma as any).agent.findFirst({
