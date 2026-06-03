@@ -1,4 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@chatbot/shared', () => ({
+  createLogger: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
+}));
+
 import { WhatsAppTriggerNodeExecutor } from './whatsapp-trigger-executor';
 import type { NodeExecutionContext } from '../types';
 
