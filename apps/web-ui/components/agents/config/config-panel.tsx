@@ -22,6 +22,9 @@ import { DelayNodeForm } from './delay-node-form';
 import { WhatsAppTriggerNodeForm } from './whatsapp-trigger-node-form';
 import { WhatsAppSendNodeForm } from './whatsapp-send-node-form';
 import { WhatsAppSendTemplateNodeForm } from './whatsapp-send-template-node-form';
+import { TelegramTriggerNodeForm } from './telegram-trigger-node-form';
+import { TelegramSendNodeForm } from './telegram-send-node-form';
+import { TelegramSendButtonsNodeForm } from './telegram-send-buttons-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 import type { NodeOption } from './node-picker';
@@ -117,6 +120,15 @@ export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete 
           )}
           {node.config.type === 'whatsapp_send_template' && (
             <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_trigger' && (
+            <TelegramTriggerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send' && (
+            <TelegramSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send_buttons' && (
+            <TelegramSendButtonsNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

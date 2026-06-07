@@ -65,6 +65,7 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
     message: { text?: string; mediaId?: string; mediaType?: string },
     context: Record<string, unknown>,
   ): Promise<{ text: string }> {
+    // @ts-ignore — dynamic import to avoid circular dependency at build time
     const { GraphExecutor, createNodeExecutors } = await import('@chatbot/agent-studio/server');
 
     const graphDef = agent.config as { nodes: any[]; edges: any[] };

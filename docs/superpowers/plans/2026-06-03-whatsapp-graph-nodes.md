@@ -1632,6 +1632,33 @@ git commit -m "feat(web-ui): add WhatsApp node config forms and wire into canvas
 
 ---
 
+## Task 9b: Canvas Node Styling
+
+**Files:**
+- Create: `apps/web-ui/components/agents/canvas/nodes/whatsapp-trigger-node.tsx`
+- Create: `apps/web-ui/components/agents/canvas/nodes/whatsapp-send-node.tsx`
+- Create: `apps/web-ui/components/agents/canvas/nodes/whatsapp-send-template-node.tsx`
+- Modify: `apps/web-ui/components/agents/canvas/node-types.ts`
+- Modify: `apps/web-ui/components/agents/canvas/node-palette.tsx`
+
+Without dedicated canvas node components, React Flow falls back to its unstyled default renderer
+(plain white box with just the node label). This task adds the three styled canvas components and
+registers them.
+
+- [x] **Step 1: Create the three canvas node component files** — follow the pattern in `delay-node.tsx`:
+  `min-w-[180px] rounded-lg border bg-card shadow-sm` wrapper, `bg-muted/40 rounded-t-lg` header with
+  icon + label + badge, content area showing key config fields, React Flow `<Handle>` top/bottom.
+  `WhatsAppTriggerNode` has no top handle (entry point). All use `WhatsAppIcon` with `text-green-600`.
+
+- [x] **Step 2: Register in `node-types.ts`** — import and add `whatsapp_trigger`, `whatsapp_send`,
+  `whatsapp_send_template` to the `nodeTypes` export.
+
+- [x] **Step 3: Add icons + colors to `node-palette.tsx`** — add `WhatsAppIcon` for all three types
+  with `text-green-600` color. Change `NODE_ICONS` type to `Record<string, ElementType>` so the custom
+  SVG icon coexists with lucide icons.
+
+---
+
 ## Task 10: Push and Verify
 
 - [ ] **Step 1: Push to Bitbucket**
@@ -1667,6 +1694,9 @@ To verify end-to-end:
 - [x] Frontend config forms for all 3 node types — Task 9
 - [x] Forms wired into canvas config panel — Task 9
 - [x] New config types exported from agent-studio index — Task 9
+- [x] Canvas node components styled to match all other nodes — Task 9b
+- [x] WhatsApp nodes registered in `nodeTypes` (React Flow) — Task 9b
+- [x] Palette icons + colors added for WhatsApp nodes — Task 9b
 
 **No placeholders:** All code blocks are complete and runnable.
 

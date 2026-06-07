@@ -1,0 +1,155 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: Chatbot
+        - generic [ref=e6]:
+          - link "Features" [ref=e7] [cursor=pointer]:
+            - /url: "#features"
+          - link "Pricing" [ref=e8] [cursor=pointer]:
+            - /url: "#pricing"
+          - link "GitHub" [ref=e9] [cursor=pointer]:
+            - /url: https://github.com/kartikmanimuthu/chatbot
+            - img [ref=e10]
+            - generic [ref=e14]: GitHub
+          - link "Docs" [ref=e15] [cursor=pointer]:
+            - /url: /docs
+          - link "Sign in" [ref=e16] [cursor=pointer]:
+            - /url: /login
+          - link "Get Started" [ref=e17] [cursor=pointer]:
+            - /url: /register
+            - button "Get Started" [ref=e18]
+    - generic [ref=e21]:
+      - generic [ref=e22]: Open Source · MIT License
+      - heading "AI Chatbot Platform" [level=1] [ref=e23]
+      - paragraph [ref=e24]: Self-hosted, multi-tenant chatbot powered by AWS Bedrock. Deploy for free, keep full control of your data.
+      - generic [ref=e25]:
+        - link "Deploy Free" [ref=e26] [cursor=pointer]:
+          - /url: /register
+          - button "Deploy Free" [ref=e27]
+        - link "View on GitHub" [ref=e28] [cursor=pointer]:
+          - /url: https://github.com/kartikmanimuthu/chatbot
+          - button "View on GitHub" [ref=e29]
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e34]: 0%
+        - generic [ref=e35]: Free & open source
+      - generic [ref=e36]:
+        - generic [ref=e38]: 0+
+        - generic [ref=e39]: Tenant isolation
+      - generic [ref=e40]:
+        - generic [ref=e42]: "0"
+        - generic [ref=e43]: Built-in roles
+      - generic [ref=e44]:
+        - generic [ref=e46]: "0"
+        - generic [ref=e47]: MIT Licensed
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - heading "Everything you need for AI chat" [level=2] [ref=e50]
+        - paragraph [ref=e51]: Enterprise-grade features, zero license cost.
+      - generic [ref=e52]:
+        - generic [ref=e56]:
+          - img [ref=e58]
+          - generic [ref=e63]: Multi-Tenant
+          - generic [ref=e64]: Isolated organizations with tenant-scoped data and separate configurations.
+        - generic [ref=e68]:
+          - img [ref=e70]
+          - generic [ref=e73]: AWS Bedrock
+          - generic [ref=e74]: Claude models via Vercel AI SDK with streaming chat completions.
+        - generic [ref=e78]:
+          - img [ref=e80]
+          - generic [ref=e84]: RAG Pipeline
+          - generic [ref=e85]: pgvector embeddings for retrieval-augmented generation over your data.
+        - generic [ref=e89]:
+          - img [ref=e91]
+          - generic [ref=e93]: RBAC & Security
+          - generic [ref=e94]: Four predefined roles — Owner, Admin, Member, Viewer — with granular permissions.
+        - generic [ref=e98]:
+          - img [ref=e100]
+          - generic [ref=e103]: Audit Logs
+          - generic [ref=e104]: Complete activity trail with filtering by event type, severity, and date range.
+        - generic [ref=e108]:
+          - img [ref=e110]
+          - generic [ref=e113]: Background Jobs
+          - generic [ref=e114]: pg-boss workers handle embedding generation and conversation summaries.
+        - generic [ref=e118]:
+          - img [ref=e120]
+          - generic [ref=e123]: Cognito Auth
+          - generic [ref=e124]: NextAuth with AWS Cognito SSO support and credentials-based login.
+        - generic [ref=e128]:
+          - img [ref=e130]
+          - generic [ref=e134]: Conversation History
+          - generic [ref=e135]: Persistent chat history with pagination, search, and model selection.
+    - generic [ref=e136]:
+      - generic [ref=e137]:
+        - heading "Free forever" [level=2] [ref=e138]
+        - paragraph [ref=e139]: Self-host and own your data. No usage limits, no vendor lock-in.
+      - generic [ref=e140]:
+        - generic [ref=e143]:
+          - generic [ref=e144]:
+            - generic [ref=e145]: Self-Hosted
+            - generic [ref=e146]: $0
+            - generic [ref=e147]: forever
+          - generic [ref=e148]:
+            - list [ref=e149]:
+              - listitem [ref=e150]:
+                - img [ref=e151]
+                - text: All features included
+              - listitem [ref=e153]:
+                - img [ref=e154]
+                - text: Unlimited users
+              - listitem [ref=e156]:
+                - img [ref=e157]
+                - text: Community support
+            - link "Deploy Now" [ref=e159] [cursor=pointer]:
+              - /url: https://github.com/kartikmanimuthu/chatbot
+              - button "Deploy Now" [ref=e160]
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - generic [ref=e164]: Cloud Hosted
+            - generic [ref=e165]: Coming soon
+            - generic [ref=e166]: Managed hosting
+          - list [ref=e168]:
+            - listitem [ref=e169]:
+              - img [ref=e170]
+              - text: Zero infrastructure
+            - listitem [ref=e172]:
+              - img [ref=e173]
+              - text: Automatic updates
+            - listitem [ref=e175]:
+              - img [ref=e176]
+              - text: Priority support
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - generic [ref=e181]: Enterprise
+            - generic [ref=e182]: Custom
+            - generic [ref=e183]: Dedicated support
+          - list [ref=e185]:
+            - listitem [ref=e186]:
+              - img [ref=e187]
+              - text: SLA guarantees
+            - listitem [ref=e189]:
+              - img [ref=e190]
+              - text: Custom integrations
+            - listitem [ref=e192]:
+              - img [ref=e193]
+              - text: On-premise option
+    - generic [ref=e196]:
+      - heading "Ready to deploy your AI chatbot?" [level=2] [ref=e197]
+      - paragraph [ref=e198]: Get started in under 5 minutes. Free, open source, and self-hosted.
+      - link "Get started free" [ref=e199] [cursor=pointer]:
+        - /url: /register
+        - button "Get started free" [ref=e200]
+    - contentinfo [ref=e201]:
+      - generic [ref=e202]:
+        - separator
+        - generic [ref=e203]:
+          - generic [ref=e204]: Chatbot · MIT License
+          - generic [ref=e205]:
+            - link "Docs" [ref=e206] [cursor=pointer]:
+              - /url: /docs
+            - link "Getting Started" [ref=e207] [cursor=pointer]:
+              - /url: /docs/getting-started
+            - link "GitHub" [ref=e208] [cursor=pointer]:
+              - /url: https://github.com/kartikmanimuthu/chatbot
+  - region "Notifications alt+T"

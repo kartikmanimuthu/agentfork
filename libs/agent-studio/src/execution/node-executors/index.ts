@@ -17,3 +17,6 @@ export { DelayNodeExecutor } from './delay-executor';
 export { WhatsAppTriggerNodeExecutor } from './whatsapp-trigger-executor';
 export { WhatsAppSendNodeExecutor } from './whatsapp-send-executor';
 export { WhatsAppSendTemplateNodeExecutor } from './whatsapp-send-template-executor';
+export { TelegramTriggerNodeExecutor } from './telegram-trigger-executor';
+export { TelegramSendNodeExecutor } from './telegram-send-executor';
+export { TelegramSendButtonsNodeExecutor } from './telegram-send-buttons-executor';

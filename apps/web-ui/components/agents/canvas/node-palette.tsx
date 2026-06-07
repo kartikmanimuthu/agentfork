@@ -1,10 +1,11 @@
 'use client';
 
 import { NodeRegistry } from '@chatbot/agent-studio';
-import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain, BookOpen, Plug, Code, GitFork, Globe, UserCheck, GitMerge, Users, Timer } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain, BookOpen, Plug, Code, GitFork, Globe, UserCheck, GitMerge, Users, Timer, Send } from 'lucide-react';
+import type { ElementType } from 'react';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
-const NODE_ICONS: Record<string, LucideIcon> = {
+const NODE_ICONS: Record<string, ElementType> = {
   llm: Bot,
   tool: Wrench,
   router: GitBranch,
@@ -21,6 +22,12 @@ const NODE_ICONS: Record<string, LucideIcon> = {
   parallel: GitMerge,
   sub_agent: Users,
   delay: Timer,
+  whatsapp_trigger: WhatsAppIcon,
+  whatsapp_send: WhatsAppIcon,
+  whatsapp_send_template: WhatsAppIcon,
+  telegram_trigger: Send,
+  telegram_send: Send,
+  telegram_send_buttons: Send,
 };
 
 const NODE_COLORS: Record<string, string> = {
@@ -40,6 +47,12 @@ const NODE_COLORS: Record<string, string> = {
   parallel: 'text-violet-500',
   sub_agent: 'text-rose-500',
   delay: 'text-slate-500',
+  whatsapp_trigger: 'text-green-600',
+  whatsapp_send: 'text-green-600',
+  whatsapp_send_template: 'text-green-600',
+  telegram_trigger: 'text-sky-600',
+  telegram_send: 'text-sky-600',
+  telegram_send_buttons: 'text-sky-600',
 };
 
 export function NodePalette() {

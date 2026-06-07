@@ -22,6 +22,9 @@ import {
   WhatsAppTriggerNodeExecutor,
   WhatsAppSendNodeExecutor,
   WhatsAppSendTemplateNodeExecutor,
+  TelegramTriggerNodeExecutor,
+  TelegramSendNodeExecutor,
+  TelegramSendButtonsNodeExecutor,
 } from './execution/node-executors';
 export {
   LlmNodeExecutor,
@@ -43,6 +46,9 @@ export {
   WhatsAppTriggerNodeExecutor,
   WhatsAppSendNodeExecutor,
   WhatsAppSendTemplateNodeExecutor,
+  TelegramTriggerNodeExecutor,
+  TelegramSendNodeExecutor,
+  TelegramSendButtonsNodeExecutor,
 };
 export { createInitialState, readChannel, writeChannel, applyStateUpdates } from './execution/state';
 import type { NodeExecutor } from './execution/types';
@@ -78,6 +84,9 @@ export function createNodeExecutors(): NodeExecutor[] {
     new WhatsAppTriggerNodeExecutor(),
     new WhatsAppSendNodeExecutor(),
     new WhatsAppSendTemplateNodeExecutor(),
+    new TelegramTriggerNodeExecutor(),
+    new TelegramSendNodeExecutor(),
+    new TelegramSendButtonsNodeExecutor(),
   ];
 }
 

@@ -31,6 +31,7 @@ model Tenant {
   llmProviders      LlmProvider[]
   apiKeys           ApiKey[]
   whatsappAccounts  WhatsAppAccount[]
+  telegramAccounts  TelegramAccount[]
   sdkWidgets        SdkWidget[]
 
   @@index([status])
@@ -809,6 +810,101 @@ model WhatsAppTemplate {
 
   @@unique([accountId, name, language])
   @@map("whatsapp_templates")
+}
+
+model TelegramAccount {
+  id            String   @id @default(cuid())
+  tenantId      String
+  botToken      String
+  botName       String?
+  botUsername   String?
+  webhookSecret String
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  routingConfig TelegramRouting?
+  sessions      TelegramSession[]
+  messages      TelegramMessage[]
+
+  @@index([tenantId])
+  @@map("telegram_accounts")
+}
+
+model TelegramRouting {
+  id              String   @id @default(cuid())
+  accountId       String   @unique
+  strategy        String
+  config          Json     @default("{}")
+  fallbackAgentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account TelegramAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  rules   TelegramRoutingRule[]
+
+  @@map("telegram_routing")
+}
+
+model TelegramRoutingRule {
+  id        String  @id @default(cuid())
+  routingId String
+  agentId   String
+  priority  Int     @default(0)
+  condition Json
+  isActive  Boolean @default(true)
+
+  routing TelegramRouting @relation(fields: [routingId], references: [id], onDelete: Cascade)
+
+  @@index([routingId, priority])
+  @@map("telegram_routing_rules")
+}
+
+model TelegramSession {
+  id            String   @id @default(cuid())
+  tenantId      String
+  accountId     String
+  chatId        String
+  contactName   String?
+  agentId       String
+  state         String   @default("active")
+  context       Json     @default("{}")
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  account  TelegramAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages TelegramMessage[]
+
+  @@unique([accountId, chatId, state])
+  @@index([accountId, chatId])
+  @@map("telegram_sessions")
+}
+
+model TelegramMessage {
+  id              String   @id @default(cuid())
+  tenantId        String
+  accountId       String
+  sessionId       String?
+  telegramMessageId String @unique
+  direction       String
+  chatId          String
+  fromId          String?
+  type            String
+  content         Json
+  status          String   @default("received")
+  statusTimestamp DateTime?
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  account TelegramAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  session TelegramSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, chatId, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("telegram_messages")
 }
 
 model SdkWidget {
