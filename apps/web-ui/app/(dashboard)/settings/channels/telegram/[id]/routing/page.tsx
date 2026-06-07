@@ -180,14 +180,14 @@ export default function TelegramRoutingPage({ params }: { params: Promise<{ id: 
                 <div className="space-y-2">
                   <Label htmlFor="fallback">Fallback Agent</Label>
                   <Select
-                    value={routing.fallbackAgentId ?? ''}
-                    onValueChange={(value) => setRouting({ ...routing, fallbackAgentId: value || null })}
+                    value={routing.fallbackAgentId ?? '__none__'}
+                    onValueChange={(value) => setRouting({ ...routing, fallbackAgentId: value === '__none__' ? null : value })}
                   >
                     <SelectTrigger id="fallback">
                       <SelectValue placeholder="Select fallback agent" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {agents.map((agent) => (
                         <SelectItem key={agent.id} value={agent.id}>
                           {agent.name}
