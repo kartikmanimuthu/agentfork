@@ -7,7 +7,7 @@ import { ProfileForm } from '@/components/settings/profile-form';
 import { NotificationsForm } from '@/components/settings/notifications-form';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { Button } from '@/components/ui/button';
-import { Settings, Palette, Bell, Shield, User, Building2, ArrowRight, Users, ChevronRight } from 'lucide-react';
+import { Settings, Palette, Bell, Shield, User, Building2, ArrowRight, Users, ChevronRight, Send } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import Link from 'next/link';
 import { motion } from 'framer-motion';

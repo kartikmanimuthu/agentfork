@@ -59,9 +59,10 @@ export default function RoutingPage({ params }: { params: Promise<{ id: string }
       const res = await fetch(`/api/whatsapp/accounts/${id}/routing`);
       if (!res.ok) throw new Error('Failed to load routing');
       const data = await res.json();
-      setRouting(data);
+      setRouting(data ?? { id: '', strategy: 'keyword', config: {}, fallbackAgentId: null, rules: [] });
     } catch {
       toast.error('Failed to load routing configuration');
+      setRouting({ id: '', strategy: 'keyword', config: {}, fallbackAgentId: null, rules: [] });
     } finally {
       setLoading(false);
     }
