@@ -77,14 +77,17 @@ export function TelegramSendNodeForm({ config, onChange }: Props) {
           <div className="grid gap-1.5">
             <Label>Parse Mode</Label>
             <Select
-              value={field.state.value ?? ''}
-              onValueChange={(v) => { field.handleChange(v as FormValues['parseMode']); handleBlur(); }}
+              value={field.state.value ?? '__none__'}
+              onValueChange={(v) => {
+                field.handleChange(v === '__none__' ? undefined : v as FormValues['parseMode']);
+                handleBlur();
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 <SelectItem value="Markdown">Markdown</SelectItem>
                 <SelectItem value="HTML">HTML</SelectItem>
               </SelectContent>
