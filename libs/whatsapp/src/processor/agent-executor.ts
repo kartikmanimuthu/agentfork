@@ -88,7 +88,10 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
         wa_within_window: context['wa_within_window'] ?? false,
         messages: (context['messages'] as any[]) ?? [],
       },
-      messages: (context['messages'] as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) ?? [],
+      messages: [
+        ...((context['messages'] as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) ?? []),
+        ...(message.text ? [{ role: 'user' as const, content: message.text }] : []),
+      ],
       currentNodeId: entryNode.id as string,
       metadata: {
         executionId: crypto.randomUUID(),

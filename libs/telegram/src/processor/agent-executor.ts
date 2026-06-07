@@ -91,7 +91,10 @@ export class TelegramAgentExecutorImpl implements AgentExecutor {
         tg_is_group: context['tg_is_group'] ?? false,
         messages: (context['messages'] as any[]) ?? [],
       },
-      messages: (context['messages'] as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) ?? [],
+      messages: [
+        ...((context['messages'] as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) ?? []),
+        ...(message.text ? [{ role: 'user' as const, content: message.text }] : []),
+      ],
       currentNodeId: entryNode.id as string,
       metadata: {
         executionId: crypto.randomUUID(),
