@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 
 export function validateWebhookSecret(
   headerSecret: string | null,
@@ -8,13 +8,12 @@ export function validateWebhookSecret(
     return false;
   }
 
-  const expected = createHmac('sha256', configuredSecret)
-    .update('telegram-webhook')
-    .digest('hex');
+  const expected = Buffer.from(configuredSecret);
+  const received = Buffer.from(headerSecret);
 
-  if (expected.length !== headerSecret.length) {
+  if (expected.length !== received.length) {
     return false;
   }
 
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(headerSecret));
+  return timingSafeEqual(expected, received);
 }
