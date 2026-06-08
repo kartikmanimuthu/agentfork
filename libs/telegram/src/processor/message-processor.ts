@@ -5,7 +5,9 @@ import type { ContactLock } from '../concurrency/contact-lock';
 import type { CircuitBreaker } from '../concurrency/circuit-breaker';
 import type { TelegramBotApi } from '../client/bot-api';
 import { TelegramCommandHandler } from '../session/command-handler';
-import { createRouter } from '../router/factory';
+import { createLogger } from '@chatbot/shared';
+
+const logger = createLogger('telegram:message-processor');
 
 export interface AgentExecutor {
   execute(
@@ -81,34 +83,17 @@ export class TelegramMessageProcessor {
       let session = await this.deps.sessionManager.findActiveSession(account.id, chatId);
 
       if (!session) {
-        const routing = await (this.deps.prisma as any).telegramRouting.findUnique({
-          where: { accountId: account.id },
-        });
+        if (!account.agentId) {
+          logger.warn({ accountId: account.id }, 'No agent bound to Telegram account — dropping message');
+          return;
+        }
 
-        if (!routing) return;
-
-        const rules = await (this.deps.prisma as any).telegramRoutingRule.findMany({
-          where: { routingId: routing.id, isActive: true },
-          orderBy: { priority: 'asc' },
-        });
-
-        const router = createRouter(routing.strategy);
-        const routingResult = await router.route({
-          message: event,
-          chatId,
-          fromName,
-          accountId: account.id,
-          routing: { strategy: routing.strategy, config: routing.config, fallbackAgentId: routing.fallbackAgentId },
-          rules,
-        });
-
-        const agentId = routingResult.agentId;
         session = await this.deps.sessionManager.createSession({
           tenantId: account.tenantId,
           accountId: account.id,
           chatId,
           contactName: fromName,
-          agentId,
+          agentId: account.agentId,
         });
       }
 
