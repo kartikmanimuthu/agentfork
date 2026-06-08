@@ -80,7 +80,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (error) {
     if (error instanceof TelegramAccountBindingError) {
       const status = error.code === 'ACCOUNT_NOT_FOUND' ? 404 : error.code === 'MULTIPLE_TRIGGERS' ? 400 : 409;
-      logger.warn({ error, code: error.code }, 'Agent save rejected by Telegram account binding sync');
+      logger.warn(
+        { error, code: error.code, tenantId: await getSessionTenantId(authOptions), agentId: (await params).id },
+        'Agent save rejected by Telegram account binding sync'
+      );
       return NextResponse.json({ error: error.message }, { status });
     }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
