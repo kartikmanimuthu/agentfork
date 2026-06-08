@@ -202,6 +202,10 @@
     "libs/knowledge-base": {
       "name": "@chatbot/knowledge-base",
     },
+    "libs/shared": {
+      "name": "@chatbot/shared",
+      "version": "0.0.1",
+    },
     "libs/whatsapp": {
       "name": "@chatbot/whatsapp",
       "version": "0.0.1",
@@ -601,6 +605,8 @@
     "@chatbot/knowledge-base": ["@chatbot/knowledge-base@workspace:libs/knowledge-base"],
 
     "@chatbot/sdk": ["@chatbot/sdk@workspace:apps/sdk"],
+
+    "@chatbot/shared": ["@chatbot/shared@workspace:libs/shared"],
 
     "@chatbot/web-ui": ["@chatbot/web-ui@workspace:apps/web-ui"],
 
