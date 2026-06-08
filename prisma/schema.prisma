@@ -248,6 +248,7 @@ model Agent {
   aliases            AgentAlias[]
   apiKeyExecutions   ApiKeyExecution[]
   sdkWidgets         SdkWidget[]
+  telegramAccounts   TelegramAccount[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -820,45 +821,19 @@ model TelegramAccount {
   botUsername   String?
   webhookSecret String
   status        String   @default("active")
+  agentId       String?
+  triggerNodeId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  routingConfig TelegramRouting?
-  sessions      TelegramSession[]
-  messages      TelegramMessage[]
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent    Agent?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  sessions TelegramSession[]
+  messages TelegramMessage[]
 
   @@index([tenantId])
+  @@index([agentId])
   @@map("telegram_accounts")
-}
-
-model TelegramRouting {
-  id              String   @id @default(cuid())
-  accountId       String   @unique
-  strategy        String
-  config          Json     @default("{}")
-  fallbackAgentId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  account TelegramAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  rules   TelegramRoutingRule[]
-
-  @@map("telegram_routing")
-}
-
-model TelegramRoutingRule {
-  id        String  @id @default(cuid())
-  routingId String
-  agentId   String
-  priority  Int     @default(0)
-  condition Json
-  isActive  Boolean @default(true)
-
-  routing TelegramRouting @relation(fields: [routingId], references: [id], onDelete: Cascade)
-
-  @@index([routingId, priority])
-  @@map("telegram_routing_rules")
 }
 
 model TelegramSession {
