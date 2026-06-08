@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema, createLogger } from '@chatbot/shared';
-import { AgentService } from '@chatbot/agent-studio';
+import {
+  getSessionTenantId,
+  authorize,
+  getPrismaClient,
+  updateAgentSchema,
+  createLogger,
+  TelegramAccountBindingService,
+  TelegramAccountBindingError,
+  type TelegramAccountBindingDb,
+} from '@chatbot/shared';
+import { AgentService, type AgentDb } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:agents[id]');
@@ -52,12 +61,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const validatedBody = parsed.data;
     const db = getPrismaClient();
-    const service = new AgentService(tenantId, db as any);
-    const agent = await service.update(id, validatedBody);
+
+    const agent = await db.$transaction(async (tx) => {
+      const service = new AgentService(tenantId, tx as unknown as AgentDb);
+      const updated = await service.update(id, validatedBody);
+
+      if (validatedBody.config && typeof validatedBody.config === 'object') {
+        const config = validatedBody.config as { nodes?: Array<{ id: string; type: string; config?: Record<string, unknown> }> };
+        const bindingService = new TelegramAccountBindingService(tx as unknown as TelegramAccountBindingDb);
+        await bindingService.sync({ tenantId, agentId: id, nodes: config.nodes ?? [] });
+      }
+
+      return updated;
+    });
 
     logger.info({ tenantId, agentId: id }, 'Agent updated via API');
     return NextResponse.json(agent);
   } catch (error) {
+    if (error instanceof TelegramAccountBindingError) {
+      const status = error.code === 'ACCOUNT_NOT_FOUND' ? 404 : error.code === 'MULTIPLE_TRIGGERS' ? 400 : 409;
+      logger.warn({ error, code: error.code }, 'Agent save rejected by Telegram account binding sync');
+      return NextResponse.json({ error: error.message }, { status });
+    }
     if (error instanceof Error && error.message.includes('Unauthenticated')) {
       return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
