@@ -1,0 +1,34 @@
+:host { display: block; }
+
+.img {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--smc-radius-md);
+  cursor: zoom-in;
+  transition: transform var(--smc-dur-base) var(--smc-ease);
+}
+
+.img.enlarged {
+  width: 100%;
+  cursor: zoom-out;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 90px;
+  border-radius: var(--smc-radius-md);
+  background: var(--smc-surface-2);
+  border: 1px dashed var(--smc-border);
+  font-size: var(--smc-fs-lg);
+  color: var(--smc-text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

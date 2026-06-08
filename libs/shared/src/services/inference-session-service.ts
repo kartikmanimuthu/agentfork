@@ -15,6 +15,8 @@ export interface SessionMessageInput {
   content: string;
   tokenCount?: number;
   attachments?: import('@chatbot/ai').MessageAttachment[];
+  /** Rich message parts (MessagePart[]) — persisted as JSONB; content kept for embeddings/back-compat. */
+  parts?: unknown[];
 }
 
 export interface SessionMessageRecord {
@@ -36,6 +38,7 @@ export interface InferenceSessionRecord {
   name: string | null;
   channel: string;
   channelMetadata: unknown;
+  workflowState: unknown;
   status: string;
   idleExpiresAt: Date;
   endedAt: Date | null;
@@ -169,7 +172,8 @@ export class InferenceSessionService {
         role: message.role,
         content: message.content,
         tokenCount: message.tokenCount ?? null,
-        attachments: message.attachments ? (message.attachments as unknown as import('@prisma/client').Prisma.InputJsonValue) : undefined,
+        ...(message.attachments ? { attachments: message.attachments as unknown as import('@prisma/client').Prisma.InputJsonValue } : {}),
+        ...(message.parts !== undefined ? { parts: message.parts as unknown as import('@prisma/client').Prisma.InputJsonValue } : {}),
       },
     });
 
@@ -228,5 +232,19 @@ export class InferenceSessionService {
   /** Hard delete a session row. Cascades to messages. */
   async delete(id: string): Promise<InferenceSessionRecord> {
     return this.db.inferenceSession.delete({ where: { id } });
+  }
+
+  /**
+   * Persist the workflow cursor for a session.
+   * Pass `null` to clear the cursor (workflow ended or LLM fallback).
+   */
+  async setWorkflowState(
+    id: string,
+    cursor: { nodeId: string } | null,
+  ): Promise<InferenceSessionRecord> {
+    return this.db.inferenceSession.update({
+      where: { id },
+      data: { workflowState: cursor as unknown as import('@prisma/client').Prisma.InputJsonValue },
+    });
   }
 }

@@ -1,6 +1,6 @@
 .pre-chat {
   flex: 1;
-  padding: 24px 20px;
+  padding: var(--smc-space-5) var(--smc-space-4);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -11,15 +11,15 @@
 }
 
 .pre-chat-header h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  color: var(--smc-text, #374151);
+  margin: 0 0 var(--smc-space-1);
+  font-size: var(--smc-fs-lg);
+  color: var(--smc-text);
 }
 
 .pre-chat-header p {
   margin: 0;
-  font-size: 13px;
-  color: #6b7280;
+  font-size: var(--smc-fs-sm);
+  color: var(--smc-text-muted);
 }
 
 form {
@@ -31,56 +31,56 @@ form {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--smc-space-1);
 }
 
 .field label {
   font-size: 12px;
-  font-weight: 500;
-  color: #374151;
+  font-weight: var(--smc-fw-medium);
+  color: var(--smc-text);
   text-transform: capitalize;
 }
 
 .field input, .field select {
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 10px var(--smc-space-3);
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-sm);
+  font-size: var(--smc-fs-md);
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--smc-dur-fast) var(--smc-ease);
 }
 
 .field input:focus, .field select:focus {
-  border-color: var(--smc-secondary, #3b82f6);
+  border-color: var(--smc-primary);
 }
 
 .error {
-  font-size: 11px;
-  color: #ef4444;
+  font-size: var(--smc-fs-xs);
+  color: var(--smc-error);
 }
 
 .form-error {
   font-size: 12px;
-  color: #ef4444;
+  color: var(--smc-error);
   text-align: center;
-  padding: 8px;
-  background: #fef2f2;
-  border-radius: 6px;
+  padding: var(--smc-space-2);
+  background: var(--smc-primary-faint);
+  border-radius: var(--smc-radius-sm);
 }
 
 .submit-btn {
-  margin-top: 8px;
-  padding: 12px;
-  background: var(--smc-primary, #1a1a2e);
-  color: white;
+  margin-top: var(--smc-space-2);
+  padding: var(--smc-space-3);
+  background: var(--smc-primary);
+  color: var(--smc-primary-fg);
   border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: var(--smc-radius-md);
+  font-size: var(--smc-fs-md);
+  font-weight: var(--smc-fw-medium);
   cursor: pointer;
   font-family: inherit;
-  transition: opacity 0.15s;
+  transition: opacity var(--smc-dur-fast) var(--smc-ease);
 }
 
 .submit-btn:hover {
@@ -90,4 +90,8 @@ form {
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after { animation: none !important; transition: none !important; }
 }

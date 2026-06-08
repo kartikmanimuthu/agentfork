@@ -9,8 +9,28 @@ import {
   TenantConfigService,
   WebhookService,
   S3Service,
+  WorkflowEngine,
+  type WorkflowDefinition,
+  type WorkflowCursor,
+  type ResolveResult,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@chatbot/ai';
+import {
+  streamChat,
+  createLLMProvider,
+  type TenantLLMConfig,
+  ContentResolver,
+  type MessageAttachment,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  PartStreamEmitter,
+  generateSpreadsheet,
+  generatePdf,
+  toSseFrame,
+  type FileUploader,
+  type StreamEvent,
+  type MessagePart,
+} from '@chatbot/ai';
+import type { ToolSet } from 'ai';
+import { jsonSchema } from 'ai';
 import { validateInferenceApiKey } from './lib/auth';
 import { z } from 'zod';
 
@@ -243,6 +263,7 @@ export async function POST(req: NextRequest) {
     // For stateful calls (sessionId present): load prior messages, persist agentVersionId
     // on the session if not yet set, and append the incoming user turn(s).
     let priorMessages: Array<{ role: string; content: string; attachments: MessageAttachment[] }> = [];
+    let sessionWorkflowCursor: WorkflowCursor | null = null;
 
     if (sessionId) {
       const session = await sessionService.findActiveById(sessionId);
@@ -252,6 +273,14 @@ export async function POST(req: NextRequest) {
           JSON.stringify({ error: { type: 'session_expired', message: 'Session not found, ended, or idle-expired' } }),
           { status: 410 }
         );
+      }
+
+      // Capture workflow cursor for this turn
+      if (session.workflowState && typeof session.workflowState === 'object') {
+        const ws = session.workflowState as Record<string, unknown>;
+        if (typeof ws.nodeId === 'string') {
+          sessionWorkflowCursor = { nodeId: ws.nodeId };
+        }
       }
 
       priorMessages = (session.messages ?? []).map((m) => ({
@@ -468,47 +497,221 @@ export async function POST(req: NextRequest) {
 
       if (stream && sseFormat) {
         const encoder = new TextEncoder();
+
+        // ─── Workflow pre-check ───────────────────────────────────────────
+        // If the agent has an active workflow, try to resolve this turn against it.
+        // On match: stream scripted events, persist parts + cursor, done.
+        // On miss (null): fall through to the LLM path below.
+        const incomingValue = normalizedMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
+        let workflowResult: ResolveResult | null = null;
+
+        try {
+          const activeWorkflow = await db.agentWorkflow.findFirst({
+            where: { agentId, isActive: true },
+            orderBy: { version: 'desc' },
+          });
+
+          if (activeWorkflow) {
+            const workflowEngine = new WorkflowEngine((ref) => {
+              // Return the ref as-is; the widget renders file parts by URL.
+              // Static file refs (s3://bucket/key) are resolved to a path the
+              // client can fetch via the existing /api/v1/files endpoint.
+              return ref.replace(/^s3:\/\/[^/]+\//, '/api/v1/files/');
+            });
+
+            const newMessageId = `wf-${Date.now()}`;
+            workflowResult = workflowEngine.resolve(
+              activeWorkflow.definition as WorkflowDefinition,
+              incomingValue,
+              sessionWorkflowCursor,
+              newMessageId,
+            );
+
+            if (workflowResult) {
+              logger.info(
+                { tenantId, agentId, sessionId, nodeId: workflowResult.nextCursor?.nodeId ?? 'terminal' },
+                'Workflow match — streaming scripted node events',
+              );
+
+              const { events: wfEvents, nextCursor } = workflowResult;
+
+              // Persist workflow cursor
+              if (sessionId) {
+                await sessionService.setWorkflowState(sessionId, nextCursor);
+              }
+
+              // Build parts from workflow events for persistence
+              const wfParts: MessagePart[] = [];
+              for (const ev of wfEvents) {
+                if (ev.type === 'part_start' && ev.part) {
+                  wfParts.push(ev.part as unknown as MessagePart);
+                } else if (ev.type === 'part_start' && ev.partType === 'text') {
+                  wfParts.push({ type: 'text', text: '' });
+                } else if (ev.type === 'token' && wfParts.length > 0) {
+                  const last = wfParts[wfParts.length - 1];
+                  if (last && last.type === 'text') {
+                    (last as { type: 'text'; text: string }).text += ev.content ?? '';
+                  }
+                }
+              }
+
+              const wfText = wfParts.filter((p) => p.type === 'text').map((p) => (p as { type: 'text'; text: string }).text).join('');
+
+              if (sessionId) {
+                await sessionService.appendMessage(sessionId, {
+                  role: 'assistant',
+                  content: wfText,
+                  parts: wfParts,
+                });
+              }
+
+              const wfCompletedAt = new Date();
+              const wfLatencyMs = wfCompletedAt.getTime() - startedAt.getTime();
+
+              await db.apiKeyExecution.update({
+                where: { id: executionId },
+                data: { status: 'completed', output: { text: wfText }, cacheHit: false, latencyMs: wfLatencyMs, completedAt: wfCompletedAt },
+              });
+
+              await deliverWebhook('completed', { text: wfText }, undefined, undefined, wfLatencyMs);
+
+              const wfReadable = new ReadableStream({
+                start(controller) {
+                  for (const ev of wfEvents) {
+                    controller.enqueue(encoder.encode(toSseFrame(ev as StreamEvent)));
+                  }
+                  controller.close();
+                },
+              });
+
+              return new Response(wfReadable, {
+                headers: {
+                  'Content-Type': 'text/event-stream',
+                  'Cache-Control': 'no-cache',
+                  'Connection': 'keep-alive',
+                  'X-Execution-Id': executionId,
+                  ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
+                },
+              });
+            }
+          }
+        } catch (wfErr) {
+          const wfError = wfErr instanceof Error ? wfErr : new Error(String(wfErr));
+          logger.warn(
+            { tenantId, agentId, sessionId, errorMessage: wfError.message },
+            'Workflow resolution error — falling back to LLM',
+          );
+          // Fall through to LLM path
+        }
+
+        // ─── LLM SSE path (PartStreamEmitter over fullStream) ────────────
+        const s3Uploader = new S3Service();
+        const fileUploader: FileUploader = {
+          async upload(buffer, filename, mimeType) {
+            const key = `generated/${tenantId}/${Date.now()}-${filename}`;
+            await s3Uploader.uploadBuffer(key, buffer, mimeType);
+            const url = await s3Uploader.getDownloadUrl(key, 3600);
+            return { url, key };
+          },
+        };
+
+        const fileGenTools: ToolSet = {};
+        (fileGenTools as any)['generate_spreadsheet'] = {
+          description: 'Generate a downloadable Excel spreadsheet from structured data',
+          parameters: jsonSchema({
+            type: 'object',
+            properties: {
+              filename: { type: 'string' },
+              sheets: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    rows: { type: 'array', items: { type: 'object' } },
+                  },
+                  required: ['name', 'rows'],
+                },
+              },
+            },
+            required: ['sheets'],
+          }),
+          execute: async (args: any) => {
+            const { filename, sheets } = args as { filename?: string; sheets: Array<{ name: string; rows: Array<Record<string, unknown>> }> };
+            try {
+              return await generateSpreadsheet({ filename, sheets }, fileUploader);
+            } catch (err) {
+              const error = err instanceof Error ? err : new Error(String(err));
+              logger.error({ tenantId, agentId, errorMessage: error.message }, 'generate_spreadsheet failed');
+              return { error: error.message };
+            }
+          },
+        };
+        (fileGenTools as any)['generate_pdf'] = {
+          description: 'Generate a downloadable PDF document',
+          parameters: jsonSchema({
+            type: 'object',
+            properties: {
+              filename: { type: 'string' },
+              title: { type: 'string' },
+              content: { type: 'string' },
+            },
+            required: ['content'],
+          }),
+          execute: async (args: any) => {
+            const { filename, title, content } = args as { filename?: string; title?: string; content: string };
+            try {
+              return await generatePdf({ filename, title, content }, fileUploader);
+            } catch (err) {
+              const error = err instanceof Error ? err : new Error(String(err));
+              logger.error({ tenantId, agentId, errorMessage: error.message }, 'generate_pdf failed');
+              return { error: error.message };
+            }
+          },
+        };
+
+        const allTools = { ...mcpTools, ...fileGenTools };
+        const hasTools = Object.keys(allTools).length > 0;
+
         const readable = new ReadableStream({
           async start(controller) {
+            const emitter = new PartStreamEmitter(executionId, { showThinking: (agent as any)?.showThinking !== false });
             try {
               const sseResult = streamChat({
                 provider,
-                messages: coreMessages,
+                messages: coreMessages as any,
                 model: effectiveModel,
                 system: effectiveSystem,
                 temperature: effectiveTemperature,
                 maxOutputTokens: effectiveMaxTokens,
-                ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
+                ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
               });
 
-              let fullText = '';
-              for await (const chunk of sseResult.textStream) {
-                fullText += chunk;
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'token', content: chunk })}\n\n`)
-                );
+              for await (const ev of emitter.run(sseResult.fullStream)) {
+                controller.enqueue(encoder.encode(toSseFrame(ev)));
               }
-
-              const sseUsage = await Promise.resolve(sseResult.usage).catch(() => undefined);
-              const sseTokenUsage = sseUsage
-                ? { inputTokens: sseUsage.inputTokens ?? 0, outputTokens: sseUsage.outputTokens ?? 0, totalTokens: (sseUsage.inputTokens ?? 0) + (sseUsage.outputTokens ?? 0) }
-                : undefined;
 
               await mcpCleanup();
               const sseCompletedAt = new Date();
               const sseLatencyMs = sseCompletedAt.getTime() - startedAt.getTime();
 
+              const sseTokenUsage = emitter.usage;
+              const fullText = emitter.parts
+                .filter((p) => p.type === 'text')
+                .map((p) => (p as { type: 'text'; text: string }).text)
+                .join('');
+
               if (sseTokenUsage) await quotaService.incrementUsage(sseTokenUsage.totalTokens);
               if (cacheEligible) await cacheService.set(cacheKey, { text: fullText, usage: sseTokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } });
 
-              let messageId: string | undefined;
               if (sessionId) {
-                const msg = await sessionService.appendMessage(sessionId, {
+                await sessionService.appendMessage(sessionId, {
                   role: 'assistant',
                   content: fullText,
                   tokenCount: sseTokenUsage?.outputTokens,
+                  parts: emitter.parts,
                 });
-                messageId = (msg as any)?.id;
               }
 
               await db.apiKeyExecution.update({
@@ -516,11 +719,8 @@ export async function POST(req: NextRequest) {
                 data: { status: 'completed', output: { text: fullText }, tokenUsage: (sseTokenUsage ?? null) as any, cacheHit: false, latencyMs: sseLatencyMs, completedAt: sseCompletedAt },
               });
 
-              await deliverWebhook('completed', { text: fullText }, undefined, sseTokenUsage, sseLatencyMs);
+              await deliverWebhook('completed', { text: fullText }, undefined, sseTokenUsage ?? undefined, sseLatencyMs);
 
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'done', content: fullText, messageId, usage: sseTokenUsage })}\n\n`)
-              );
               controller.close();
             } catch (err) {
               const error = err instanceof Error ? err : new Error(String(err));
@@ -531,7 +731,7 @@ export async function POST(req: NextRequest) {
               }).catch(() => {});
               await deliverWebhook('failed', undefined, error.message).catch(() => {});
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`)
+                encoder.encode(toSseFrame({ type: 'error', messageId: executionId, message: error.message }))
               );
               controller.close();
             }

@@ -1,0 +1,123 @@
+:host { display: block; }
+
+.thinking {
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-md);
+  background: var(--smc-surface);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--smc-space-2);
+  width: 100%;
+  padding: var(--smc-space-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: var(--smc-fw-semibold) var(--smc-fs-sm) var(--smc-font);
+  color: var(--smc-text);
+}
+
+.spark { color: var(--smc-primary); }
+
+.title {
+  flex: 1;
+  text-align: left;
+}
+
+.chev {
+  transition: transform var(--smc-dur-fast) var(--smc-ease);
+  color: var(--smc-text-faint);
+}
+
+.chev.open { transform: rotate(180deg); }
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--smc-space-3) var(--smc-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--smc-space-3);
+}
+
+.step {
+  display: flex;
+  gap: var(--smc-space-2);
+  animation: smc-step-in var(--smc-dur-base) var(--smc-ease);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--smc-radius-full);
+  margin-top: 5px;
+  flex: none;
+}
+
+.dot.done { background: var(--smc-success); }
+
+.dot.active {
+  background: var(--smc-primary);
+  animation: smc-pulse 1s var(--smc-ease) infinite;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--smc-space-1);
+}
+
+.label {
+  font: var(--smc-fw-medium) var(--smc-fs-sm) var(--smc-font);
+  color: var(--smc-text);
+}
+
+.detail {
+  font-size: var(--smc-fs-xs);
+  color: var(--smc-text-muted);
+}
+
+.data {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--smc-space-1);
+  margin-top: var(--smc-space-1);
+}
+
+.kv {
+  display: flex;
+  flex-direction: column;
+  padding: var(--smc-space-1) var(--smc-space-2);
+  background: var(--smc-surface-2);
+  border-radius: var(--smc-radius-sm);
+}
+
+.kv .k {
+  font-size: var(--smc-fs-xs);
+  color: var(--smc-text-faint);
+}
+
+.kv .v {
+  font-size: var(--smc-fs-sm);
+  color: var(--smc-text);
+}
+
+@keyframes smc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes smc-step-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,107 @@
+/* apps/sdk/src/styles/tokens.css
+   Single design-token layer. Imported by the root component.
+   Brand tokens (--smc-primary*) are overwritten at boot from config. */
+:host {
+  /* Brand */
+  --smc-primary: #4f46e5;
+  --smc-primary-fg: #ffffff;
+  --smc-primary-hover: #4338ca;
+  --smc-primary-faint: rgba(79, 70, 229, 0.08);
+  --smc-primary-gradient: linear-gradient(135deg, var(--smc-primary), var(--smc-primary-hover));
+  --smc-accent: #06b6d4;
+
+  /* Surface */
+  --smc-bg: #ffffff;
+  --smc-surface: #f8fafc;
+  --smc-surface-2: #f1f5f9;
+  --smc-border: #e2e8f0;
+
+  /* Text */
+  --smc-text: #0f172a;
+  --smc-text-muted: #475569;
+  --smc-text-faint: #94a3b8;
+
+  /* Bubbles */
+  --smc-bubble-user: var(--smc-primary);
+  --smc-bubble-user-fg: var(--smc-primary-fg);
+  --smc-bubble-bot: #f1f5f9;
+  --smc-bubble-bot-fg: #0f172a;
+
+  /* Status */
+  --smc-success: #16a34a;
+  --smc-warn: #d97706;
+  --smc-error: #dc2626;
+  --smc-online: #22c55e;
+
+  /* Geometry */
+  --smc-radius-sm: 8px;
+  --smc-radius-md: 14px;
+  --smc-radius-lg: 20px;
+  --smc-radius-full: 9999px;
+  --smc-space-1: 4px;
+  --smc-space-2: 8px;
+  --smc-space-3: 12px;
+  --smc-space-4: 16px;
+  --smc-space-5: 24px;
+  --smc-space-6: 32px;
+  --smc-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --smc-shadow-md: 0 4px 16px rgba(15, 23, 42, 0.10);
+  --smc-shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.18);
+
+  /* Motion */
+  --smc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --smc-dur-fast: 120ms;
+  --smc-dur-base: 200ms;
+  --smc-dur-slow: 320ms;
+
+  /* Type */
+  --smc-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --smc-fs-xs: 11px;
+  --smc-fs-sm: 13px;
+  --smc-fs-md: 14px;
+  --smc-fs-lg: 16px;
+  --smc-fw-normal: 400;
+  --smc-fw-medium: 500;
+  --smc-fw-semibold: 600;
+  --smc-fw-bold: 700;
+}
+
+:host(.theme-dark) {
+  --smc-bg: #0b1120;
+  --smc-surface: #111827;
+  --smc-surface-2: #1f2937;
+  --smc-border: #1f2937;
+  --smc-text: #f1f5f9;
+  --smc-text-muted: #94a3b8;
+  --smc-text-faint: #64748b;
+  --smc-bubble-bot: #1f2937;
+  --smc-bubble-bot-fg: #f1f5f9;
+  --smc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --smc-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --smc-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :host(.theme-auto) {
+    --smc-bg: #0b1120;
+    --smc-surface: #111827;
+    --smc-surface-2: #1f2937;
+    --smc-border: #1f2937;
+    --smc-text: #f1f5f9;
+    --smc-text-muted: #94a3b8;
+    --smc-text-faint: #64748b;
+    --smc-bubble-bot: #1f2937;
+    --smc-bubble-bot-fg: #f1f5f9;
+  }
+}
+
+/* Global motion kill-switch — every animation/transition inside the widget is
+   disabled when the user requests reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

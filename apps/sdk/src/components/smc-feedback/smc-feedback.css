@@ -1,8 +1,8 @@
 .feedback {
   display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  padding-left: 4px;
+  gap: var(--smc-space-1);
+  margin-top: var(--smc-space-1);
+  padding-left: var(--smc-space-1);
 }
 
 .fb-btn {
@@ -10,21 +10,25 @@
   height: 26px;
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: var(--smc-text-faint);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--smc-radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: all var(--smc-dur-fast) var(--smc-ease);
 }
 
 .fb-btn:hover {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--smc-surface-2);
+  color: var(--smc-text-muted);
 }
 
 .fb-btn.active {
-  color: var(--smc-secondary, #3b82f6);
-  background: rgba(59, 130, 246, 0.08);
+  color: var(--smc-accent);
+  background: var(--smc-primary-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after { animation: none !important; transition: none !important; }
 }

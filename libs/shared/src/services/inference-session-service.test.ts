@@ -34,6 +34,7 @@ const baseSession: InferenceSessionRecord = {
   name: null,
   channel: 'API',
   channelMetadata: null,
+  workflowState: null,
   status: 'active',
   idleExpiresAt: new Date(Date.now() + 30 * 60_000),
   endedAt: null,
@@ -145,6 +146,39 @@ describe('InferenceSessionService', () => {
       expect(result.role).toBe('user');
     });
 
+    it('persists parts when provided', async () => {
+      const { db, session, message } = makeMockDb();
+      session.findFirst.mockResolvedValue(baseSession);
+      message.create.mockResolvedValue({
+        id: 'msg_2', sessionId: 'sess_1', role: 'assistant', content: 'hello',
+        parts: [{ type: 'text', text: 'hello' }], tokenCount: null, createdAt: new Date(),
+      });
+      session.update.mockResolvedValue(baseSession);
+      const svc = new InferenceSessionService(db);
+
+      const parts = [{ type: 'text' as const, text: 'hello' }];
+      await svc.appendMessage('sess_1', { role: 'assistant', content: 'hello', parts });
+
+      const createData = (message.create.mock.calls[0]![0]! as { data: Record<string, unknown> }).data;
+      expect(createData.parts).toEqual(parts);
+    });
+
+    it('omits parts field when not provided (back-compat)', async () => {
+      const { db, session, message } = makeMockDb();
+      session.findFirst.mockResolvedValue(baseSession);
+      message.create.mockResolvedValue({
+        id: 'msg_3', sessionId: 'sess_1', role: 'user', content: 'hi',
+        tokenCount: null, createdAt: new Date(),
+      });
+      session.update.mockResolvedValue(baseSession);
+      const svc = new InferenceSessionService(db);
+
+      await svc.appendMessage('sess_1', { role: 'user', content: 'hi' });
+
+      const createData = (message.create.mock.calls[0]![0]! as { data: Record<string, unknown> }).data;
+      expect('parts' in createData).toBe(false);
+    });
+
     it('throws when the session is missing or already ended', async () => {
       const { db, session } = makeMockDb();
       session.findFirst.mockResolvedValue(null);
@@ -153,6 +187,32 @@ describe('InferenceSessionService', () => {
       await expect(svc.appendMessage('sess_x', { role: 'user', content: 'x' })).rejects.toThrow(
         /not found|ended|expired/i,
       );
+    });
+  });
+
+  describe('setWorkflowState', () => {
+    it('updates workflowState on the session', async () => {
+      const { db, session } = makeMockDb();
+      session.update.mockResolvedValue({ ...baseSession, workflowState: { nodeId: 'n1' } });
+      const svc = new InferenceSessionService(db);
+
+      await svc.setWorkflowState('sess_1', { nodeId: 'n1' });
+
+      expect(session.update).toHaveBeenCalledWith({
+        where: { id: 'sess_1' },
+        data: { workflowState: { nodeId: 'n1' } },
+      });
+    });
+
+    it('clears workflowState when passed null', async () => {
+      const { db, session } = makeMockDb();
+      session.update.mockResolvedValue({ ...baseSession, workflowState: null });
+      const svc = new InferenceSessionService(db);
+
+      await svc.setWorkflowState('sess_1', null);
+
+      const data = (session.update.mock.calls[0]![0]! as { data: Record<string, unknown> }).data;
+      expect(data.workflowState).toBeNull();
     });
   });
 

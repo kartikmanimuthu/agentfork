@@ -1,43 +1,64 @@
-.message {
+.row {
   display: flex;
   flex-direction: column;
-  animation: fadeIn 0.2s ease-out;
+  animation: smc-msg-in var(--smc-dur-base) var(--smc-ease);
 }
 
-.message.user {
+.row.user {
   align-items: flex-end;
 }
 
-.message.bot {
+.row.bot {
   align-items: flex-start;
 }
 
 .bubble {
-  max-width: 80%;
-  padding: 10px 16px;
-  border-radius: 18px;
-  font-size: 14px;
+  max-width: 85%;
+  padding: var(--smc-space-3) var(--smc-space-4);
+  border-radius: var(--smc-radius-lg);
+  font-size: var(--smc-fs-md);
   line-height: 1.5;
   word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: var(--smc-space-2);
 }
 
-.message.user .bubble {
-  background: var(--smc-primary, #1a1a2e);
-  color: white;
-  border-radius: 18px 18px 4px 18px;
+.row.user .bubble {
+  background: var(--smc-bubble-user);
+  color: var(--smc-bubble-user-fg);
+  border-radius: var(--smc-radius-lg) var(--smc-radius-lg) var(--smc-radius-sm) var(--smc-radius-lg);
 }
 
-.message.bot .bubble {
-  background: var(--smc-bubble-bot, #f8f9fa);
-  color: var(--smc-text, #374151);
-  border-radius: 18px 18px 18px 4px;
+.row.bot .bubble {
+  background: var(--smc-bubble-bot);
+  color: var(--smc-bubble-bot-fg);
+  border-radius: var(--smc-radius-lg) var(--smc-radius-lg) var(--smc-radius-lg) var(--smc-radius-sm);
 }
 
-.text {
-  white-space: pre-wrap;
+.row.status-error .bubble {
+  border: 1px solid var(--smc-error);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+.retry {
+  align-self: flex-start;
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-sm);
+  background: var(--smc-surface);
+  color: var(--smc-text);
+  padding: var(--smc-space-1) var(--smc-space-3);
+  font: var(--smc-fw-medium) var(--smc-fs-sm) var(--smc-font);
+  cursor: pointer;
+}
+
+@keyframes smc-msg-in {
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host *, :host *::before, :host *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

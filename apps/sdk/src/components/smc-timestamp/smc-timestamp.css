@@ -1,12 +1,12 @@
 .timestamp {
   text-align: center;
-  padding: 8px 0;
+  padding: var(--smc-space-2) 0;
 }
 
 .timestamp span {
-  background: #f3f4f6;
-  color: #6b7280;
-  font-size: 11px;
+  background: var(--smc-surface-2);
+  color: var(--smc-text-muted);
+  font-size: var(--smc-fs-xs);
   padding: 3px 10px;
-  border-radius: 10px;
+  border-radius: var(--smc-radius-full);
 }

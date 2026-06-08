@@ -1,0 +1,5 @@
+:host {
+  display: block;
+  color: inherit;
+  font: var(--smc-fw-normal) var(--smc-fs-md)/1.5 var(--smc-font);
+}
