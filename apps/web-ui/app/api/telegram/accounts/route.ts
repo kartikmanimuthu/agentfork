@@ -18,6 +18,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         botName: true,
         botUsername: true,
         status: true,
+        agentId: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
