@@ -503,6 +503,7 @@ export function AgentCanvas({
               label: (n.data as { label: string }).label,
               type: n.type ?? 'unknown',
             }))}
+          agentId={agentId}
           onClose={() => setSelectedNodeId(null)}
           onConfigChange={handleConfigChange}
           onDelete={handleDeleteNode}

@@ -9,7 +9,9 @@
       "@chatbot/ai": ["libs/ai/src/index.ts"],
       "@chatbot/agent-studio": ["libs/agent-studio/src/index.ts"],
       "@chatbot/agent-studio/server": ["libs/agent-studio/src/server.ts"],
-      "@chatbot/knowledge-base": ["libs/knowledge-base/src/index.ts"]
+      "@chatbot/knowledge-base": ["libs/knowledge-base/src/index.ts"],
+      "@chatbot/whatsapp": ["libs/whatsapp/src/index.ts"],
+      "@chatbot/telegram": ["libs/telegram/src/index.ts"]
     },
     "target": "ES2022",
     "module": "ESNext",

@@ -23,8 +23,8 @@ const connectors = [
     icon: TelegramIcon,
     iconBg: 'bg-sky-500/10',
     iconColor: 'text-sky-500',
-    href: null,
-    comingSoon: true,
+    href: '/settings/channels/telegram',
+    comingSoon: false,
   },
 ];
 

@@ -45,6 +45,9 @@
       ],
       "@chatbot/whatsapp": [
         "../../libs/whatsapp/src/index.ts"
+      ],
+      "@chatbot/telegram": [
+        "../../libs/telegram/src/index.ts"
       ]
     },
     "isolatedModules": true

@@ -15,6 +15,12 @@ import { HumanNode } from './nodes/human-node';
 import { ParallelNode } from './nodes/parallel-node';
 import { SubAgentNode } from './nodes/sub-agent-node';
 import { DelayNode } from './nodes/delay-node';
+import { WhatsAppTriggerNode } from './nodes/whatsapp-trigger-node';
+import { WhatsAppSendNode } from './nodes/whatsapp-send-node';
+import { WhatsAppSendTemplateNode } from './nodes/whatsapp-send-template-node';
+import { TelegramTriggerNode } from './nodes/telegram-trigger-node';
+import { TelegramSendNode } from './nodes/telegram-send-node';
+import { TelegramSendButtonsNode } from './nodes/telegram-send-buttons-node';
 
 /**
  * Pass this object to the `nodeTypes` prop of <ReactFlow />.
@@ -37,4 +43,10 @@ export const nodeTypes: NodeTypes = {
   parallel: ParallelNode,
   sub_agent: SubAgentNode,
   delay: DelayNode,
+  whatsapp_trigger: WhatsAppTriggerNode,
+  whatsapp_send: WhatsAppSendNode,
+  whatsapp_send_template: WhatsAppSendTemplateNode,
+  telegram_trigger: TelegramTriggerNode,
+  telegram_send: TelegramSendNode,
+  telegram_send_buttons: TelegramSendButtonsNode,
 };

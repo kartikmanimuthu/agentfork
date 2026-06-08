@@ -20,7 +20,7 @@ describe('NodeRegistry', () => {
       expect(types).toContain('parallel');
       expect(types).toContain('sub_agent');
       expect(types).toContain('delay');
-      expect(all).toHaveLength(14);
+      expect(all).toHaveLength(20);
     });
   });
 
@@ -133,7 +133,7 @@ describe('NodeRegistry', () => {
       for (const def of NodeRegistry.getAll()) {
         const errors = def.validate(def.defaultConfig);
         // router/state_schema/tool/condition defaults are intentionally incomplete — user must fill them in
-        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server' || def.type === 'human' || def.type === 'sub_agent' || def.type === 'condition') continue;
+        if (def.type === 'router' || def.type === 'state_schema' || def.type === 'tool' || def.type === 'mcp_server' || def.type === 'human' || def.type === 'sub_agent' || def.type === 'condition' || def.type === 'telegram_send' || def.type === 'telegram_send_buttons') continue;
         expect(errors, `${def.type} default config should be valid`).toHaveLength(0);
       }
     });

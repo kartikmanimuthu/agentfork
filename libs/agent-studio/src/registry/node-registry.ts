@@ -15,6 +15,12 @@ import { humanNodeSchema } from './schemas/human';
 import { parallelNodeSchema } from './schemas/parallel';
 import { subAgentNodeSchema } from './schemas/sub-agent';
 import { delayNodeSchema } from './schemas/delay';
+import { whatsappTriggerNodeSchema } from './schemas/whatsapp-trigger';
+import { whatsappSendNodeSchema } from './schemas/whatsapp-send';
+import { whatsappSendTemplateNodeSchema } from './schemas/whatsapp-send-template';
+import { telegramTriggerNodeSchema } from './schemas/telegram-trigger';
+import { telegramSendNodeSchema } from './schemas/telegram-send';
+import { telegramSendButtonsNodeSchema } from './schemas/telegram-send-buttons';
 import type { NodeType, NodeConfig, ValidationError } from '../types/nodes';
 
 // Discriminated union of all node config schemas
@@ -35,6 +41,12 @@ const nodeConfigSchema = z.discriminatedUnion('type', [
   parallelNodeSchema,
   subAgentNodeSchema,
   delayNodeSchema,
+  whatsappTriggerNodeSchema,
+  whatsappSendNodeSchema,
+  whatsappSendTemplateNodeSchema,
+  telegramTriggerNodeSchema,
+  telegramSendNodeSchema,
+  telegramSendButtonsNodeSchema,
 ]);
 
 export interface NodeDefinition {
@@ -308,6 +320,115 @@ const definitions: NodeDefinition[] = [
     },
     validate(config) {
       const result = delayNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_trigger',
+    label: 'WhatsApp Trigger',
+    description: 'Entry point for WhatsApp-driven graphs. Reads inbound message data into state channels.',
+    defaultConfig: {
+      type: 'whatsapp_trigger',
+    },
+    validate(config) {
+      const result = whatsappTriggerNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_send',
+    label: 'WhatsApp Send',
+    description: 'Sends a freeform message to the WhatsApp sender. Only valid within the 24-hour customer service window.',
+    defaultConfig: {
+      type: 'whatsapp_send',
+      messageType: 'text',
+      messageChannel: 'llm_output',
+    },
+    validate(config) {
+      const result = whatsappSendNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'whatsapp_send_template',
+    label: 'WhatsApp Send Template',
+    description: 'Sends a pre-approved template message. Works outside the 24-hour window.',
+    defaultConfig: {
+      type: 'whatsapp_send_template',
+      templateName: 'my_template',
+      languageCode: 'en',
+    },
+    validate(config) {
+      const result = whatsappSendTemplateNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'telegram_trigger',
+    label: 'Telegram Trigger',
+    description: 'Entry point for Telegram-driven graphs. Reads inbound message data into state channels.',
+    defaultConfig: {
+      type: 'telegram_trigger',
+    },
+    validate(config) {
+      const result = telegramTriggerNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'telegram_send',
+    label: 'Telegram Send Message',
+    description: 'Sends a text or media message to a Telegram chat.',
+    defaultConfig: {
+      type: 'telegram_send',
+      messageChannel: 'response',
+    },
+    validate(config) {
+      const result = telegramSendNodeSchema.safeParse(config);
+      if (result.success) return [];
+      return result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }));
+    },
+  },
+  {
+    type: 'telegram_send_buttons',
+    label: 'Telegram Send Buttons',
+    description: 'Sends a message with inline keyboard buttons to a Telegram chat.',
+    defaultConfig: {
+      type: 'telegram_send_buttons',
+      messageChannel: 'response',
+      buttons: [[{ text: 'Yes', callbackData: 'yes' }, { text: 'No', callbackData: 'no' }]],
+    },
+    validate(config) {
+      const result = telegramSendButtonsNodeSchema.safeParse(config);
       if (result.success) return [];
       return result.error.issues.map((issue) => ({
         field: issue.path.join('.'),

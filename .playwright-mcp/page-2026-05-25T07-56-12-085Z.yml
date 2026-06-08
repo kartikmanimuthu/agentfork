@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - img [ref=e14]
+      - text: Chatbot
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Welcome back
+          - generic [ref=e20]: Sign in to your account
+        - generic [ref=e23]:
+          - group [ref=e24]:
+            - button "Sign in with SSO" [ref=e25] [cursor=pointer]
+          - generic [ref=e26]:
+            - separator [ref=e27]
+            - generic [ref=e28]: Or continue with
+          - group [ref=e29]:
+            - generic [ref=e30]: Email
+            - textbox "Email" [ref=e31]:
+              - /placeholder: you@company.com
+              - text: khanomarhussain@gmail.com
+          - group [ref=e32]:
+            - generic [ref=e33]:
+              - generic [ref=e34]: Password
+              - link "Forgot your password?" [ref=e35] [cursor=pointer]:
+                - /url: /forgot-password
+            - textbox "Password" [ref=e36]:
+              - /placeholder: ••••••••
+              - text: password123
+          - group [ref=e37]:
+            - button "Sign in" [ref=e38] [cursor=pointer]
+            - paragraph [ref=e39]:
+              - text: Don't have an account?
+              - link "Create one" [ref=e40] [cursor=pointer]:
+                - /url: /register
+      - paragraph [ref=e41]:
+        - text: By clicking continue, you agree to our
+        - link "Terms of Service" [ref=e42] [cursor=pointer]:
+          - /url: "#"
+        - text: and
+        - link "Privacy Policy" [ref=e43] [cursor=pointer]:
+          - /url: "#"
+        - text: .
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e53]:
+        - img [ref=e55]
+        - generic [ref=e58]: Invalid email or password
+  - button "Open Next.js Dev Tools" [ref=e49] [cursor=pointer]:
+    - img [ref=e50]
+  - alert [ref=e9]

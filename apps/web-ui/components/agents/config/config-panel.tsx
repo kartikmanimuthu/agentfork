@@ -19,6 +19,12 @@ import { HumanNodeForm } from './human-node-form';
 import { ParallelNodeForm } from './parallel-node-form';
 import { SubAgentNodeForm } from './sub-agent-node-form';
 import { DelayNodeForm } from './delay-node-form';
+import { WhatsAppTriggerNodeForm } from './whatsapp-trigger-node-form';
+import { WhatsAppSendNodeForm } from './whatsapp-send-node-form';
+import { WhatsAppSendTemplateNodeForm } from './whatsapp-send-template-node-form';
+import { TelegramTriggerNodeForm } from './telegram-trigger-node-form';
+import { TelegramSendNodeForm } from './telegram-send-node-form';
+import { TelegramSendButtonsNodeForm } from './telegram-send-buttons-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
 import type { NodeOption } from './node-picker';
@@ -26,12 +32,13 @@ import type { NodeOption } from './node-picker';
 interface ConfigPanelProps {
   node: GraphNode | null;
   allNodes: NodeOption[];
+  agentId: string;
   onClose: () => void;
   onConfigChange: (nodeId: string, config: NodeConfig) => void;
   onDelete?: (nodeId: string) => void;
 }
 
-export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
+export function ConfigPanel({ node, allNodes, agentId, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
   if (!node) return null;
 
   const handleChange = (config: NodeConfig) => onConfigChange(node.id, config);
@@ -105,6 +112,24 @@ export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete 
           )}
           {node.config.type === 'delay' && (
             <DelayNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_trigger' && (
+            <WhatsAppTriggerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send' && (
+            <WhatsAppSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send_template' && (
+            <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_trigger' && (
+            <TelegramTriggerNodeForm config={node.config} agentId={agentId} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send' && (
+            <TelegramSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send_buttons' && (
+            <TelegramSendButtonsNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

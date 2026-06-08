@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@chatbot/shared': path.resolve(__dirname, '../../libs/shared/src/index.ts'),
+      '@chatbot/whatsapp': path.resolve(__dirname, '../../libs/whatsapp/src/index.ts'),
     },
   },
   test: {

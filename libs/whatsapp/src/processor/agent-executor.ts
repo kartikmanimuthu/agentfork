@@ -1,4 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
+import { createLLMProvider } from '@chatbot/ai';
+import { LlmProviderService, TenantConfigService } from '@chatbot/shared';
 import type { AgentExecutor } from './message-processor';
 
 export type LlmProviderFactory = (config: { model: string; temperature?: number }) => {
@@ -16,7 +18,7 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
 
   async execute(
     agentId: string,
-    message: { text?: string; mediaUrl?: string; mediaType?: string },
+    message: { text?: string; mediaUrl?: string; mediaType?: string; mediaId?: string },
     context: Record<string, unknown>,
   ): Promise<{ text: string }> {
     const agent = await (this.prisma as any).agent.findFirst({
@@ -62,32 +64,85 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
 
   private async executeGraphAgent(
     agent: { id: string; config: any },
-    message: { text?: string },
+    message: { text?: string; mediaId?: string; mediaType?: string },
     context: Record<string, unknown>,
   ): Promise<{ text: string }> {
+    // @ts-ignore — dynamic import to avoid circular dependency at build time
+    const { GraphExecutor, createNodeExecutors } = await import('@chatbot/agent-studio/server');
+
     const graphDef = agent.config as { nodes: any[]; edges: any[] };
-    const entryNode = graphDef.nodes.find((n: any) => n.type === 'llm');
 
-    if (!entryNode) {
-      throw new Error(`Graph agent ${agent.id} has no LLM entry node`);
+    const entryNode =
+      graphDef.nodes.find((n: any) => n.type === 'whatsapp_trigger') ??
+      graphDef.nodes.find((n: any) => graphDef.edges.every((e: any) => e.target !== n.id));
+
+    if (!entryNode) throw new Error(`Graph agent ${agent.id} has no entry node`);
+
+    const initialState = {
+      channels: {
+        wa_sender_id: context['wa_sender_id'] ?? '',
+        wa_message_text: message.text ?? '',
+        wa_message_type: context['wa_message_type'] ?? 'text',
+        wa_media_id: context['wa_media_id'] ?? null,
+        wa_phone_number_id: context['wa_phone_number_id'] ?? '',
+        wa_account_id: context['wa_account_id'] ?? '',
+        wa_session_id: context['wa_session_id'] ?? '',
+        wa_within_window: context['wa_within_window'] ?? false,
+        messages: (context['messages'] as any[]) ?? [],
+      },
+      messages: [
+        ...((context['messages'] as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) ?? []),
+        ...(message.text ? [{ role: 'user' as const, content: message.text }] : []),
+      ],
+      currentNodeId: entryNode.id as string,
+      metadata: {
+        executionId: crypto.randomUUID(),
+        agentId: agent.id,
+        tenantId: (context['tenantId'] as string) ?? '',
+        userId: 'whatsapp',
+        startedAt: new Date(),
+      },
+    };
+
+    const tenantId = (context['tenantId'] as string) ?? '';
+    const executor = new GraphExecutor({
+      llmProvider: async (_providerId?: string, modelId?: string) => {
+        const llmProviderService = new LlmProviderService(tenantId);
+        let llmConfig = null;
+        if (modelId) {
+          const providers = await llmProviderService.list();
+          for (const p of providers) {
+            const models = (p.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+            if (models.some((m) => m.id === modelId)) {
+              llmConfig = await llmProviderService.getConfigById(p.id);
+              break;
+            }
+          }
+        }
+        llmConfig ??= await llmProviderService.getDefaultConfig()
+          ?? await new TenantConfigService(tenantId).get('llmConfig');
+        return createLLMProvider(llmConfig);
+      },
+      prisma: this.prisma,
+    });
+
+    for (const nodeExecutor of createNodeExecutors()) {
+      executor.register(nodeExecutor);
     }
 
-    const nodeConfig = entryNode.config as { model: string; systemPrompt?: string; temperature?: number; maxTokens?: number };
-    const provider = this.providerFactory({ model: nodeConfig.model, temperature: nodeConfig.temperature });
+    const finalState = await executor.executeFromState(
+      graphDef,
+      initialState,
+      initialState.metadata,
+    );
 
-    const messages: Array<{ role: string; content: string }> = [];
-    if (nodeConfig.systemPrompt) {
-      messages.push({ role: 'system', content: nodeConfig.systemPrompt });
+    if (finalState.channels['wa_last_sent_message_id']) {
+      return { text: '' };
     }
 
-    const history = (context.messages as Array<{ role: string; content: string }>) ?? [];
-    messages.push(...history);
+    const responseText =
+      String(finalState.channels['response'] ?? finalState.channels['llm_output'] ?? '');
 
-    if (message.text) {
-      messages.push({ role: 'user', content: message.text });
-    }
-
-    const result = await provider.chat({ messages, maxTokens: nodeConfig.maxTokens });
-    return { text: result.text };
+    return { text: responseText };
   }
 }
