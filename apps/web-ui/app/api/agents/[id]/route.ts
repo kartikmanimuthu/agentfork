@@ -45,12 +45,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let tenantId: string | undefined;
+  let agentId: string | undefined;
   try {
-    const tenantId = await getSessionTenantId(authOptions);
+    const sessionTenantId = await getSessionTenantId(authOptions);
+    tenantId = sessionTenantId;
     const authError = await authorize('update', 'Agent', authOptions);
     if (authError) return authError;
 
     const { id } = await params;
+    agentId = id;
     const body = await req.json();
     const parsed = updateAgentSchema.safeParse(body);
     if (!parsed.success) {
@@ -63,25 +67,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const db = getPrismaClient();
 
     const agent = await db.$transaction(async (tx) => {
-      const service = new AgentService(tenantId, tx as unknown as AgentDb);
+      const service = new AgentService(sessionTenantId, tx as unknown as AgentDb);
       const updated = await service.update(id, validatedBody);
 
       if (validatedBody.config && typeof validatedBody.config === 'object') {
         const config = validatedBody.config as { nodes?: Array<{ id: string; type: string; config?: Record<string, unknown> }> };
         const bindingService = new TelegramAccountBindingService(tx as unknown as TelegramAccountBindingDb);
-        await bindingService.sync({ tenantId, agentId: id, nodes: config.nodes ?? [] });
+        await bindingService.sync({ tenantId: sessionTenantId, agentId: id, nodes: config.nodes ?? [] });
       }
 
       return updated;
     });
 
-    logger.info({ tenantId, agentId: id }, 'Agent updated via API');
+    logger.info({ tenantId: sessionTenantId, agentId: id }, 'Agent updated via API');
     return NextResponse.json(agent);
   } catch (error) {
     if (error instanceof TelegramAccountBindingError) {
       const status = error.code === 'ACCOUNT_NOT_FOUND' ? 404 : error.code === 'MULTIPLE_TRIGGERS' ? 400 : 409;
       logger.warn(
-        { error, code: error.code, tenantId: await getSessionTenantId(authOptions), agentId: (await params).id },
+        { error, code: error.code, tenantId, agentId },
         'Agent save rejected by Telegram account binding sync'
       );
       return NextResponse.json({ error: error.message }, { status });
@@ -95,7 +99,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         { status: 403 },
       );
     }
-    logger.error({ error, agentId: (await params).id }, 'Failed to update agent');
+    logger.error({ error, tenantId, agentId }, 'Failed to update agent');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
