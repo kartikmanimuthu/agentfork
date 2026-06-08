@@ -12,8 +12,13 @@ bun run dev:workers                  # Workers dev server
 bun run dev:all                      # Web-ui + workers + SDK dev server (with SDK_DEV proxy)
 bun run build                        # Build all projects
 bun run test                         # Unit tests (shared, ai, workers via Vitest)
-bun run e2e                          # Playwright e2e (headless)
+bun run e2e                          # Playwright e2e — CI (builds app first, runs against prod server)
+bun run e2e:dev                      # Playwright e2e — local (starts dev server automatically, no build)
 bun run e2e:ui                       # Playwright e2e (interactive UI)
+cd apps/web-ui-e2e && bunx playwright codegen http://localhost:3005  # Record actions (codegen)
+bun run e2e:smoke                    # Only @smoke tests (fast critical path)
+bun run e2e:docs                     # Only the @docs module (also: e2e:auth/sso/marketing/navigation/api)
+E2E_GREP_INVERT=@sso bun run e2e     # Run everything except a module (ad-hoc skip)
 bun run sdk:build                    # Build SDK + copy assets to web-ui/public/sdk-assets/
 bun run sdk:dev                      # Start StencilJS SDK dev server (port 3007)
 nx test workers                      # Test single project
@@ -144,8 +149,24 @@ bun run dev:all                      # web-ui + workers + SDK dev server (SDK_DE
 ## Testing
 
 - **Unit**: Vitest — config per project (`vitest.config.ts`), run with `bunx vitest run`
-- **E2e**: Playwright — config at root (`playwright.config.ts`), auth state stored in `tests/e2e/.auth/`
+- **E2e**: Playwright — project at `apps/web-ui-e2e/`, config `playwright.config.ts`, auth state in `src/.auth/session.json` (minted by the `setup` project)
 - **Coverage**: `@vitest/coverage-v8`, output to `coverage/`
+
+### E2e architecture (`apps/web-ui-e2e/src/`)
+
+```
+config/env.ts            # @t3-oss/env-core typed env — the only place process.env is read
+constants/{tags,routes}  # TAG taxonomy + ROUTES paths
+fixtures/base.ts         # custom test fixtures: anonPage (unauthenticated), gotoApp
+helpers/                 # gotoPath, gotoDoc, mintSessionToken (JWT)
+pages/                   # shared page objects: LoginPage, SsoFlow
+setup/auth.setup.ts      # mints the NextAuth session cookie → src/.auth/session.json
+modules/<module>/        # specs grouped by product module (auth, sso, marketing, docs, navigation, inference-api)
+```
+
+- **Auth model**: the default `page` fixture is authenticated (carries `storageState` from the setup project). Tests that need an unauthenticated session take the `anonPage` fixture — never declare `test.use({ storageState: { cookies: [], origins: [] } })` inline.
+- **Imports**: specs import `{ test, expect }` from `../../fixtures/base`, not `@playwright/test`.
+- **Tags** (`src/constants/tags.ts`): two axes — module (`@auth @sso @marketing @docs @navigation @inference-api`) and type/priority (`@smoke @regression @api @critical @anon @auth-required`). Run/skip with `--grep` / `--grep-invert`, or the `e2e:<module>` / `e2e:smoke` / `e2e:regression` Nx targets. New modules add a `modules/<name>/` folder + a module tag.
 
 ## Code Style
 
