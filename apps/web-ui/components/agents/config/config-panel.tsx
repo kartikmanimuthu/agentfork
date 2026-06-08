@@ -32,12 +32,13 @@ import type { NodeOption } from './node-picker';
 interface ConfigPanelProps {
   node: GraphNode | null;
   allNodes: NodeOption[];
+  agentId: string;
   onClose: () => void;
   onConfigChange: (nodeId: string, config: NodeConfig) => void;
   onDelete?: (nodeId: string) => void;
 }
 
-export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
+export function ConfigPanel({ node, allNodes, agentId, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
   if (!node) return null;
 
   const handleChange = (config: NodeConfig) => onConfigChange(node.id, config);
@@ -122,7 +123,7 @@ export function ConfigPanel({ node, allNodes, onClose, onConfigChange, onDelete 
             <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
           )}
           {node.config.type === 'telegram_trigger' && (
-            <TelegramTriggerNodeForm config={node.config} onChange={handleChange} />
+            <TelegramTriggerNodeForm config={node.config} agentId={agentId} onChange={handleChange} />
           )}
           {node.config.type === 'telegram_send' && (
             <TelegramSendNodeForm config={node.config} onChange={handleChange} />
