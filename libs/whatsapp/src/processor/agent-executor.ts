@@ -1,4 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
+import { createLLMProvider } from '@chatbot/ai';
+import { LlmProviderService, TenantConfigService } from '@chatbot/shared';
 import type { AgentExecutor } from './message-processor';
 
 export type LlmProviderFactory = (config: { model: string; temperature?: number }) => {
@@ -102,10 +104,25 @@ export class WhatsAppAgentExecutor implements AgentExecutor {
       },
     };
 
-    const providerFactory = this.providerFactory;
+    const tenantId = (context['tenantId'] as string) ?? '';
     const executor = new GraphExecutor({
-      llmProvider: async (_providerId?: string, modelId?: string) =>
-        providerFactory({ model: modelId ?? 'claude-sonnet-4-6' }),
+      llmProvider: async (_providerId?: string, modelId?: string) => {
+        const llmProviderService = new LlmProviderService(tenantId);
+        let llmConfig = null;
+        if (modelId) {
+          const providers = await llmProviderService.list();
+          for (const p of providers) {
+            const models = (p.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+            if (models.some((m) => m.id === modelId)) {
+              llmConfig = await llmProviderService.getConfigById(p.id);
+              break;
+            }
+          }
+        }
+        llmConfig ??= await llmProviderService.getDefaultConfig()
+          ?? await new TenantConfigService(tenantId).get('llmConfig');
+        return createLLMProvider(llmConfig);
+      },
       prisma: this.prisma,
     });
 
