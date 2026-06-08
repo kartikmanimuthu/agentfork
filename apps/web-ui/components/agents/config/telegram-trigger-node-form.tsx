@@ -4,9 +4,18 @@ import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { TelegramTriggerNodeConfig } from '@chatbot/agent-studio';
+import { useTelegramAccounts } from '@/hooks/use-telegram-accounts';
 
 const schema = z.object({
+  accountId: z.string().optional(),
   chatIdChannel: z.string().optional(),
   textChannel: z.string().optional(),
   messageTypeChannel: z.string().optional(),
@@ -20,14 +29,21 @@ type FormValues = z.infer<typeof schema>;
 
 interface Props {
   config: TelegramTriggerNodeConfig;
+  agentId: string;
   onChange: (config: TelegramTriggerNodeConfig) => void;
 }
 
-export function TelegramTriggerNodeForm({ config, onChange }: Props) {
+export function TelegramTriggerNodeForm({ config, agentId, onChange }: Props) {
   const map = config.channelMap ?? {};
+  const { data: accounts, isLoading: accountsLoading } = useTelegramAccounts();
+
+  const selectableAccounts = (accounts ?? []).filter(
+    (a) => a.agentId === null || a.agentId === agentId,
+  );
 
   const form = useForm({
     defaultValues: {
+      accountId: config.accountId ?? '',
       chatIdChannel: map.chatIdChannel ?? '',
       textChannel: map.textChannel ?? '',
       messageTypeChannel: map.messageTypeChannel ?? '',
@@ -46,7 +62,11 @@ export function TelegramTriggerNodeForm({ config, onChange }: Props) {
       if (value.callbackDataChannel) channelMap.callbackDataChannel = value.callbackDataChannel;
       if (value.fromNameChannel) channelMap.fromNameChannel = value.fromNameChannel;
       if (value.isGroupChannel) channelMap.isGroupChannel = value.isGroupChannel;
-      onChange({ type: 'telegram_trigger', channelMap: Object.keys(channelMap).length ? channelMap : undefined });
+      onChange({
+        type: 'telegram_trigger',
+        accountId: value.accountId || undefined,
+        channelMap: Object.keys(channelMap).length ? channelMap : undefined,
+      });
     },
   });
 
@@ -54,6 +74,37 @@ export function TelegramTriggerNodeForm({ config, onChange }: Props) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-4">
+      <form.Field name="accountId">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <Label htmlFor={field.name}>Connected Bot</Label>
+            <Select
+              value={field.state.value ?? ''}
+              onValueChange={(v) => { field.handleChange(v); handleBlur(); }}
+              disabled={accountsLoading}
+            >
+              <SelectTrigger id={field.name} aria-label="Connected Bot">
+                <SelectValue placeholder={accountsLoading ? 'Loading...' : 'Select a connected bot'} />
+              </SelectTrigger>
+              <SelectContent>
+                {selectableAccounts.length === 0 && !accountsLoading && (
+                  <SelectItem value="__empty__" disabled>No available bots — connect one first</SelectItem>
+                )}
+                {selectableAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.botName ?? account.botUsername ?? account.id}
+                    {account.botUsername && <span className="ml-1 text-xs text-muted-foreground">@{account.botUsername}</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Bots already connected to other agents are hidden. Connect new bots from Settings → Channels → Telegram.
+            </p>
+          </div>
+        )}
+      </form.Field>
+
       <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground space-y-1">
         <p className="font-medium text-foreground">Available channels (auto-populated)</p>
         <p><code className="font-mono">tg_chat_id</code> — chat ID</p>
