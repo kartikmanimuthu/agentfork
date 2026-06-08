@@ -61,15 +61,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Failed to register webhook with Telegram. Check your bot token.' }, { status: 502 });
     }
 
-    await (prisma as any).telegramRouting.create({
-      data: {
-        accountId: account.id,
-        strategy: 'keyword',
-        config: {},
-        fallbackAgentId: null,
-      },
-    });
-
     logger.info({ tenantId, accountId: account.id, botUsername: me.username }, 'Telegram bot connected');
 
     return NextResponse.json({
