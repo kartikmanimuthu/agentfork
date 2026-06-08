@@ -7,9 +7,6 @@ export { validateWebhookSecret } from './webhook/signature';
 export { parseWebhookBody } from './webhook/parser';
 export type { TelegramWebhookEvent, TelegramUpdate, TelegramMessage, InlineKeyboardMarkup } from './webhook/types';
 
-export { createRouter } from './router/factory';
-export type { TelegramRouter, RoutingContext, RoutingResult } from './router/router.interface';
-
 export { TelegramSessionManager } from './session/session-manager';
 export { TelegramCommandHandler } from './session/command-handler';
 

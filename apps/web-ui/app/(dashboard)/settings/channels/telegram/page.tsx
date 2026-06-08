@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Trash2, Settings, MessageSquare, Plus, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Trash2, MessageSquare, Plus, Loader2, Send } from 'lucide-react';
 
 interface TelegramAccount {
   id: string;
@@ -162,15 +162,6 @@ export default function TelegramChannelsPage() {
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => router.push(`/settings/channels/telegram/${row.original.id}/routing`)}
-              aria-label="Routing"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
             <Button
               variant="ghost"
               size="icon"
