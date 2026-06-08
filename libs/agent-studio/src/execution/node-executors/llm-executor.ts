@@ -99,6 +99,7 @@ export class LlmNodeExecutor implements NodeExecutor {
 
       const streamResult = provider.streamChat({
         messages,
+        model: config.model,
         system: config.systemPrompt,
         temperature: config.temperature,
         maxOutputTokens: config.maxTokens,

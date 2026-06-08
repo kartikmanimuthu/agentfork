@@ -251,7 +251,7 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
                 {chatModels.length > 0 ? (
                   <Select value={field.state.value} onValueChange={(v) => field.handleChange(v)}>
                     <SelectTrigger><SelectValue placeholder="Select chat model" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-72 overflow-y-auto">
                       {chatModels.map((m) => (
                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                       ))}
@@ -271,7 +271,7 @@ export function LlmProviderForm({ defaultValues, onSubmit, loading, submitLabel 
                 {embeddingModels.length > 0 ? (
                   <Select value={field.state.value} onValueChange={(v) => field.handleChange(v)}>
                     <SelectTrigger><SelectValue placeholder="Select embedding model" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-72 overflow-y-auto">
                       {embeddingModels.map((m) => (
                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                       ))}
