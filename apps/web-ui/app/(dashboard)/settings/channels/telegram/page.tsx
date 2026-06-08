@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ColumnDef } from '@tanstack/react-table';
 import {
@@ -54,7 +53,6 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
 };
 
 export default function TelegramChannelsPage() {
-  const router = useRouter();
   const [accounts, setAccounts] = useState<TelegramAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnectTarget, setDisconnectTarget] = useState<TelegramAccount | null>(null);
