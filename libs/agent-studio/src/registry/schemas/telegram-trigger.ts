@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const telegramTriggerNodeSchema = z.object({
   type: z.literal('telegram_trigger'),
+  accountId: z.string().optional(),
   channelMap: z.object({
     chatIdChannel: z.string().optional(),
     textChannel: z.string().optional(),

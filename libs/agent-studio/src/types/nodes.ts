@@ -184,6 +184,7 @@ export interface WhatsAppSendTemplateNodeConfig {
 
 export interface TelegramTriggerNodeConfig {
   type: 'telegram_trigger';
+  accountId?: string;
   channelMap?: {
     chatIdChannel?: string;
     textChannel?: string;
