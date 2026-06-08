@@ -84,7 +84,7 @@ export class TelegramMessageProcessor {
 
       if (!session) {
         if (!account.agentId) {
-          logger.warn({ accountId: account.id }, 'No agent bound to Telegram account — dropping message');
+          logger.warn({ tenantId: account.tenantId, accountId: account.id, chatId }, 'No agent bound to Telegram account — dropping message');
           return;
         }
 
