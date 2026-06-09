@@ -1,6 +1,6 @@
 .file-preview {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid var(--smc-border);
+  border-radius: var(--smc-radius-md);
   overflow: hidden;
   margin-top: 6px;
   max-width: 220px;
@@ -14,16 +14,16 @@
 }
 
 .file-icon {
-  padding: 16px;
-  background: #f9fafb;
+  padding: var(--smc-space-4);
+  background: var(--smc-surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: var(--smc-text-muted);
 }
 
 .file-info {
-  padding: 8px 12px;
+  padding: var(--smc-space-2) var(--smc-space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -31,7 +31,7 @@
 
 .file-name {
   font-size: 12px;
-  color: var(--smc-secondary, #3b82f6);
+  color: var(--smc-accent);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -44,5 +44,5 @@
 
 .file-size {
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--smc-text-faint);
 }

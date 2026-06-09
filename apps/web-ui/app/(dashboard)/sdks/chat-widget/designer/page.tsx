@@ -35,7 +35,9 @@ import {
   Sparkles,
   X,
   ExternalLink,
+  Workflow,
 } from 'lucide-react';
+import { WorkflowCanvas } from '@/components/agents/workflow/workflow-canvas';
 
 const SDK_SCRIPT_URL = '/sdk-assets/smc-chat-widget.esm.js';
 
@@ -733,9 +735,9 @@ export default function DesignerPage() {
               {/* Content: tabs + preview */}
               <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 min-w-0 overflow-y-auto">
-                  <div className="max-w-2xl mx-auto p-6">
+                  <div className={`${activeTab === 'workflow' ? 'max-w-none' : 'max-w-2xl mx-auto'} p-6`}>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                      <TabsList className="grid grid-rows-2 grid-cols-3 mb-6 h-auto p-1 gap-1">
+                      <TabsList className="grid grid-rows-2 grid-cols-4 mb-6 h-auto p-1 gap-1">
                         <TabsTrigger value="appearance" className="text-xs gap-1.5 h-9">
                           <Palette className="h-3.5 w-3.5" /> Appearance
                         </TabsTrigger>
@@ -750,6 +752,9 @@ export default function DesignerPage() {
                         </TabsTrigger>
                         <TabsTrigger value="knowledge" className="text-xs gap-1.5 h-9">
                           <BookIcon className="h-3.5 w-3.5" /> Knowledge
+                        </TabsTrigger>
+                        <TabsTrigger value="workflow" className="text-xs gap-1.5 h-9">
+                          <Workflow className="h-3.5 w-3.5" /> Workflow
                         </TabsTrigger>
                         <TabsTrigger value="embed" className="text-xs gap-1.5 h-9">
                           <Code className="h-3.5 w-3.5" /> Embed
@@ -1069,6 +1074,28 @@ export default function DesignerPage() {
                         </Card>
                       </TabsContent>
 
+                      {/* Workflow */}
+                      <TabsContent value="workflow" className="space-y-6">
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Workflow className="h-4 w-4 text-primary" />
+                              Guided Workflow
+                            </CardTitle>
+                            <CardDescription>
+                              Author the menu-based workflow for <strong>{selectedWidget.agent?.name ?? 'this agent'}</strong> and toggle agent thinking visibility. Saved per agent — shared by any widget using the same agent.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <WorkflowCanvas
+                              agentId={selectedWidget.agentId}
+                              initialActive={false}
+                              initialShowThinking={(selectedWidget.agent as { showThinking?: boolean } | undefined)?.showThinking !== false}
+                            />
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
                       {/* Embed */}
                       <TabsContent value="embed" className="space-y-6">
                         <Card>
@@ -1116,7 +1143,8 @@ export default function DesignerPage() {
                   </div>
                 </div>
 
-                {/* Right preview panel */}
+                {/* Right preview panel — hidden on the workflow tab so the canvas gets full width */}
+                {activeTab !== 'workflow' && (
                 <div className="w-[420px] flex-shrink-0 border-l bg-muted/30 flex flex-col">
                   <div className="px-4 py-3 border-b bg-background flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1147,6 +1175,7 @@ export default function DesignerPage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
             </>
           )}

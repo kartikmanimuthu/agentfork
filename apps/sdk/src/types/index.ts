@@ -36,13 +36,42 @@ export interface ProactiveRule {
   message: string;
 }
 
+export interface ThinkingStep {
+  id: string;
+  label: string;
+  detail?: string;
+  status: 'active' | 'done';
+  data?: Record<string, string>;
+}
+
+export interface MenuOption {
+  label: string;
+  value: string; // sent to backend on selection
+  icon?: string;
+}
+
+export interface CardButton {
+  label: string;
+  url?: string;
+  value?: string; // if present, sends as a message instead of navigating
+}
+
+export type MessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; status: 'active' | 'done'; steps: ThinkingStep[] }
+  | { type: 'menu'; title?: string; options: MenuOption[] }
+  | { type: 'file'; name: string; mimeType: string; url: string; sizeBytes?: number }
+  | { type: 'image'; url: string; alt?: string }
+  | { type: 'card'; title: string; description?: string; buttons?: CardButton[] };
+
+export type MessagePartType = MessagePart['type'];
+
 export interface Message {
   id: string;
-  content: string;
   role: 'user' | 'assistant';
-  timestamp: string;
-  status?: 'sending' | 'sent' | 'error' | 'streaming';
-  fileAttachment?: FileAttachment | null;
+  createdAt: string;
+  status: 'sending' | 'streaming' | 'complete' | 'error';
+  parts: MessagePart[];
 }
 
 export interface FileAttachment {
@@ -60,11 +89,15 @@ export interface KbArticle {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'done' | 'error';
-  content?: string;
+  type: 'part_start' | 'token' | 'thinking_step' | 'part_complete' | 'done' | 'error';
   messageId?: string;
+  partIndex?: number;
+  partType?: MessagePartType; // for part_start
+  content?: string; // for token
+  step?: ThinkingStep; // for thinking_step
+  message?: string; // for error
+  part?: MessagePart; // full payload delivered on part_start for non-streaming parts (file/image/card/menu)
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
-  message?: string;
 }
 
 export interface SessionInfo {

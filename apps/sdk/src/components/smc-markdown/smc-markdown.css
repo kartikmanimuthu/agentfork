@@ -1,5 +1,5 @@
 .markdown {
-  font-size: 14px;
+  font-size: var(--smc-fs-md);
   line-height: 1.6;
 }
 
@@ -12,12 +12,12 @@
 }
 
 .markdown pre {
-  background: #1a1a2e;
-  color: #e0e0e0;
-  padding: 12px;
-  border-radius: 8px;
+  background: var(--smc-surface-2);
+  color: var(--smc-text);
+  padding: var(--smc-space-3);
+  border-radius: var(--smc-radius-sm);
   overflow-x: auto;
-  margin: 8px 0;
+  margin: var(--smc-space-2) 0;
 }
 
 .markdown pre code {
@@ -28,11 +28,11 @@
 }
 
 .markdown strong {
-  font-weight: 600;
+  font-weight: var(--smc-fw-semibold);
 }
 
 .markdown a {
-  color: var(--smc-secondary, #3b82f6);
+  color: var(--smc-accent);
   text-decoration: none;
 }
 
@@ -43,7 +43,7 @@
 .markdown ul,
 .markdown ol {
   padding-left: 20px;
-  margin: 4px 0;
+  margin: var(--smc-space-1) 0;
 }
 
 .markdown li {

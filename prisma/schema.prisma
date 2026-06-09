@@ -233,9 +233,10 @@ model Agent {
   description String?
   type        String   @default("simple")
   status      String   @default("draft")
-  config      Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  config        Json
+  showThinking  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   versions           AgentVersion[]
@@ -249,6 +250,7 @@ model Agent {
   apiKeyExecutions   ApiKeyExecution[]
   sdkWidgets         SdkWidget[]
   telegramAccounts   TelegramAccount[]
+  workflows          AgentWorkflow[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -526,6 +528,7 @@ model InferenceSession {
   name            String?
   channel         String    @default("API")
   channelMetadata Json?
+  workflowState   Json?     // WorkflowCursor | null — persisted cursor for server-driven workflow
   status          String    @default("active")
   idleExpiresAt   DateTime
   endedAt         DateTime?
@@ -556,6 +559,7 @@ model InferenceSessionMessage {
   sessionId   String
   role        String
   content     String                       @db.Text
+  parts       Json?                        // MessagePart[] — render source of truth; content kept for embeddings/back-compat
   attachments Json?                        @default("[]")
   tokenCount  Int?
   embedding   Unsupported("vector(1024)")?
@@ -979,4 +983,22 @@ model CsatResponse {
   @@index([sdkWidgetId])
   @@index([sdkWidgetId, createdAt])
   @@map("csat_responses")
+}
+
+model AgentWorkflow {
+  id         String   @id @default(cuid())
+  agentId    String
+  tenantId   String
+  version    Int      @default(1)
+  isActive   Boolean  @default(false)
+  definition Json     // WorkflowDefinition — validated by Zod schema in libs/shared
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([agentId, isActive])
+  @@index([tenantId])
+  @@map("agent_workflows")
 }

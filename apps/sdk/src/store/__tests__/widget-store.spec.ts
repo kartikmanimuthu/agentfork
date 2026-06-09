@@ -8,7 +8,11 @@ import {
   setBaseUrl,
   setSession,
   addMessage,
-  updateLastMessage,
+  appendPart,
+  appendTokenToPart,
+  upsertThinkingStep,
+  completePart,
+  markLastMessageError,
   finalizeLastMessage,
   setMessages,
   setStreaming,
@@ -55,18 +59,18 @@ const mockSession: SessionInfo = {
 
 const mockMessage: Message = {
   id: 'msg_1',
-  content: 'Hello',
   role: 'user',
-  timestamp: '2024-01-01T00:00:00.000Z',
-  status: 'sent',
+  createdAt: '2024-01-01T00:00:00.000Z',
+  status: 'complete',
+  parts: [{ type: 'text', text: 'Hello' }],
 };
 
 const mockAssistantMessage: Message = {
   id: 'stream_1',
-  content: '',
   role: 'assistant',
-  timestamp: '2024-01-01T00:00:01.000Z',
+  createdAt: '2024-01-01T00:00:01.000Z',
   status: 'streaming',
+  parts: [],
 };
 
 const mockKbArticles: KbArticle[] = [{ id: '1', title: 'Help', snippet: 'How to...' }];
@@ -168,45 +172,13 @@ describe('Widget Store', () => {
     });
   });
 
-  describe('updateLastMessage', () => {
-    it('updates last assistant message content and sets status to streaming', () => {
-      addMessage(mockAssistantMessage);
-      updateLastMessage('Hello World');
-      const last = state.messages[state.messages.length - 1];
-      expect(last.content).toBe('Hello World');
-      expect(last.status).toBe('streaming');
-      expect(last.id).toBe('stream_1'); // preserved
-      expect(last.role).toBe('assistant'); // preserved
-    });
-
-    it('accumulates content on repeated calls (streaming)', () => {
-      addMessage(mockAssistantMessage);
-      updateLastMessage('Hello');
-      updateLastMessage('Hello World');
-      updateLastMessage('Hello World!');
-      expect(state.messages[0].content).toBe('Hello World!');
-    });
-
-    it('does nothing when messages is empty', () => {
-      updateLastMessage('content');
-      expect(state.messages).toHaveLength(0);
-    });
-
-    it('does nothing when last message is user role', () => {
-      addMessage(mockMessage); // user message
-      updateLastMessage('new content');
-      expect(state.messages[0].content).toBe('Hello'); // unchanged
-      expect(state.messages[0].status).toBe('sent'); // unchanged
-    });
-  });
-
   describe('finalizeLastMessage', () => {
-    it('sets id and changes status to sent on last assistant message', () => {
+    it('sets id and changes status to complete on last assistant message', () => {
       addMessage(mockAssistantMessage);
       finalizeLastMessage('msg_final');
       const last = state.messages[state.messages.length - 1];
       expect(last.id).toBe('msg_final');
-      expect(last.status).toBe('sent');
+      expect(last.status).toBe('complete');
       expect(last.role).toBe('assistant'); // preserved
     });
 
@@ -219,7 +191,7 @@ describe('Widget Store', () => {
       addMessage(mockMessage);
       finalizeLastMessage('msg_1');
       expect(state.messages[0].id).toBe('msg_1'); // unchanged
-      expect(state.messages[0].status).toBe('sent'); // unchanged
+      expect(state.messages[0].status).toBe('complete'); // unchanged
     });
   });
 
@@ -426,6 +398,75 @@ describe('Widget Store', () => {
       unsub();
       setConfig(mockConfig);
       expect(listener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parts mutations', () => {
+    function assistant(id = 'a1'): Message {
+      return { id, role: 'assistant', createdAt: '2024-01-01T00:00:00.000Z', status: 'streaming', parts: [] };
+    }
+
+    it('appendPart pushes a part onto the matching message by id', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'text', text: '' });
+      expect(state.messages[0].parts).toHaveLength(1);
+      expect(state.messages[0].parts[0].type).toBe('text');
+    });
+
+    it('appendPart does nothing if no message matches the id', () => {
+      addMessage(assistant('a1'));
+      appendPart('nope', { type: 'text', text: 'x' });
+      expect(state.messages[0].parts).toHaveLength(0);
+    });
+
+    it('appendTokenToPart concatenates into a text part', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'text', text: '' });
+      appendTokenToPart('a1', 0, 'He');
+      appendTokenToPart('a1', 0, 'llo');
+      const p = state.messages[0].parts[0];
+      expect(p.type === 'text' && p.text).toBe('Hello');
+    });
+
+    it('appendTokenToPart is a no-op on a non-text part', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'thinking', status: 'active', steps: [] });
+      appendTokenToPart('a1', 0, 'x'); // should not throw or corrupt
+      expect(state.messages[0].parts[0].type).toBe('thinking');
+    });
+
+    it('upsertThinkingStep adds then patches a step by id', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'thinking', status: 'active', steps: [] });
+      upsertThinkingStep('a1', 0, { id: 's1', label: 'Searching', status: 'active' });
+      upsertThinkingStep('a1', 0, { id: 's1', label: 'Searching', status: 'done' });
+      const p = state.messages[0].parts[0];
+      expect(p.type === 'thinking' && p.steps).toHaveLength(1);
+      expect(p.type === 'thinking' && p.steps[0].status).toBe('done');
+    });
+
+    it('completePart marks a thinking part done', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'thinking', status: 'active', steps: [] });
+      completePart('a1', 0);
+      const p = state.messages[0].parts[0];
+      expect(p.type === 'thinking' && p.status).toBe('done');
+    });
+
+    it('markLastMessageError sets error status and preserves existing parts', () => {
+      addMessage(assistant());
+      appendPart('a1', { type: 'text', text: 'partial' });
+      markLastMessageError('boom');
+      expect(state.messages[0].status).toBe('error');
+      expect(state.messages[0].parts).toHaveLength(1); // preserved, not overwritten
+    });
+
+    it('markLastMessageError adds a fallback text part when there are none', () => {
+      addMessage(assistant());
+      markLastMessageError('Something failed');
+      const p = state.messages[0].parts[0];
+      expect(p.type === 'text' && p.text).toBe('Something failed');
+      expect(state.messages[0].status).toBe('error');
     });
   });
 });

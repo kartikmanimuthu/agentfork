@@ -1,5 +1,6 @@
-import { Component, h, Element } from '@stencil/core';
+import { Component, h, Element, Listen } from '@stencil/core';
 import { state, onChange } from '../../store/widget-store';
+import type { Message } from '../../types';
 
 @Component({
   tag: 'smc-message-list',
@@ -9,6 +10,36 @@ import { state, onChange } from '../../store/widget-store';
 export class SmcMessageList {
   @Element() el!: HTMLElement;
   private listEl!: HTMLDivElement;
+
+  // Menu-option and card-button selections bubble up (Stencil events are composed)
+  // from the part components. Re-dispatch them as a window event the input bar sends.
+  @Listen('menuSelect')
+  handleMenuSelect(e: CustomEvent<string>) {
+    window.dispatchEvent(new CustomEvent('smc:send', { detail: e.detail }));
+  }
+
+  @Listen('cardAction')
+  handleCardAction(e: CustomEvent<string>) {
+    window.dispatchEvent(new CustomEvent('smc:send', { detail: e.detail }));
+  }
+
+  // Retry re-sends the user message that preceded the errored assistant turn.
+  @Listen('messageRetry')
+  handleMessageRetry(e: CustomEvent<string>) {
+    const erroredId = e.detail;
+    const msgs = state.messages;
+    const idx = msgs.findIndex((m) => m.id === erroredId);
+    if (idx === -1) return;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') {
+        const textPart = msgs[i].parts.find((p) => p.type === 'text');
+        if (textPart && textPart.type === 'text') {
+          window.dispatchEvent(new CustomEvent('smc:send', { detail: textPart.text }));
+        }
+        return;
+      }
+    }
+  }
 
   componentDidLoad() {
     this.scrollToBottom();
@@ -33,30 +64,33 @@ export class SmcMessageList {
     const messages = state.messages;
     const config = state.config;
 
+    const welcomeMsg: Message | null =
+      config?.welcomeMessage && messages.length === 0
+        ? {
+            id: 'welcome',
+            role: 'assistant',
+            createdAt: new Date().toISOString(),
+            status: 'complete',
+            parts: [{ type: 'text', text: config.welcomeMessage }],
+          }
+        : null;
+
+    const last = messages[messages.length - 1];
+    const awaitingFirstPart =
+      state.streaming.active && last?.role === 'assistant' && last.parts.length === 0;
+
     return (
       <div class="message-list" ref={(el) => (this.listEl = el as HTMLDivElement)}>
-        {config?.welcomeMessage && messages.length === 0 ? (
-          <smc-message
-            content={config.welcomeMessage}
-            role="assistant"
-            timestamp={new Date().toISOString()}
-            messageId="welcome"
-          ></smc-message>
-        ) : null}
+        {welcomeMsg ? <smc-message message={welcomeMsg}></smc-message> : null}
         {messages.map((msg, i) => {
-          const showTimestamp = i === 0 || this.shouldShowTimestamp(messages[i - 1]?.timestamp, msg.timestamp);
+          const showTimestamp =
+            i === 0 || this.shouldShowTimestamp(messages[i - 1]?.createdAt, msg.createdAt);
           return [
-            showTimestamp ? <smc-timestamp timestamp={msg.timestamp}></smc-timestamp> : null,
-            <smc-message
-              content={msg.content}
-              role={msg.role}
-              timestamp={msg.timestamp}
-              messageId={msg.id}
-              status={msg.status}
-            ></smc-message>,
+            showTimestamp ? <smc-timestamp timestamp={msg.createdAt}></smc-timestamp> : null,
+            <smc-message message={msg} showFeedback={config?.csatEnabled ?? false}></smc-message>,
           ];
         })}
-        {state.streaming.active ? <smc-typing-indicator></smc-typing-indicator> : null}
+        {awaitingFirstPart ? <smc-typing-indicator></smc-typing-indicator> : null}
       </div>
     );
   }

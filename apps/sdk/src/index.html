@@ -14,7 +14,7 @@
       min-height: 100vh;
     }
     .dev-panel {
-      max-width: 720px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 2rem 1.5rem;
     }
@@ -57,6 +57,35 @@
     }
     .panel-section {
       margin-bottom: 1.5rem;
+    }
+    .scenario-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .scenario-btn {
+      padding: 0.5rem 0.875rem;
+      border: 1px solid #2d2d44;
+      background: #2d2d44;
+      color: #c7c9d9;
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .scenario-btn.active {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: #fff;
+    }
+    .scenario-btn:hover:not(.active) {
+      background: #3d3d5c;
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: #8b8fa3;
+      margin-top: 0.5rem;
     }
     .panel-section label {
       display: block;
@@ -187,6 +216,17 @@
     <!-- Mock Mode -->
     <div id="mock-panel">
       <div class="panel-section">
+        <label>Mock Scenario</label>
+        <div class="scenario-row">
+          <button class="scenario-btn active" data-scenario="thinking" onclick="setScenario('thinking')">🧠 Thinking</button>
+          <button class="scenario-btn" data-scenario="menu" onclick="setScenario('menu')">📋 Menu</button>
+          <button class="scenario-btn" data-scenario="files" onclick="setScenario('files')">📎 Files</button>
+          <button class="scenario-btn" data-scenario="image" onclick="setScenario('image')">🖼️ Image</button>
+          <button class="scenario-btn" data-scenario="error" onclick="setScenario('error')">⚠️ Error</button>
+        </div>
+        <p class="hint">Open the widget (launcher, bottom-right) and send any message to play the selected scenario.</p>
+      </div>
+      <div class="panel-section">
         <label for="config-json">Bootstrap Config JSON</label>
         <textarea id="config-json"></textarea>
         <p class="error-msg" id="json-error" aria-live="polite">Invalid JSON — fix syntax errors before applying.</p>
@@ -248,7 +288,18 @@
     const errorMsg = document.getElementById('json-error');
     const container = document.getElementById('widget-container');
 
+    let selectedScenario = 'thinking';
+
     textarea.value = JSON.stringify(DEFAULT_CONFIG, null, 2);
+
+    function setScenario(key) {
+      selectedScenario = key;
+      document.querySelectorAll('.scenario-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.scenario === key);
+      });
+      // Re-mount so the new scenario takes effect on the next send.
+      applyMockConfig();
+    }
 
     function switchMode(mode) {
       document.getElementById('btn-mock').classList.toggle('active', mode === 'mock');
@@ -294,7 +345,7 @@
         errorMsg.classList.add('visible');
         return;
       }
-      createWidgetIframe({ 'sdk-id': 'dev_mock', 'mock-config': raw });
+      createWidgetIframe({ 'sdk-id': 'dev_mock', 'mock-config': raw, 'mock-scenario': selectedScenario });
     }
 
     function connectLive() {

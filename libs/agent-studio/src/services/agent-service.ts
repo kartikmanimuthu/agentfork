@@ -115,6 +115,7 @@ export class AgentService {
           ...(input.description !== undefined && { description: input.description }),
           ...(input.status !== undefined && { status: input.status }),
           ...(input.config !== undefined && { config: input.config as unknown as Record<string, unknown> }),
+          ...(input.showThinking !== undefined && { showThinking: input.showThinking }),
         },
       });
       logger.info({ tenantId: this.tenantId, agentId: id }, 'Agent updated');

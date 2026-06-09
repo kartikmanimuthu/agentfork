@@ -61,6 +61,7 @@ export interface UpdateAgentInput {
   description?: string;
   status?: AgentStatus;
   config?: SimpleAgentConfig | GraphDefinition;
+  showThinking?: boolean;
 }
 
 // ─── Query filters ────────────────────────────────────────────────────────────
