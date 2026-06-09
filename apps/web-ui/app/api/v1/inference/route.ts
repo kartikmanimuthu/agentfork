@@ -619,7 +619,7 @@ export async function POST(req: NextRequest) {
         const fileGenTools: ToolSet = {};
         (fileGenTools as any)['generate_spreadsheet'] = {
           description: 'Generate a downloadable Excel spreadsheet from structured data',
-          parameters: jsonSchema({
+          inputSchema: jsonSchema({
             type: 'object',
             properties: {
               filename: { type: 'string' },
@@ -651,7 +651,7 @@ export async function POST(req: NextRequest) {
         };
         (fileGenTools as any)['generate_pdf'] = {
           description: 'Generate a downloadable PDF document',
-          parameters: jsonSchema({
+          inputSchema: jsonSchema({
             type: 'object',
             properties: {
               filename: { type: 'string' },
