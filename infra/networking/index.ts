@@ -9,6 +9,7 @@ import * as awsx from "@pulumi/awsx";
 const config = new pulumi.Config();
 // Use vpcCidrConfig to avoid duplicate identifier with the vpcCidr export below.
 const vpcCidrConfig = config.get("vpcCidr") ?? "10.0.0.0/16";
+const appName = config.get("appName") ?? "chatbot";
 
 // ============================================================================
 // VPC — 4-tier subnets with explicit CIDRs matching CDK allocation
@@ -20,7 +21,7 @@ const vpcCidrConfig = config.get("vpcCidr") ?? "10.0.0.0/16";
 //   Intra:    10.0.12.0/26 (us-east-1a), 10.0.12.64/26 (us-east-1b)
 // ============================================================================
 
-const vpc = new awsx.ec2.Vpc("chatbot-vpc", {
+const vpc = new awsx.ec2.Vpc(`${appName}-vpc`, {
     cidrBlock: vpcCidrConfig,
     availabilityZoneNames: ["us-east-1a", "us-east-1b"],
     enableDnsHostnames: true,
@@ -48,7 +49,7 @@ const vpc = new awsx.ec2.Vpc("chatbot-vpc", {
             cidrBlocks: ["10.0.12.0/26", "10.0.12.64/26"],
         },
     ],
-    tags: { Name: "chatbot-vpc" },
+    tags: { Name: `${appName}-vpc` },
 });
 
 // ============================================================================
@@ -107,12 +108,12 @@ const endpointRouteTableIds = pulumi.all([
 
 const region = aws.config.region ?? "us-east-1";
 
-const s3Endpoint = new aws.ec2.VpcEndpoint("chatbot-endpoint-s3", {
+const s3Endpoint = new aws.ec2.VpcEndpoint(`${appName}-endpoint-s3`, {
     vpcId: vpc.vpcId,
     serviceName: pulumi.interpolate`com.amazonaws.${region}.s3`,
     vpcEndpointType: "Gateway",
     routeTableIds: endpointRouteTableIds,
-    tags: { Name: "chatbot-endpoint-s3" },
+    tags: { Name: `${appName}-endpoint-s3` },
 });
 
 // ============================================================================
@@ -122,11 +123,11 @@ const s3Endpoint = new aws.ec2.VpcEndpoint("chatbot-endpoint-s3", {
 // breaks any existing RDS/ElastiCache clusters referencing the group by name.
 // ============================================================================
 
-const dbSubnetGroup = new aws.rds.SubnetGroup("chatbot-db-subnet-group", {
-    name: "chatbot-db-subnet-group",
+const dbSubnetGroup = new aws.rds.SubnetGroup(`${appName}-db-subnet-group`, {
+    name: `${appName}-db-subnet-group`,
     description: "Subnet group for RDS databases",
     subnetIds: databaseSubnetIds,
-    tags: { Name: "chatbot-db-subnet-group" },
+    tags: { Name: `${appName}-db-subnet-group` },
 });
 
 // ============================================================================

@@ -1,0 +1,4 @@
+config:
+  aws:region: us-east-1
+  chatbot-networking:vpcCidr: 10.0.0.0/16
+  chatbot-networking:appName: chatflow-nonprod

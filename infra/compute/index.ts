@@ -41,7 +41,7 @@ const region = aws.config.region ?? "us-east-1";
 const config = new pulumi.Config();
 const appUrl = config.get("appUrl") ?? "https://placeholder.cloudfront.net";
 const subscriptionEmails = config.get("subscriptionEmails") ?? "";
-const appName = "chatbot";
+const appName = config.get("appName") ?? "chatbot";
 
 // Dynamically generated — stored in AWS Secrets Manager, never in Pulumi config
 const nextauthSecretRandom = new random.RandomPassword("nextauth-secret-random", {
@@ -100,7 +100,8 @@ const dbPassword = dbPasswordRandom.result;
 
 // StackReference to networking project.
 // Format for S3 backend: "organization/<project>/<stack>" (literal "organization" required)
-const networking = new pulumi.StackReference("organization/chatbot-networking/prod");
+const currentStack = pulumi.getStack();
+const networking = new pulumi.StackReference(`organization/chatbot-networking/${currentStack}`);
 
 // Networking outputs — all required (networking must be deployed before compute can preview)
 const vpcId = networking.requireOutput("vpcId") as pulumi.Output<string>;
