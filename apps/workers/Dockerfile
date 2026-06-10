@@ -55,6 +55,17 @@ RUN cd libs/knowledge-base && bunx tsc --project tsconfig.lib.json && \
     cp -rL /app/dist/libs/knowledge-base/libs/knowledge-base/src /app/node_modules/@chatbot/knowledge-base/src && \
     printf '{"name":"@chatbot/knowledge-base","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts"}\n' > /app/node_modules/@chatbot/knowledge-base/package.json
 
+# telegram and whatsapp ship as raw TS source (no build step) — link directly for
+# agent-studio's node-executors and runtime resolution.
+COPY libs/telegram/ /app/node_modules/@chatbot/telegram/
+COPY libs/whatsapp/ /app/node_modules/@chatbot/whatsapp/
+
+COPY libs/agent-studio/ libs/agent-studio/
+RUN cd libs/agent-studio && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/agent-studio && \
+    cp -rL /app/dist/out-tsc/libs/agent-studio/src /app/node_modules/@chatbot/agent-studio/src && \
+    printf '{"name":"@chatbot/agent-studio","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./server":"./src/server.js"}}\n' > /app/node_modules/@chatbot/agent-studio/package.json
+
 # Compile workers
 RUN cd apps/workers && bunx tsc --project tsconfig.build.json
 
