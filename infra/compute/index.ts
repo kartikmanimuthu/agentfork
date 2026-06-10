@@ -42,6 +42,8 @@ const config = new pulumi.Config();
 const appUrl = config.get("appUrl") ?? "https://placeholder.cloudfront.net";
 const subscriptionEmails = config.get("subscriptionEmails") ?? "";
 const appName = config.get("appName") ?? "chatbot";
+// Postgres identifiers (dbName, username) only allow letters, numbers, underscores
+const dbIdentifier = appName.replace(/-/g, "_");
 
 // Dynamically generated — stored in AWS Secrets Manager, never in Pulumi config
 const nextauthSecretRandom = new random.RandomPassword("nextauth-secret-random", {
@@ -309,10 +311,10 @@ const rdsSecurityGroup = new aws.ec2.SecurityGroup("rds-sg", {
 const postgresInstance = new aws.rds.Instance("postgres", {
     identifier: `${appName}-postgres`,
     engine: "postgres",
-    engineVersion: "16.6",
+    engineVersion: "16.9",
     instanceClass: "db.t4g.micro",
-    dbName: appName,
-    username: `${appName}_admin`,
+    dbName: dbIdentifier,
+    username: `${dbIdentifier}_admin`,
     password: dbPassword,
     dbSubnetGroupName: dbSubnetGroupName,
     vpcSecurityGroupIds: [rdsSecurityGroup.id],
@@ -327,7 +329,7 @@ const postgresInstance = new aws.rds.Instance("postgres", {
 // Store full connection string in Secrets Manager (needs postgresInstance.address)
 new aws.secretsmanager.SecretVersion("database-url-version", {
     secretId: databaseUrlSm.id,
-    secretString: pulumi.interpolate`postgresql://${appName}_admin:${dbPasswordRandom.result}@${postgresInstance.address}:5432/${appName}?sslmode=require&uselibpqcompat=true`,
+    secretString: pulumi.interpolate`postgresql://${dbIdentifier}_admin:${dbPasswordRandom.result}@${postgresInstance.address}:5432/${dbIdentifier}?sslmode=require&uselibpqcompat=true`,
 });
 
 
