@@ -26,7 +26,7 @@ const vpc = new awsx.ec2.Vpc(`${appName}-vpc`, {
     availabilityZoneNames: ["us-east-1a", "us-east-1b"],
     enableDnsHostnames: true,
     enableDnsSupport: true,
-    natGateways: { strategy: "OnePerAz" },
+    natGateways: { strategy: config.get("natStrategy") === "single" ? "Single" : "OnePerAz" },
     subnetSpecs: [
         {
             type: "Private",

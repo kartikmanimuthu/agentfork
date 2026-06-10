@@ -2,3 +2,5 @@ config:
   aws:region: us-east-1
   chatbot-networking:vpcCidr: 10.0.0.0/16
   chatbot-networking:appName: chatflow-nonprod
+  chatbot-networking:natStrategy: single
+encryptionsalt: v1:xjSh87Q5FfA=:v1:3M6QaQfAXturQmwZ:D7jqjQclGd8EHQnpLVh5F410mgf9yg==
