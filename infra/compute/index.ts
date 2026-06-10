@@ -537,7 +537,7 @@ new aws.iam.RolePolicy("ecs-task-bedrock-policy", {
         Version: "2012-10-17",
         Statement: [{
             Effect: "Allow",
-            Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+            Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:ListFoundationModels"],
             Resource: ["*"],
         }],
     }),
