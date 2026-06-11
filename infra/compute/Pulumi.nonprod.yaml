@@ -3,4 +3,6 @@ config:
   chatbot-compute:appName: chatflow-nonprod
   chatbot-compute:appUrl: https://d28eqq2bj0c0yk.cloudfront.net
   chatbot-compute:subscriptionEmails: ""
+  chatbot-compute:bedrockBearerToken:
+    secure: v1:nVmeqBsjIFXeoi74:/mfYEwV7UMg35K2ISIIaqBakh2faeTyU63ztBwLi1DuSsowP/MAvqB5Mh177mk3RSgz+2/UVGUYHvLK/3+oy/GqOFoUy0lZzbxsF4adNxCzBSWoq3+9lefj5u7DQvftDQfqbJffYrVOoC8oy6x3U1GBVI69P9iaLi8cdCBt9Lo/Coc+dnVzjbWAz438Zqf9qBEDOdw==
 encryptionsalt: v1:pXRwNrkJJkA=:v1:vMxn7HXnrtwjJDos:YnYpD6kwJYXYuyHQLtc513Sr8gN2YA==

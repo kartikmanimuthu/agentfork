@@ -224,6 +224,74 @@ normal rolling ECS deploy).
 
 ---
 
+## 11. Schema/migration drift — `agent_workflows` and related fields (2026-06-10)
+
+`prisma/schema.prisma` had `agents.showThinking`, `inference_session_messages.parts`,
+`inference_sessions.workflowState`, and the `agent_workflows` table defined, but
+**no corresponding migration file existed**. `docker-entrypoint.sh` runs
+`prisma migrate deploy` on every container start, which only applies existing
+migration files — it does **not** generate new ones from schema drift. So the
+deployed DB was missing these columns/table even though the Prisma client
+(generated from `schema.prisma`) expected them, which would cause runtime
+errors wherever the new agent-workflow code paths are exercised.
+
+Fixed in `90511da` by adding the missing migration:
+`prisma/migrations/20260610120000_add_agent_workflows_and_missing_fields/migration.sql`
+(adds `agents.showThinking`, `inference_session_messages.parts`,
+`inference_sessions.workflowState`, and creates `agent_workflows`).
+
+This migration was applied automatically by `docker-entrypoint.sh` during the
+deploy in step 12 below — no manual `prisma migrate deploy` needed.
+
+**Lesson**: when `schema.prisma` changes, always generate a matching migration
+(`bunx prisma migrate dev`) in the same commit — schema-only changes silently
+drift from the deployed DB until the next migration is written.
+
+## 12. Deploy `AWS_BEARER_TOKEN_BEDROCK` secret + agent_workflows migration (2026-06-11)
+
+**Problem**: The Kimi (`moonshotai.kimi-k2.5`) simple-agent worked in the
+Playground (no tools attached → normal Bedrock Converse API path) but failed
+in the SDK Chat Widget with `AI_LoadAPIKeyError: OpenAI API key is missing`.
+Root cause: when tools (knowledge base/MCP) are attached and the model is
+`moonshotai.*`/`deepseek.*`, `libs/ai/src/providers/bedrock.ts`'s
+`needsMantleForTools()` routes the call through the `bedrock-mantle`
+OpenAI-compatible gateway via `createOpenAI({ apiKey: env.AWS_BEARER_TOKEN_BEDROCK })`
+— and `AWS_BEARER_TOKEN_BEDROCK` was never set in the ECS task environment.
+
+**Fix**: Added a Bedrock API key (bearer token, already created/used locally)
+to Secrets Manager via Pulumi config, and wired it into the web-ui task's
+`secrets` array (`infra/compute/index.ts`):
+
+```bash
+cd infra/compute
+PULUMI_CONFIG_PASSPHRASE="" AWS_PROFILE=omar-testing-saas-chatbot pulumi config set --secret bedrockBearerToken --stack nonprod
+PULUMI_CONFIG_PASSPHRASE="" AWS_PROFILE=omar-testing-saas-chatbot pulumi up --stack nonprod --yes
+```
+
+New resources: `aws.secretsmanager.Secret`/`SecretVersion` (`chatflow-nonprod/bedrock-bearer-token`),
+updated `ecs-execution-role-secrets-policy` to grant `secretsmanager:GetSecretValue`
+on it, and `AWS_BEARER_TOKEN_BEDROCK` added to `WebUIContainer`'s `secrets`.
+Conditional on `bedrockBearerToken` config being set — no-op for stacks
+(e.g. prod) where it isn't configured.
+
+This `pulumi up` also picked up the still-undeployed `90511da`/`589e8fa`
+commits (the `agent_workflows` migration from step 11, the
+`bedrock:ListFoundationModels` IAM fix, RDS engine version 16.6→16.9, db
+identifier sanitization, and the workers Dockerfile build fix) — both
+`web-ui-image` and `workers-image` were rebuilt as part of this run.
+
+Also hit a **Pulumi passphrase prompt** — this stack uses an empty passphrase
+(`PULUMI_CONFIG_PASSPHRASE=""`, see `infra/DEPLOYMENT.md`); cancel the prompt
+(Ctrl+C) and re-run with that env var set.
+
+✅ 12 changes (3 created, 5 updated, 3 replaced, 1 deleted), 0 errors,
+**~4.5 minutes**.
+
+`infra/compute/index.ts` and `infra/compute/Pulumi.nonprod.yaml` changes from
+this step were **not yet committed** as of writing this — see Outstanding below.
+
+---
+
 ## Current Status (as of this deployment session)
 
 ### chatflow-nonprod — fully deployed and healthy ✅
@@ -252,12 +320,12 @@ normal rolling ECS deploy).
 
 ### Outstanding (not yet committed to git)
 
-- `infra/compute/index.ts` — engine version fix + db identifier sanitization
-- `apps/workers/Dockerfile` — agent-studio/telegram/whatsapp build fix
-- `infra/compute/Pulumi.nonprod.yaml` — final `appUrl`
+- `infra/compute/index.ts` — `AWS_BEARER_TOKEN_BEDROCK` secret wiring (step 12)
+- `infra/compute/Pulumi.nonprod.yaml` — `bedrockBearerToken` encrypted config (step 12)
 
-(`infra/networking/index.ts`, `infra/networking/Pulumi.nonprod.yaml`,
-`infra/compute/Pulumi.nonprod.yaml` (initial) were already committed in `4dd47b9`.)
+(Engine version fix, db identifier sanitization, workers Dockerfile fix,
+final `appUrl`, and the agent_workflows migration (step 11) were committed in
+`589e8fa`/`90511da` and are already deployed as of step 12.)
 
 ---
 
