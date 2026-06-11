@@ -42,6 +42,10 @@ const config = new pulumi.Config();
 const appUrl = config.get("appUrl") ?? "https://placeholder.cloudfront.net";
 const subscriptionEmails = config.get("subscriptionEmails") ?? "";
 const appName = config.get("appName") ?? "chatbot";
+// Bedrock API key (bearer token) for the bedrock-mantle OpenAI-compatible gateway —
+// set via `pulumi config set --secret bedrockBearerToken <value>`. Optional: only
+// needed for models routed through bedrock-mantle (e.g. moonshotai.*, deepseek.*) when tools are attached.
+const bedrockBearerToken = config.getSecret("bedrockBearerToken");
 // Postgres identifiers (dbName, username) only allow letters, numbers, underscores
 const dbIdentifier = appName.replace(/-/g, "_");
 
@@ -90,6 +94,21 @@ const databaseUrlSm = new aws.secretsmanager.Secret("database-url", {
     description: "Full PostgreSQL connection string for ECS tasks",
     recoveryWindowInDays: 0,
 });
+
+// Bedrock bearer token — only created if `bedrockBearerToken` config is set
+let bedrockBearerTokenSm: aws.secretsmanager.Secret | undefined;
+if (bedrockBearerToken) {
+    bedrockBearerTokenSm = new aws.secretsmanager.Secret("bedrock-bearer-token", {
+        name: `${appName}/bedrock-bearer-token`,
+        description: "Bedrock API key (bearer token) for the bedrock-mantle gateway",
+        recoveryWindowInDays: 0,
+    });
+
+    new aws.secretsmanager.SecretVersion("bedrock-bearer-token-version", {
+        secretId: bedrockBearerTokenSm.id,
+        secretString: bedrockBearerToken,
+    });
+}
 
 // database-url-version is created after postgresInstance (needs .address output)
 
@@ -485,14 +504,19 @@ new aws.iam.RolePolicyAttachment("ecs-task-execution-role-policy", {
 
 new aws.iam.RolePolicy("ecs-execution-role-secrets-policy", {
     role: ecsTaskExecutionRole.id,
-    policy: pulumi.all([nextauthSecretSm.arn, databaseUrlSm.arn, encryptionKeySm.arn]).apply(
-        ([nextauthArn, dbArn, encArn]) =>
+    policy: pulumi.all([
+        nextauthSecretSm.arn,
+        databaseUrlSm.arn,
+        encryptionKeySm.arn,
+        bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
+    ]).apply(
+        ([nextauthArn, dbArn, encArn, bedrockBearerArn]) =>
             JSON.stringify({
                 Version: "2012-10-17",
                 Statement: [{
                     Effect: "Allow",
                     Action: ["secretsmanager:GetSecretValue"],
-                    Resource: [nextauthArn, dbArn, encArn],
+                    Resource: [nextauthArn, dbArn, encArn, ...(bedrockBearerArn ? [bedrockBearerArn] : [])],
                 }],
             })
     ),
@@ -608,11 +632,13 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         nextauthSecretSm.arn,
         databaseUrlSm.arn,
         encryptionKeySm.arn,
+        bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
     ]).apply(([
         cognitoPoolId, cognitoClientId, cognitoClientSecret,
         appBucketN,
         webUiLogGroupN, acctId, imageUri,
         nextauthSecretArn, databaseUrlArn, encryptionKeyArn,
+        bedrockBearerTokenArn,
     ]) => JSON.stringify([{
         name: "WebUIContainer",
         image: imageUri,
@@ -630,6 +656,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "NEXTAUTH_SECRET", valueFrom: nextauthSecretArn },
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
             { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
+            ...(bedrockBearerTokenArn ? [{ name: "AWS_BEARER_TOKEN_BEDROCK", valueFrom: bedrockBearerTokenArn }] : []),
         ],
         environment: [
             { name: "NODE_ENV", value: "production" },
