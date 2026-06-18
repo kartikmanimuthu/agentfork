@@ -40,7 +40,11 @@ export const scoreManualCreateSchema = z.object({
 
 export const scoreIngestSchema = scoreManualCreateSchema; // same shape; auth differs
 
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional();
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+  .refine((v) => !isNaN(new Date(v).getTime()), 'Invalid date')
+  .optional();
 
 export const scoreListQuerySchema = z.object({
   configId: z.string().optional(),

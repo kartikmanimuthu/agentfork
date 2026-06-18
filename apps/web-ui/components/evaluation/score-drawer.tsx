@@ -20,7 +20,7 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
   const { data: dsData } = useQuery<{ datasets: Dataset[] }>({ queryKey: ['eval-datasets'], queryFn: async () => (await fetch('/api/evaluation/datasets')).json() });
   const { data: existing } = useQuery<{ scores: { id: string; config: { name: string }; numericValue: number | null; stringValue: string | null }[] }>({
     queryKey: ['eval-scores', 'SESSION', sessionId],
-    queryFn: async () => (await fetch(`/api/evaluation/scores?targetType=SESSION&sessionId=${sessionId}`)).json(),
+    queryFn: async () => (await fetch(`/api/evaluation/scores?targetType=SESSION&sessionId=${encodeURIComponent(sessionId)}`)).json(),
   });
 
   const [configId, setConfigId] = useState('');
