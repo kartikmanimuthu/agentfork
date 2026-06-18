@@ -28,6 +28,8 @@ export interface IngestScoreInput {
 export interface ScoreFilters {
   configId?: string;
   targetType?: ScoreTargetType;
+  sessionId?: string;
+  messageId?: string;
   source?: 'ANNOTATION' | 'API';
   fromDate?: string;
   toDate?: string;
@@ -172,6 +174,8 @@ export class ScoreService {
     const where: Record<string, unknown> = { tenantId };
     if (filters.configId) where.configId = filters.configId;
     if (filters.targetType) where.targetType = filters.targetType;
+    if (filters.sessionId) where.sessionId = filters.sessionId;
+    if (filters.messageId) where.messageId = filters.messageId;
     if (filters.source) where.source = filters.source;
     if (filters.fromDate || filters.toDate) {
       const range: Record<string, Date> = {};

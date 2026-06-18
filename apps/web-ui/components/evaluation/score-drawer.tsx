@@ -18,9 +18,9 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
   const qc = useQueryClient();
   const { data: cfgData } = useQuery<{ configs: ScoreConfig[] }>({ queryKey: ['eval-score-configs'], queryFn: async () => (await fetch('/api/evaluation/score-configs')).json() });
   const { data: dsData } = useQuery<{ datasets: Dataset[] }>({ queryKey: ['eval-datasets'], queryFn: async () => (await fetch('/api/evaluation/datasets')).json() });
-  const { data: existing } = useQuery<{ scores: { id: string; config: { name: string }; numericValue: number | null; stringValue: string | null; sessionId: string | null }[] }>({
+  const { data: existing } = useQuery<{ scores: { id: string; config: { name: string }; numericValue: number | null; stringValue: string | null }[] }>({
     queryKey: ['eval-scores', 'SESSION', sessionId],
-    queryFn: async () => (await fetch(`/api/evaluation/scores?targetType=SESSION`)).json(),
+    queryFn: async () => (await fetch(`/api/evaluation/scores?targetType=SESSION&sessionId=${sessionId}`)).json(),
   });
 
   const [configId, setConfigId] = useState('');
@@ -31,7 +31,6 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
 
   const configs = cfgData?.configs ?? [];
   const selected = configs.find((c) => c.id === configId);
-  const sessionScores = (existing?.scores ?? []).filter((s) => s.sessionId === sessionId);
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -103,7 +102,7 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
           <div className="border-t pt-4">
             <Label>Existing session scores</Label>
             <div className="space-y-1 mt-2">
-              {sessionScores.map((s) => (
+              {(existing?.scores ?? []).map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-sm">
                   <span>{s.config?.name}</span>
                   <Badge variant="outline">{s.stringValue ?? s.numericValue}</Badge>

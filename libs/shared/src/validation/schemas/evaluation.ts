@@ -40,12 +40,16 @@ export const scoreManualCreateSchema = z.object({
 
 export const scoreIngestSchema = scoreManualCreateSchema; // same shape; auth differs
 
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional();
+
 export const scoreListQuerySchema = z.object({
   configId: z.string().optional(),
   targetType: scoreTargetTypeSchema.optional(),
+  sessionId: z.string().optional(),
+  messageId: z.string().optional(),
   source: z.enum(['ANNOTATION', 'API']).optional(),
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: isoDateSchema,
+  toDate: isoDateSchema,
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
