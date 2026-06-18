@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2 } from 'lucide-react';
-import { scoreConfigCreateSchema } from '@chatbot/shared';
+import { scoreConfigCreateSchema } from '@chatbot/shared/client';
 
 interface ScoreConfig { id: string; name: string; dataType: string; minValue: number | null; maxValue: number | null; categories: { label: string; value: number }[] | null; isArchived: boolean; }
 interface ScoreRow { id: string; targetType: string; numericValue: number | null; stringValue: string | null; source: string; comment: string | null; createdAt: string; config: { name: string; dataType: string }; messageId: string | null; sessionId: string | null; }
