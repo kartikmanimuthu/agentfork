@@ -488,10 +488,11 @@ model ApiKeyExecution {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  apiKey  ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  session InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  agent   Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  agentVersion AgentVersion? @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  apiKey       ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  session      InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent        Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion?     @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  scores       Score[]
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
@@ -944,9 +945,10 @@ model Score {
   id           String   @id @default(cuid())
   tenantId     String
   configId     String
-  targetType   String   // MESSAGE | SESSION
+  targetType   String   // MESSAGE | SESSION | EXECUTION
   messageId    String?
   sessionId    String?
+  executionId  String?
   numericValue Float?
   stringValue  String?
   comment      String?
@@ -955,14 +957,16 @@ model Score {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant  Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  config  ScoreConfig                     @relation(fields: [configId], references: [id], onDelete: Restrict)
-  message InferenceSessionMessage?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  session InferenceSession?               @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  tenant    Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  config    ScoreConfig                     @relation(fields: [configId], references: [id], onDelete: Restrict)
+  message   InferenceSessionMessage?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  session   InferenceSession?               @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  execution ApiKeyExecution?                @relation(fields: [executionId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([messageId])
   @@index([sessionId])
+  @@index([executionId])
   @@index([configId])
   @@index([tenantId, source])
   @@map("scores")
@@ -993,8 +997,9 @@ model DatasetItem {
   expectedOutput  Json?
   metadata        Json?
   status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
-  sourceMessageId String?  // provenance only, no FK
-  sourceSessionId String?  // provenance only, no FK
+  sourceMessageId   String?  // provenance only, no FK
+  sourceSessionId   String?  // provenance only, no FK
+  sourceExecutionId String?  // provenance only, no FK
   createdBy       String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

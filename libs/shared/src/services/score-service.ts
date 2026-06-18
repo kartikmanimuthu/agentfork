@@ -3,7 +3,7 @@ import type { ScoreCategory, ScoreDataType } from './score-config-service';
 
 const logger = createLogger('score-service');
 
-export type ScoreTargetType = 'MESSAGE' | 'SESSION';
+export type ScoreTargetType = 'MESSAGE' | 'SESSION' | 'EXECUTION';
 export type ScoreValue = number | string | boolean;
 
 export interface CreateManualScoreInput {
@@ -30,6 +30,7 @@ export interface ScoreFilters {
   targetType?: ScoreTargetType;
   sessionId?: string;
   messageId?: string;
+  executionId?: string;
   source?: 'ANNOTATION' | 'API';
   fromDate?: string;
   toDate?: string;
@@ -58,6 +59,7 @@ export interface ScoreDb {
   };
   inferenceSessionMessage: { findFirst(args: { where: Record<string, unknown>; include?: unknown }): Promise<{ id: string; session: { tenantId: string } } | null> };
   inferenceSession: { findFirst(args: { where: Record<string, unknown> }): Promise<{ id: string; tenantId: string } | null> };
+  apiKeyExecution: { findFirst(args: { where: Record<string, unknown> }): Promise<{ id: string; tenantId: string } | null> };
 }
 
 interface ResolvedValue { numericValue: number | null; stringValue: string | null; }
@@ -99,14 +101,20 @@ export class ScoreService {
     if (targetType === 'MESSAGE') {
       const msg = await this.db.inferenceSessionMessage.findFirst({ where: { id: targetId }, include: { session: { select: { tenantId: true } } } });
       if (!msg || msg.session.tenantId !== tenantId) throw new Error('Score target message not found in tenant');
-    } else {
+    } else if (targetType === 'SESSION') {
       const session = await this.db.inferenceSession.findFirst({ where: { id: targetId, tenantId } });
       if (!session) throw new Error('Score target session not found in tenant');
+    } else {
+      // EXECUTION
+      const execution = await this.db.apiKeyExecution.findFirst({ where: { id: targetId, tenantId } });
+      if (!execution) throw new Error('Score target execution not found in tenant');
     }
   }
 
-  private targetColumns(targetType: ScoreTargetType, targetId: string): { messageId: string | null; sessionId: string | null } {
-    return targetType === 'MESSAGE' ? { messageId: targetId, sessionId: null } : { messageId: null, sessionId: targetId };
+  private targetColumns(targetType: ScoreTargetType, targetId: string): { messageId: string | null; sessionId: string | null; executionId: string | null } {
+    if (targetType === 'MESSAGE')  return { messageId: targetId, sessionId: null,    executionId: null };
+    if (targetType === 'SESSION')  return { messageId: null,    sessionId: targetId, executionId: null };
+    /* EXECUTION */                return { messageId: null,    sessionId: null,      executionId: targetId };
   }
 
   async createManual(input: CreateManualScoreInput): Promise<unknown> {
@@ -176,6 +184,7 @@ export class ScoreService {
     if (filters.targetType) where.targetType = filters.targetType;
     if (filters.sessionId) where.sessionId = filters.sessionId;
     if (filters.messageId) where.messageId = filters.messageId;
+    if (filters.executionId) where.executionId = filters.executionId;
     if (filters.source) where.source = filters.source;
     if (filters.fromDate || filters.toDate) {
       const range: Record<string, Date> = {};

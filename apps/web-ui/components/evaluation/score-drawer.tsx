@@ -14,13 +14,26 @@ import { ClipboardCheck } from 'lucide-react';
 interface ScoreConfig { id: string; name: string; dataType: string; categories: { label: string; value: number }[] | null; }
 interface Dataset { id: string; name: string; }
 
-export function ScoreDrawer({ sessionId }: { sessionId: string }) {
+function buildScoreFilterUrl(targetType: string, targetId: string): string {
+  const param = targetType === 'SESSION' ? 'sessionId' : 'executionId';
+  return `/api/evaluation/scores?targetType=${targetType}&${param}=${encodeURIComponent(targetId)}`;
+}
+
+export function ScoreDrawer({
+  targetType,
+  targetId,
+  label,
+}: {
+  targetType: 'SESSION' | 'EXECUTION';
+  targetId: string;
+  label?: string;
+}) {
   const qc = useQueryClient();
   const { data: cfgData } = useQuery<{ configs: ScoreConfig[] }>({ queryKey: ['eval-score-configs'], queryFn: async () => (await fetch('/api/evaluation/score-configs')).json() });
   const { data: dsData } = useQuery<{ datasets: Dataset[] }>({ queryKey: ['eval-datasets'], queryFn: async () => (await fetch('/api/evaluation/datasets')).json() });
   const { data: existing } = useQuery<{ scores: { id: string; config: { name: string }; numericValue: number | null; stringValue: string | null }[] }>({
-    queryKey: ['eval-scores', 'SESSION', sessionId],
-    queryFn: async () => (await fetch(`/api/evaluation/scores?targetType=SESSION&sessionId=${encodeURIComponent(sessionId)}`)).json(),
+    queryKey: ['eval-scores', targetType, targetId],
+    queryFn: async () => (await fetch(buildScoreFilterUrl(targetType, targetId))).json(),
   });
 
   const [configId, setConfigId] = useState('');
@@ -37,16 +50,16 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
       let parsedValue: number | string | boolean = value;
       if (selected?.dataType === 'NUMERIC') parsedValue = Number(value);
       if (selected?.dataType === 'BOOLEAN') parsedValue = value === 'true';
-      const res = await fetch('/api/evaluation/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configId, targetType: 'SESSION', targetId: sessionId, value: parsedValue, comment: comment || undefined }) });
+      const res = await fetch('/api/evaluation/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configId, targetType, targetId, value: parsedValue, comment: comment || undefined }) });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed');
     },
-    onSuccess: () => { setMsg('Score saved'); setValue(''); setComment(''); qc.invalidateQueries({ queryKey: ['eval-scores', 'SESSION', sessionId] }); },
+    onSuccess: () => { setMsg('Score saved'); setValue(''); setComment(''); qc.invalidateQueries({ queryKey: ['eval-scores', targetType, targetId] }); },
     onError: (e: Error) => setMsg(e.message),
   });
 
   const addToDataset = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/evaluation/datasets/${datasetId}/items/from-trace`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetType: 'SESSION', targetId: sessionId }) });
+      const res = await fetch(`/api/evaluation/datasets/${datasetId}/items/from-trace`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetType, targetId }) });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed');
     },
     onSuccess: () => setMsg('Added to dataset'),
@@ -57,7 +70,7 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
     <Sheet>
       <SheetTrigger render={<Button variant="outline" size="sm"><ClipboardCheck className="size-4 mr-1" /> Score</Button>} />
       <SheetContent className="w-[400px] sm:max-w-[400px]">
-        <SheetHeader><SheetTitle>Evaluate session</SheetTitle></SheetHeader>
+        <SheetHeader><SheetTitle>Evaluate {label ?? targetType.toLowerCase()}</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4 px-1">
           <div>
             <Label>Score config</Label>
@@ -87,7 +100,7 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
           <Button onClick={() => submit.mutate()} disabled={!configId || value === '' || submit.isPending} className="w-full">Save score</Button>
 
           <div className="border-t pt-4">
-            <Label>Add this session to a dataset</Label>
+            <Label>Add this {targetType.toLowerCase()} to a dataset</Label>
             <div className="flex gap-2 mt-1">
               <Select value={datasetId} onValueChange={setDatasetId}>
                 <SelectTrigger><SelectValue placeholder="Pick dataset" /></SelectTrigger>
@@ -100,7 +113,7 @@ export function ScoreDrawer({ sessionId }: { sessionId: string }) {
           {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
 
           <div className="border-t pt-4">
-            <Label>Existing session scores</Label>
+            <Label>Existing scores</Label>
             <div className="space-y-1 mt-2">
               {(existing?.scores ?? []).map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-sm">

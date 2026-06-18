@@ -15,7 +15,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { scoreConfigCreateSchema } from '@chatbot/shared/client';
 
 interface ScoreConfig { id: string; name: string; dataType: string; minValue: number | null; maxValue: number | null; categories: { label: string; value: number }[] | null; isArchived: boolean; }
-interface ScoreRow { id: string; targetType: string; numericValue: number | null; stringValue: string | null; source: string; comment: string | null; createdAt: string; config: { name: string; dataType: string }; messageId: string | null; sessionId: string | null; }
+interface ScoreRow { id: string; targetType: string; numericValue: number | null; stringValue: string | null; source: string; comment: string | null; createdAt: string; config: { name: string; dataType: string }; messageId: string | null; sessionId: string | null; executionId: string | null; }
 
 export default function ScoresPage() {
   return (

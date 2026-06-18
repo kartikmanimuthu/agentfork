@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   scoreConfigCreateSchema,
   scoreManualCreateSchema,
+  addFromTraceSchema,
   datasetItemCreateSchema,
 } from './evaluation';
 
@@ -31,6 +32,25 @@ describe('scoreManualCreateSchema', () => {
   });
   it('rejects missing value', () => {
     const r = scoreManualCreateSchema.safeParse({ configId: 'c1', targetType: 'MESSAGE', targetId: 'm1' });
+    expect(r.success).toBe(false);
+  });
+  it('accepts EXECUTION targetType', () => {
+    const r = scoreManualCreateSchema.safeParse({ configId: 'c1', targetType: 'EXECUTION', targetId: 'ex1', value: 3 });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('addFromTraceSchema', () => {
+  it('accepts SESSION targetType', () => {
+    const r = addFromTraceSchema.safeParse({ targetType: 'SESSION', targetId: 's1' });
+    expect(r.success).toBe(true);
+  });
+  it('accepts EXECUTION targetType', () => {
+    const r = addFromTraceSchema.safeParse({ targetType: 'EXECUTION', targetId: 'ex1' });
+    expect(r.success).toBe(true);
+  });
+  it('rejects unknown targetType', () => {
+    const r = addFromTraceSchema.safeParse({ targetType: 'UNKNOWN', targetId: 'x1' });
     expect(r.success).toBe(false);
   });
 });

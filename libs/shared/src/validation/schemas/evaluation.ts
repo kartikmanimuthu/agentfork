@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const scoreDataTypeSchema = z.enum(['NUMERIC', 'CATEGORICAL', 'BOOLEAN']);
-export const scoreTargetTypeSchema = z.enum(['MESSAGE', 'SESSION']);
+export const scoreTargetTypeSchema = z.enum(['MESSAGE', 'SESSION', 'EXECUTION']);
 const scoreCategorySchema = z.object({ label: z.string().min(1), value: z.number() });
 
 const scoreConfigBase = z.object({
@@ -51,6 +51,7 @@ export const scoreListQuerySchema = z.object({
   targetType: scoreTargetTypeSchema.optional(),
   sessionId: z.string().optional(),
   messageId: z.string().optional(),
+  executionId: z.string().optional(),
   source: z.enum(['ANNOTATION', 'API']).optional(),
   fromDate: isoDateSchema,
   toDate: isoDateSchema,

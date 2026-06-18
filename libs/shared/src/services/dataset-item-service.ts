@@ -9,6 +9,7 @@ export interface CreateDatasetItemInput {
   metadata?: unknown;
   sourceMessageId?: string;
   sourceSessionId?: string;
+  sourceExecutionId?: string;
   createdBy: string;
 }
 
@@ -49,6 +50,14 @@ export interface DatasetItemDb {
       include?: unknown;
     }): Promise<{ id: string; tenantId: string; messages?: Array<{ role: string; content: string }> } | null>;
   };
+  apiKeyExecution: {
+    findFirst(args: { where: Record<string, unknown> }): Promise<{
+      id: string;
+      tenantId: string;
+      input: unknown;
+      output: unknown;
+    } | null>;
+  };
 }
 
 export class DatasetItemService {
@@ -71,6 +80,7 @@ export class DatasetItemService {
           metadata: (input.metadata ?? null) as never,
           sourceMessageId: input.sourceMessageId ?? null,
           sourceSessionId: input.sourceSessionId ?? null,
+          sourceExecutionId: input.sourceExecutionId ?? null,
           createdBy: input.createdBy,
         },
       });
@@ -119,6 +129,22 @@ export class DatasetItemService {
           input: { role: msg.role, content: msg.content },
           expectedOutput: msg.role === 'assistant' ? { content: msg.content } : null,
           sourceMessageId: msg.id,
+          createdBy: input.createdBy,
+        });
+      }
+      if (input.targetType === 'EXECUTION') {
+        const execution = await this.db.apiKeyExecution.findFirst({
+          where: { id: input.targetId, tenantId: input.tenantId },
+        });
+        if (!execution) throw new Error('Trace execution not found in tenant');
+        const execInput = execution.input as { messages?: Array<{ role: string; content?: string }>; systemPrompt?: string };
+        const execOutput = execution.output as { text?: string } | null;
+        const messages = execInput.messages ?? [];
+        return await this.create(input.tenantId, input.datasetId, {
+          input: { messages, systemPrompt: execInput.systemPrompt ?? null },
+          expectedOutput: execOutput?.text ? { content: execOutput.text } : null,
+          metadata: { sourceType: 'EXECUTION' },
+          sourceExecutionId: execution.id,
           createdBy: input.createdBy,
         });
       }

@@ -6,6 +6,7 @@ const mockDb = {
   score: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn(), delete: vi.fn() },
   inferenceSessionMessage: { findFirst: vi.fn() },
   inferenceSession: { findFirst: vi.fn() },
+  apiKeyExecution: { findFirst: vi.fn() },
 };
 
 const NUMERIC_CFG = { id: 'c1', tenantId: 't1', dataType: 'NUMERIC', minValue: 1, maxValue: 5, categories: null, isArchived: false };
@@ -78,5 +79,26 @@ describe('ScoreService', () => {
     await expect(
       service.createManual({ tenantId: 't1', configId: 'c1', targetType: 'MESSAGE', targetId: 'mX', value: 3, authorUserId: 'u1' }),
     ).rejects.toThrow(/target/i);
+  });
+
+  it('creates a score targeting an EXECUTION', async () => {
+    mockDb.scoreConfig.findFirst.mockResolvedValue(NUMERIC_CFG);
+    mockDb.apiKeyExecution.findFirst.mockResolvedValue({ id: 'ex1', tenantId: 't1' });
+    mockDb.score.findFirst.mockResolvedValue(null);
+    mockDb.score.create.mockResolvedValue({ id: 's3' });
+
+    await service.createManual({ tenantId: 't1', configId: 'c1', targetType: 'EXECUTION', targetId: 'ex1', value: 3, authorUserId: 'u1' });
+
+    expect(mockDb.score.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ targetType: 'EXECUTION', executionId: 'ex1', messageId: null, sessionId: null, numericValue: 3, source: 'ANNOTATION' }),
+    });
+  });
+
+  it('rejects EXECUTION score when execution not in tenant', async () => {
+    mockDb.scoreConfig.findFirst.mockResolvedValue(NUMERIC_CFG);
+    mockDb.apiKeyExecution.findFirst.mockResolvedValue(null);
+    await expect(
+      service.createManual({ tenantId: 't1', configId: 'c1', targetType: 'EXECUTION', targetId: 'exX', value: 3, authorUserId: 'u1' }),
+    ).rejects.toThrow(/execution not found/i);
   });
 });

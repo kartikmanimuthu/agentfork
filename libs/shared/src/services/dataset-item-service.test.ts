@@ -6,6 +6,7 @@ const mockDb = {
   datasetItem: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
   inferenceSessionMessage: { findFirst: vi.fn() },
   inferenceSession: { findFirst: vi.fn() },
+  apiKeyExecution: { findFirst: vi.fn() },
 };
 
 describe('DatasetItemService', () => {
@@ -44,5 +45,27 @@ describe('DatasetItemService', () => {
     const res = await service.bulkCreate('t1', 'd1', rows as never, 'u1');
     expect(res).toEqual({ count: 3 });
     expect(mockDb.datasetItem.createMany).toHaveBeenCalled();
+  });
+
+  it('addFromTrace for EXECUTION stores messages as input and text as expectedOutput', async () => {
+    mockDb.apiKeyExecution.findFirst.mockResolvedValue({
+      id: 'ex1',
+      tenantId: 't1',
+      input: { messages: [{ role: 'user', content: 'Hi' }], systemPrompt: 'You are helpful.' },
+      output: { text: 'Hello!' },
+    });
+    mockDb.datasetItem.create.mockResolvedValue({ id: 'i3' });
+
+    await service.addFromTrace({ tenantId: 't1', datasetId: 'd1', targetType: 'EXECUTION', targetId: 'ex1', createdBy: 'u1' });
+
+    expect(mockDb.datasetItem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceExecutionId: 'ex1',
+        createdBy: 'u1',
+      }),
+    });
+    const callData = mockDb.datasetItem.create.mock.calls[0][0].data;
+    expect(callData.input).toMatchObject({ messages: [{ role: 'user', content: 'Hi' }] });
+    expect(callData.expectedOutput).toMatchObject({ content: 'Hello!' });
   });
 });

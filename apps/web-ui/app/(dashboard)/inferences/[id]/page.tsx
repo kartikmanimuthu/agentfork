@@ -203,7 +203,11 @@ export default function InferenceDetailPage() {
               </Badge>
             </div>
           </div>
-          {session && <ScoreDrawer sessionId={session.id} />}
+          {isStateful && session ? (
+            <ScoreDrawer targetType="SESSION" targetId={session.id} />
+          ) : (
+            <ScoreDrawer targetType="EXECUTION" targetId={ex.id} />
+          )}
         </div>
       </div>
 
