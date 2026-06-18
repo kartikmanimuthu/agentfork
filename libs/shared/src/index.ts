@@ -53,6 +53,8 @@ export { FeedbackService } from './services/feedback-service';
 export type { SubmitFeedbackInput } from './services/feedback-service';
 export { CsatService } from './services/csat-service';
 export type { SubmitCsatInput } from './services/csat-service';
+export { ScoreConfigService } from './services/score-config-service';
+export type { CreateScoreConfigInput, UpdateScoreConfigInput, ScoreDataType, ScoreCategory, ScoreConfigDb } from './services/score-config-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 
