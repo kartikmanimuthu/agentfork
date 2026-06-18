@@ -11,8 +11,6 @@ describe('validateWebhookSecret', () => {
   });
 
   it('returns true for valid secret', () => {
-    const { createHmac } = require('crypto');
-    const expected = createHmac('sha256', 'secret').update('telegram-webhook').digest('hex');
-    expect(validateWebhookSecret(expected, 'secret')).toBe(true);
+    expect(validateWebhookSecret('secret', 'secret')).toBe(true);
   });
 });

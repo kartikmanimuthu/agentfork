@@ -254,6 +254,7 @@ describe('LlmNodeExecutor', () => {
 
     expect(mockProvider.streamChat).toHaveBeenCalledWith({
       messages: [{ role: 'user', content: 'Hi' }],
+      model: 'claude-3',
       system: 'Be helpful',
       temperature: 0.7,
       maxOutputTokens: undefined,
