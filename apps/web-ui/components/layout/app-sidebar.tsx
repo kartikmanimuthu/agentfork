@@ -60,6 +60,8 @@ import {
   Palette,
   Play,
   Plug,
+  ClipboardCheck,
+  ListChecks,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
@@ -72,6 +74,11 @@ const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
   { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Inferences', href: '/inferences', icon: Zap },
+];
+
+const evaluationNav = [
+  { name: 'Scores', href: '/evaluation/scores', icon: ClipboardCheck },
+  { name: 'Datasets', href: '/evaluation/datasets', icon: ListChecks },
 ];
 
 const agentStudioNav = [
@@ -121,6 +128,9 @@ export function AppSidebar() {
     pathname === '/inferences' ||
     pathname.startsWith('/inferences/');
   const [analyticsOpen, setAnalyticsOpen] = useState(isAnalyticsActive);
+
+  const isEvaluationActive = pathname === '/evaluation' || pathname.startsWith('/evaluation/');
+  const [evaluationOpen, setEvaluationOpen] = useState(isEvaluationActive);
 
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
   const [agentStudioOpen, setAgentStudioOpen] = useState(isAgentStudioActive);
@@ -199,6 +209,40 @@ export function AppSidebar() {
                             isActive={isActive}
                             onClick={() => router.push(item.href)}
                           >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Evaluation</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={evaluationOpen} onOpenChange={setEvaluationOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton tooltip="Evaluation">
+                      <ClipboardCheck className="size-4" />
+                      <span>Evaluation</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {evaluationNav.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton isActive={isActive} onClick={() => router.push(item.href)}>
                             <item.icon className="size-3.5" />
                             <span>{item.name}</span>
                           </SidebarMenuSubButton>
