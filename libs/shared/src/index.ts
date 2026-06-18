@@ -59,6 +59,8 @@ export { ScoreService } from './services/score-service';
 export type { CreateManualScoreInput, IngestScoreInput, ScoreFilters, ScoreTargetType, ScoreValue, ScoreDb } from './services/score-service';
 export { DatasetService } from './services/dataset-service';
 export type { CreateDatasetInput, UpdateDatasetInput, DatasetDb } from './services/dataset-service';
+export { DatasetItemService } from './services/dataset-item-service';
+export type { CreateDatasetItemInput, UpdateDatasetItemInput, AddFromTraceInput, DatasetItemDb } from './services/dataset-item-service';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 
