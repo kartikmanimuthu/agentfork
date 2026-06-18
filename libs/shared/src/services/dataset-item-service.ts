@@ -151,7 +151,7 @@ export class DatasetItemService {
       await this.requireDataset(tenantId, datasetId);
       const where: Record<string, unknown> = { datasetId };
       if (!opts?.includeArchived) where['status'] = 'ACTIVE';
-      return this.db.datasetItem.findMany({ where, orderBy: { createdAt: 'desc' } });
+      return await this.db.datasetItem.findMany({ where, orderBy: { createdAt: 'desc' } });
     } catch (error) {
       logger.error({ err: error, tenantId, datasetId }, 'Failed to list dataset items');
       throw error;
