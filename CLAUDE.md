@@ -11,7 +11,7 @@ bun run dev                          # Next.js dev server (web-ui)
 bun run dev:workers                  # Workers dev server
 bun run dev:all                      # Web-ui + workers + SDK dev server (with SDK_DEV proxy)
 bun run build                        # Build all projects
-bun run test                         # Unit tests (shared, ai, workers via Vitest)
+bun run test                         # Unit tests (shared, ai, workers, whatsapp, agent-studio, knowledge-base, telegram via Vitest)
 bun run e2e                          # Playwright e2e — CI (builds app first, runs against prod server)
 bun run e2e:dev                      # Playwright e2e — local (starts dev server automatically, no build)
 bun run e2e:ui                       # Playwright e2e (interactive UI)

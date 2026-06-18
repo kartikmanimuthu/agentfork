@@ -43,7 +43,7 @@ describe('TenantConfigService', () => {
       mockDb.tenantConfig.upsert.mockResolvedValue({});
       await service.set('theme', { mode: 'dark' });
       expect(mockDb.tenantConfig.upsert).toHaveBeenCalledWith({
-        where: { tenantId_configKey: { tenantId: '', configKey: 'theme' } },
+        where: { tenantId_configKey: { tenantId: 'tenant-1', configKey: 'theme' } },
         create: { configKey: 'theme', data: { mode: 'dark' }, updatedBy: 'system' },
         update: { data: { mode: 'dark' }, updatedBy: 'system' },
       });
