@@ -80,12 +80,22 @@ export class ScoreConfigService {
   }
 
   async get(tenantId: string, id: string): Promise<unknown | null> {
-    return this.db.scoreConfig.findFirst({ where: { id, tenantId } });
+    try {
+      return await this.db.scoreConfig.findFirst({ where: { id, tenantId } });
+    } catch (error) {
+      logger.error({ err: error, tenantId, id }, 'Failed to get score config');
+      throw error;
+    }
   }
 
   private async requireOwned(tenantId: string, id: string): Promise<void> {
-    const existing = await this.db.scoreConfig.findFirst({ where: { id, tenantId } });
-    if (!existing) throw new Error('Score config not found');
+    try {
+      const existing = await this.db.scoreConfig.findFirst({ where: { id, tenantId } });
+      if (!existing) throw new Error('Score config not found');
+    } catch (error) {
+      logger.error({ err: error, tenantId, id }, 'Failed to find score config');
+      throw error;
+    }
   }
 
   async update(tenantId: string, id: string, patch: UpdateScoreConfigInput): Promise<unknown> {
