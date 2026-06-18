@@ -10,7 +10,7 @@ import {
   S3Service,
   playgroundRequestSchema,
 } from '@chatbot/shared';
-import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment } from '@chatbot/ai';
+import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, buildBuiltInTools } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
@@ -208,16 +208,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Discover MCP tools attached to this agent
       const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
       const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(id, tenantId, db);
-      const hasMcpTools = Object.keys(mcpTools).length > 0;
+      const tenantConfigService = new TenantConfigService(tenantId);
+      const builtInTools = await buildBuiltInTools(tenantId, {
+        configResolver: { get: (key) => tenantConfigService.get(key) },
+      });
+      const allTools = { ...mcpTools, ...builtInTools };
+      const hasTools = Object.keys(allTools).length > 0;
 
-      logger.info({ requestId, mcpToolCount: Object.keys(mcpTools).length }, 'MCP tools discovered');
+      logger.info(
+        {
+          requestId,
+          mcpToolCount: Object.keys(mcpTools).length,
+          builtInToolCount: Object.keys(builtInTools).length,
+          mcpToolNames: Object.keys(mcpTools),
+          builtInToolNames: Object.keys(builtInTools),
+        },
+        'MCP + built-in tools discovered',
+      );
 
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       if (kbContext) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
 
-      logger.info({ requestId, executionId: execution.id, messageCount: resolvedCoreMessages.length, hasKbContext: !!kbContext, hasMcpTools, hasAttachments }, 'Starting stream chat');
+      logger.info(
+        {
+          requestId,
+          executionId: execution.id,
+          messageCount: resolvedCoreMessages.length,
+          hasKbContext: !!kbContext,
+          hasTools,
+          toolNames: Object.keys(allTools),
+          maxSteps: hasTools ? 5 : 0,
+          hasAttachments,
+        },
+        'Starting stream chat',
+      );
 
       const startTime = Date.now();
 
@@ -228,7 +254,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         system: effectiveSystem,
         temperature: effectiveTemperature,
         maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? undefined,
-        ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
+        ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
           const completedAt = new Date();
@@ -285,6 +311,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       const llmProviderService = new LlmProviderService(tenantId);
 
+      // Build the tool registry once per execution: built-in tools + MCP tools
+      // attached to this agent. Node executors (tool, llm) resolve tool names
+      // against this registry via ctx.services.toolRegistry.
+      const graphTenantConfigService = new TenantConfigService(tenantId);
+      const graphBuiltInTools = await buildBuiltInTools(tenantId, {
+        configResolver: { get: (key) => graphTenantConfigService.get(key) },
+      });
+      const { buildMcpToolsForAgent: buildGraphMcpTools } = await import('@chatbot/agent-studio/server');
+      const { tools: graphMcpTools, cleanup: graphMcpCleanup } = await buildGraphMcpTools(id, tenantId, db);
+      const toolRegistry: Record<string, unknown> = { ...graphMcpTools, ...graphBuiltInTools };
+
+      logger.info(
+        { requestId, builtInToolCount: Object.keys(graphBuiltInTools).length, mcpToolCount: Object.keys(graphMcpTools).length },
+        'Graph tool registry built',
+      );
+
       const services = {
         llmProvider: async (_providerId?: string, modelId?: string) => {
           const llmConfig = await resolveProviderForModel(tenantId, modelId)
@@ -295,6 +337,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           return provider;
         },
         prisma: db,
+        toolRegistry,
       };
 
       const executor = new GraphExecutor(services);
@@ -386,6 +429,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             });
             logger.error({ executionId: execution.id, error: errorMessage }, 'Graph execution failed');
           } finally {
+            await graphMcpCleanup().catch((cleanupErr) => {
+              logger.warn({ executionId: execution.id, error: (cleanupErr as Error).message }, 'Graph MCP cleanup warning');
+            });
             controller.close();
           }
         },

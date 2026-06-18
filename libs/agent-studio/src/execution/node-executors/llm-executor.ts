@@ -19,11 +19,33 @@ export class LlmNodeExecutor implements NodeExecutor {
         content: m.content,
       }));
 
+      // Resolve any configured tool names against the execution tool registry.
+      const registry = ctx.services.toolRegistry;
+      const requestedTools = config.tools ?? [];
+      const tools: Record<string, unknown> = {};
+      const missingTools: string[] = [];
+      for (const toolName of requestedTools) {
+        const tool = registry?.[toolName];
+        if (tool) {
+          tools[toolName] = tool;
+        } else {
+          missingTools.push(toolName);
+        }
+      }
+      if (missingTools.length > 0) {
+        logger.warn(
+          { nodeId: ctx.node.id, missingTools },
+          'llm node references tools that are not in the registry',
+        );
+      }
+      const hasTools = Object.keys(tools).length > 0;
+
       const streamResult = provider.streamChat({
         messages,
         system: config.systemPrompt,
         temperature: config.temperature,
         maxOutputTokens: config.maxTokens,
+        ...(hasTools ? { tools, maxSteps: 5 } : {}),
       });
 
       let fullText = '';
@@ -48,7 +70,7 @@ export class LlmNodeExecutor implements NodeExecutor {
           status: 'completed',
           startedAt,
           completedAt: new Date().toISOString(),
-          input: { messageCount: messages.length, model: config.model },
+          input: { messageCount: messages.length, model: config.model, toolCount: Object.keys(tools).length },
           output: { responseLength: fullText.length },
         },
       };
