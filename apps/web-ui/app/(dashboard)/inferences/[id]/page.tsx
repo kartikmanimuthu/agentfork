@@ -28,6 +28,7 @@ import { InferenceOverview } from '@/components/inferences/inference-overview';
 import { InferenceTrace } from '@/components/inferences/inference-trace';
 import { InferenceRaw } from '@/components/inferences/inference-raw';
 import { InferenceMetrics } from '@/components/inferences/inference-metrics';
+import { ScoreDrawer } from '@/components/evaluation/score-drawer';
 
 interface InferenceDetail {
   execution: {
@@ -202,6 +203,7 @@ export default function InferenceDetailPage() {
               </Badge>
             </div>
           </div>
+          {session && <ScoreDrawer sessionId={session.id} />}
         </div>
       </div>
 
