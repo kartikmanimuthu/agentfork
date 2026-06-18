@@ -127,7 +127,7 @@ describe('handleWebCrawl', () => {
     });
 
     mockCrawler.crawl.mockResolvedValue([
-      { url: 'https://example.com', title: 'Example', text: 'Hello world', links: [], fetchedAt: new Date() },
+      { url: 'https://example.com', title: 'Example', markdown: 'Hello world', textLength: 11, fetchedAt: new Date() },
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'tenant/ds/1-file.txt' });
@@ -136,14 +136,14 @@ describe('handleWebCrawl', () => {
 
     await handleWebCrawl(validPayload, mockBoss);
 
-    expect(mockGetUploadUrl).toHaveBeenCalledWith(validPayload.dataSourceId, 'https___example_com.txt', 'text/plain');
-    expect(mockUploadBuffer).toHaveBeenCalledWith('tenant/ds/1-file.txt', Buffer.from('Hello world', 'utf-8'), 'text/plain');
+    expect(mockGetUploadUrl).toHaveBeenCalledWith(validPayload.dataSourceId, 'https___example_com.md', 'text/markdown');
+    expect(mockUploadBuffer).toHaveBeenCalledWith('tenant/ds/1-file.txt', Buffer.from('Hello world', 'utf-8'), 'text/markdown');
     expect(mockDocRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         dataSourceId: validPayload.dataSourceId,
         sourceKey: 'tenant/ds/1-file.txt',
-        fileName: 'https___example_com.txt',
-        mimeType: 'text/plain',
+        fileName: 'https___example_com.md',
+        mimeType: 'text/markdown',
         sizeBytes: 11,
         metadata: expect.objectContaining({ url: 'https://example.com', title: 'Example' }),
       })
@@ -159,7 +159,7 @@ describe('handleWebCrawl', () => {
 
     const fetchedAt = new Date();
     mockCrawler.crawl.mockResolvedValue([
-      { url: 'https://example.com', title: 'Example', text: 'Hello', links: [], fetchedAt },
+      { url: 'https://example.com', title: 'Example', markdown: 'Hello', textLength: 5, fetchedAt },
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
@@ -172,7 +172,7 @@ describe('handleWebCrawl', () => {
       documentId: 'doc-1',
       tenantId: validPayload.tenantId,
       s3Key: 'key-1',
-      mimeType: 'text/plain',
+      mimeType: 'text/markdown',
       knowledgeBaseId: validPayload.knowledgeBaseId,
     });
   });
@@ -186,7 +186,7 @@ describe('handleWebCrawl', () => {
 
     const fetchedAt = new Date();
     mockCrawler.crawl.mockResolvedValue([
-      { url: 'https://example.com', title: 'Example', text: 'Hello', links: [], fetchedAt },
+      { url: 'https://example.com', title: 'Example', markdown: 'Hello', textLength: 5, fetchedAt },
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
@@ -230,7 +230,7 @@ describe('handleWebCrawl', () => {
     );
   });
 
-  it('throws when S3 upload fails', async () => {
+  it('skips the page and completes the job when S3 upload fails', async () => {
     mockDsRepo.findById.mockResolvedValue({
       id: validPayload.dataSourceId,
       type: 'URL',
@@ -238,13 +238,19 @@ describe('handleWebCrawl', () => {
     });
 
     mockCrawler.crawl.mockResolvedValue([
-      { url: 'https://example.com', title: 'Example', text: 'Hello', links: [], fetchedAt: new Date() },
+      { url: 'https://example.com', title: 'Example', markdown: 'Hello', textLength: 5, fetchedAt: new Date() },
     ]);
 
     mockGetUploadUrl.mockResolvedValue({ uploadUrl: 'https://s3.example.com/upload', s3Key: 'key-1' });
     mockUploadBuffer.mockRejectedValue(new Error('S3 upload failed'));
 
-    await expect(handleWebCrawl(validPayload, mockBoss)).rejects.toThrow('S3 upload failed');
+    await handleWebCrawl(validPayload, mockBoss);
+
+    expect(mockDocRepo.create).not.toHaveBeenCalled();
+    expect(mockDsRepo.update).toHaveBeenLastCalledWith(
+      validPayload.dataSourceId,
+      expect.objectContaining({ status: 'active' })
+    );
   });
 
   it('passes crawl options to the crawler', async () => {

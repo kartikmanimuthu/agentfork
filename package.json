@@ -21,7 +21,7 @@
     "build": "nx run-many -t build --all",
     "build:web": "nx build web-ui",
     "build:workers": "nx build workers",
-    "test": "nx run-many -t test -p shared,ai,workers",
+    "test": "nx run-many -t test -p shared,ai,workers,whatsapp,agent-studio,knowledge-base,@chatbot/telegram",
     "test:workers": "nx test workers",
     "test:shared": "nx test shared",
     "test:ai": "nx test ai",
