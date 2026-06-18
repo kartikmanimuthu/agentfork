@@ -28,6 +28,7 @@ import {
   type FileUploader,
   type StreamEvent,
   type MessagePart,
+  buildBuiltInTools,
 } from '@chatbot/ai';
 import type { ToolSet } from 'ai';
 import { jsonSchema } from 'ai';
@@ -432,7 +433,25 @@ export async function POST(req: NextRequest) {
 
       const { buildMcpToolsForAgent } = await import('@chatbot/agent-studio/server');
       const { tools: mcpTools, cleanup: mcpCleanup } = await buildMcpToolsForAgent(agentId, tenantId, db);
+      const tenantConfigService = new TenantConfigService(tenantId);
+      const builtInTools = await buildBuiltInTools(tenantId, {
+        configResolver: { get: (key) => tenantConfigService.get(key) },
+      });
       const hasMcpTools = Object.keys(mcpTools).length > 0;
+      const allTools = { ...mcpTools, ...builtInTools };
+      const hasTools = Object.keys(allTools).length > 0;
+
+      logger.info(
+        {
+          tenantId,
+          agentId,
+          mcpToolCount: Object.keys(mcpTools).length,
+          builtInToolCount: Object.keys(builtInTools).length,
+          mcpToolNames: Object.keys(mcpTools),
+          builtInToolNames: Object.keys(builtInTools),
+        },
+        'Tools discovered for inference',
+      );
 
       let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
       if (kbContext) {
@@ -448,9 +467,15 @@ export async function POST(req: NextRequest) {
         temperature: effectiveTemperature,
       });
 
-      // Cache is only consulted for stateless, non-MCP, non-noCache calls.
+      // Cache is only consulted for stateless, non-MCP, non-built-in-tool, non-noCache calls.
       // Stateful calls (sessionId present) always bypass — each turn is unique by definition.
-      const cacheEligible = !noCache && !hasMcpTools && !sessionId;
+      const hasBuiltInTools = Object.keys(builtInTools).length > 0;
+      const cacheEligible = !noCache && !hasMcpTools && !hasBuiltInTools && !sessionId;
+
+      logger.debug(
+        { tenantId, agentId, cacheEligible, noCache, hasMcpTools, hasBuiltInTools, hasSession: !!sessionId },
+        'Cache eligibility determined',
+      );
 
       if (cacheEligible) {
         const cached = await cacheService.get(cacheKey);
@@ -671,8 +696,8 @@ export async function POST(req: NextRequest) {
           },
         };
 
-        const allTools = { ...mcpTools, ...fileGenTools };
-        const hasTools = Object.keys(allTools).length > 0;
+        const sseAllTools = { ...allTools, ...fileGenTools };
+        const hasSseTools = Object.keys(sseAllTools).length > 0;
 
         const readable = new ReadableStream({
           async start(controller) {
@@ -685,7 +710,7 @@ export async function POST(req: NextRequest) {
                 system: effectiveSystem,
                 temperature: effectiveTemperature,
                 maxOutputTokens: effectiveMaxTokens,
-                ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
+                ...(hasSseTools ? { tools: sseAllTools, maxSteps: 5 } : {}),
               });
 
               for await (const ev of emitter.run(sseResult.fullStream)) {
@@ -757,7 +782,7 @@ export async function POST(req: NextRequest) {
           system: effectiveSystem,
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
-          ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
+          ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
           onFinish: async ({ text, usage }) => {
             await mcpCleanup();
             const completedAt = new Date();
@@ -812,7 +837,7 @@ export async function POST(req: NextRequest) {
           system: effectiveSystem,
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
-          ...(hasMcpTools ? { tools: mcpTools, maxSteps: 5 } : {}),
+          ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
         });
 
         // Drain the plain text stream (NOT the UI message stream — that returns SSE frames).

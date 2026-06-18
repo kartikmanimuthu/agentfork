@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react';
 import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-studio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
+import { ToolsTab } from '@/components/agents/tabs/tools-tab';
 import { KnowledgeBasesTab } from '@/components/agents/tabs/knowledge-bases-tab';
 import { VersionsTab } from '@/components/agents/tabs/versions-tab';
 import { AliasManager } from '@/components/agents/tabs/alias-manager';
@@ -221,6 +222,7 @@ export default function AgentDetailPage() {
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
           <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
+          <TabsTrigger value="tools">Tools</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
         </TabsList>
@@ -244,6 +246,13 @@ export default function AgentDetailPage() {
         </TabsContent>
         <TabsContent value="mcp-servers">
           <McpServersTab agentId={agentId} agentConfig={agent.config as Record<string, unknown>} />
+        </TabsContent>
+        <TabsContent value="tools">
+          <ToolsTab
+            config={simpleConfig}
+            onSave={handleSimpleSave}
+            saving={saving}
+          />
         </TabsContent>
         <TabsContent value="versions">
           <VersionsTab agentId={agentId} />

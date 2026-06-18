@@ -4,7 +4,7 @@ import type { UIMessage } from '@ai-sdk/react';
 import { ChatBubble } from './chat-bubble';
 import { useChatScroll } from '@/lib/hooks/use-chat-scroll';
 import { Spinner } from '@/components/ui/spinner';
-import { MessageSquare, Sparkles } from 'lucide-react';
+import { MessageSquare, Sparkles, Globe, Search } from 'lucide-react';
 import { MessageMetadataBar } from '@/components/agents/playground/message-metadata-bar';
 import { ThinkingBlock } from '@/components/agents/playground/thinking-block';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,47 @@ function getMessageText(message: UIMessage): string {
     .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
     .map((part) => part.text)
     .join('');
+}
+
+type ToolInvocationPart = {
+  type: 'tool-invocation';
+  toolInvocation: { toolCallId: string; toolName: string; state: string; args?: unknown; result?: unknown };
+};
+
+function getToolInvocations(message: UIMessage): ToolInvocationPart['toolInvocation'][] {
+  return (message.parts as Array<{ type: string }>)
+    .filter((p): p is ToolInvocationPart => p.type === 'tool-invocation')
+    .map((p) => p.toolInvocation);
+}
+
+const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  web_search: Search,
+  web_fetch: Globe,
+};
+
+function ToolCallIndicator({ invocations }: { invocations: ToolInvocationPart['toolInvocation'][] }) {
+  if (invocations.length === 0) return null;
+  return (
+    <div className="px-4 pt-3 space-y-1.5">
+      {invocations.map((inv) => {
+        const isDone = inv.state === 'result';
+        const Icon = TOOL_ICONS[inv.toolName] ?? Globe;
+        const label = inv.toolName.replace(/_/g, ' ');
+        return (
+          <div key={inv.toolCallId} className="flex items-center gap-2 text-xs text-muted-foreground">
+            {isDone ? (
+              <Icon className="h-3.5 w-3.5 text-green-500 shrink-0" />
+            ) : (
+              <Spinner className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span className={isDone ? 'text-muted-foreground/70' : ''}>
+              {isDone ? `Used ${label}` : `Using ${label}…`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 interface ChatMessagesProps {
@@ -107,6 +148,9 @@ export function ChatMessages({
           const metrics = messageMetrics?.get(message.id);
           const thinking = thinkingMap?.get(message.id);
 
+          const toolInvocations = isAssistant ? getToolInvocations(message) : [];
+          const messageText = getMessageText(message);
+
           return (
             <div
               key={message.id}
@@ -126,11 +170,16 @@ export function ChatMessages({
                   <ThinkingBlock thinking={thinking} />
                 </div>
               )}
-              <ChatBubble
-                role={message.role as 'user' | 'assistant'}
-                content={getMessageText(message)}
-                onRegenerate={isAssistant ? onRegenerate : undefined}
-              />
+              {isAssistant && toolInvocations.length > 0 && (
+                <ToolCallIndicator invocations={toolInvocations} />
+              )}
+              {(messageText || !isAssistant) && (
+                <ChatBubble
+                  role={message.role as 'user' | 'assistant'}
+                  content={messageText}
+                  onRegenerate={isAssistant ? onRegenerate : undefined}
+                />
+              )}
               {showMetadata && isAssistant && (
                 <div className="px-4 md:px-6 -mt-3 ml-11">
                   <MessageMetadataBar
@@ -144,7 +193,14 @@ export function ChatMessages({
             </div>
           );
         })}
-        {isLoading && messages[messages.length - 1]?.role === 'user' && <TypingIndicator />}
+        {isLoading && (() => {
+          const last = messages[messages.length - 1];
+          const showSpinner =
+            !last ||
+            last.role === 'user' ||
+            (last.role === 'assistant' && !getMessageText(last) && getToolInvocations(last).length === 0);
+          return showSpinner ? <TypingIndicator /> : null;
+        })()}
       </div>
     </div>
   );

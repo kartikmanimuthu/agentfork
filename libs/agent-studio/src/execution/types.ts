@@ -17,6 +17,13 @@ export interface GraphState {
 export interface ExecutionServices {
   llmProvider: (providerId?: string, modelId?: string) => Promise<any>;
   prisma: any;
+  /**
+   * Optional tool registry for built-in and MCP tools.
+   * Keyed by tool name; each entry follows the Vercel AI SDK ToolSet shape
+   * (description + inputSchema + execute). Typed loosely so MCP and built-in
+   * tool shapes can coexist without coupling agent-studio to the `ai` package.
+   */
+  toolRegistry?: Record<string, unknown>;
 }
 
 export interface NodeExecutionContext {
