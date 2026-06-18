@@ -3,7 +3,7 @@ import { getSessionTenantId, authorize, getPrismaClient, DatasetService, createL
 import { datasetUpdateSchema, parseJson } from '@chatbot/shared';
 import type { DatasetDb } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { evalError } from '../route';
+import { evalError } from '../lib/errors';
 
 export const dynamic = 'force-dynamic';
 const logger = createLogger('api:datasets:id');

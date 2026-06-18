@@ -3,7 +3,7 @@ import { getSessionTenantId, getSessionUserId, authorize, getPrismaClient, Datas
 import { addFromTraceSchema, parseJson } from '@chatbot/shared';
 import type { DatasetItemDb } from '@chatbot/shared';
 import { authOptions } from '@/lib/auth';
-import { evalError } from '../../../route';
+import { evalError } from '../../../lib/errors';
 
 export const dynamic = 'force-dynamic';
 const logger = createLogger('api:dataset-from-trace');

@@ -4,7 +4,7 @@ import { parseJson } from '@chatbot/shared';
 import type { DatasetItemDb } from '@chatbot/shared';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
-import { evalError } from '../../../route';
+import { evalError } from '../../../lib/errors';
 
 export const dynamic = 'force-dynamic';
 const logger = createLogger('api:dataset-item');
