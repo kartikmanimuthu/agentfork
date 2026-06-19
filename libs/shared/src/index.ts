@@ -4,6 +4,10 @@ export { env } from './env';
 // Logging
 export { createLogger } from './logging/logger';
 
+// PII / redaction
+export { DEFAULT_PII_PATTERNS, processPiiRedaction } from './utils/pii-patterns';
+export type { PiiPattern } from './utils/pii-patterns';
+
 // Database
 export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { getTenantClient, TENANT_SCOPED_MODELS } from './db/tenant-middleware';
