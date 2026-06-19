@@ -1,167 +1,368 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ColumnDef } from '@tanstack/react-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2 } from 'lucide-react';
-import { scoreConfigCreateSchema } from '@chatbot/shared/client';
+import { toast } from 'sonner';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ClipboardCheck, Plus, Trash2, Pencil, Eye, Archive } from 'lucide-react';
+import { ScoreConfigDialog, type ScoreConfigForDialog } from '@/components/evaluation/score-config-dialog';
 
-interface ScoreConfig { id: string; name: string; dataType: string; minValue: number | null; maxValue: number | null; categories: { label: string; value: number }[] | null; isArchived: boolean; }
-interface ScoreRow { id: string; targetType: string; numericValue: number | null; stringValue: string | null; source: string; comment: string | null; createdAt: string; config: { name: string; dataType: string }; messageId: string | null; sessionId: string | null; executionId: string | null; }
+interface ScoreConfig {
+  id: string;
+  name: string;
+  description: string | null;
+  dataType: 'NUMERIC' | 'CATEGORICAL' | 'BOOLEAN';
+  minValue: number | null;
+  maxValue: number | null;
+  categories: { label: string; value: number }[] | null;
+  isArchived: boolean;
+}
+interface ScoreRow {
+  id: string;
+  targetType: string;
+  numericValue: number | null;
+  stringValue: string | null;
+  source: string;
+  comment: string | null;
+  createdAt: string;
+  config: { name: string; dataType: string };
+  messageId: string | null;
+  sessionId: string | null;
+  executionId: string | null;
+}
 
 export default function ScoresPage() {
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Evaluation Scores</h1>
-        <p className="text-sm text-muted-foreground">Grade real conversations and manage your score definitions.</p>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background">
+      <div className="flex items-center gap-2">
+        <ClipboardCheck className="h-6 w-6" />
+        <h2 className="text-3xl font-bold tracking-tight">Evaluation Scores</h2>
       </div>
-      <Tabs defaultValue="scores">
+      <p className="text-muted-foreground">Grade real conversations and manage your score definitions.</p>
+
+      <Tabs defaultValue="scores" className="space-y-4">
         <TabsList>
           <TabsTrigger value="scores">Scores</TabsTrigger>
           <TabsTrigger value="configs">Score Configs</TabsTrigger>
         </TabsList>
-        <TabsContent value="scores"><ScoresTab /></TabsContent>
-        <TabsContent value="configs"><ConfigsTab /></TabsContent>
+        <TabsContent value="scores">
+          <ScoresTab />
+        </TabsContent>
+        <TabsContent value="configs">
+          <ConfigsTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
+function targetHref(s: ScoreRow): string | null {
+  if (s.executionId) return `/inferences/${s.executionId}`;
+  if (s.sessionId) return `/sessions/${s.sessionId}`;
+  return null;
+}
+
 function ScoresTab() {
+  const router = useRouter();
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery<{ scores: ScoreRow[] }>({
     queryKey: ['eval-scores'],
     queryFn: async () => (await fetch('/api/evaluation/scores')).json(),
   });
-  const qc = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
   const del = useMutation({
-    mutationFn: async (id: string) => fetch(`/api/evaluation/scores/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['eval-scores'] }),
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/evaluation/scores/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete score');
+    },
+    onSuccess: () => {
+      toast.success('Score deleted');
+      setDeleteTarget(null);
+      qc.invalidateQueries({ queryKey: ['eval-scores'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) return <p className="text-sm text-muted-foreground py-8">Loading…</p>;
-  const scores = data?.scores ?? [];
-  if (scores.length === 0) return <p className="text-sm text-muted-foreground py-8">No scores yet. Score a conversation from its detail page.</p>;
+  const columns: ColumnDef<ScoreRow>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'config',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Config" />,
+        accessorFn: (row) => row.config?.name ?? '',
+        cell: ({ row }) => <span className="font-medium">{row.original.config?.name}</span>,
+      },
+      {
+        id: 'value',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Value" />,
+        accessorFn: (row) => row.stringValue ?? row.numericValue ?? '',
+        cell: ({ row }) => <span>{row.original.stringValue ?? row.original.numericValue}</span>,
+      },
+      {
+        accessorKey: 'targetType',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Target" />,
+        cell: ({ row }) => <Badge variant="outline">{row.original.targetType}</Badge>,
+      },
+      {
+        accessorKey: 'source',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Source" />,
+        cell: ({ row }) => (
+          <Badge variant={row.original.source === 'API' ? 'secondary' : 'default'}>{row.original.source}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'comment',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Comment" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground line-clamp-1 max-w-xs">{row.original.comment ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => {
+          const href = targetHref(row.original);
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!href}
+                onClick={() => href && router.push(href)}
+                aria-label="View scored trace"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive"
+                onClick={() => setDeleteTarget(row.original.id)}
+                aria-label="Delete score"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow><TableHead>Config</TableHead><TableHead>Value</TableHead><TableHead>Target</TableHead><TableHead>Source</TableHead><TableHead>Comment</TableHead><TableHead></TableHead></TableRow>
-      </TableHeader>
-      <TableBody>
-        {scores.map((s) => (
-          <TableRow key={s.id}>
-            <TableCell className="font-medium">{s.config?.name}</TableCell>
-            <TableCell>{s.stringValue ?? s.numericValue}</TableCell>
-            <TableCell><Badge variant="outline">{s.targetType}</Badge></TableCell>
-            <TableCell><Badge variant={s.source === 'API' ? 'secondary' : 'default'}>{s.source}</Badge></TableCell>
-            <TableCell className="max-w-xs truncate text-muted-foreground">{s.comment}</TableCell>
-            <TableCell><Button variant="ghost" size="icon" onClick={() => del.mutate(s.id)}><Trash2 className="size-4" /></Button></TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <Card>
+      <CardHeader>
+        <CardTitle>Scores</CardTitle>
+        <CardDescription>Manual and API-ingested evaluation scores across your traces.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataTable
+          columns={columns}
+          data={data?.scores ?? []}
+          loading={isLoading}
+          enableFiltering={false}
+          defaultPageSize={25}
+          emptyMessage="No scores yet. Score a conversation or execution from its detail page."
+        />
+      </CardContent>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete score?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && del.mutate(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }
 
 function ConfigsTab() {
+  const router = useRouter();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<{ configs: ScoreConfig[] }>({
     queryKey: ['eval-score-configs'],
     queryFn: async () => (await fetch('/api/evaluation/score-configs')).json(),
   });
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [dataType, setDataType] = useState<'NUMERIC' | 'CATEGORICAL' | 'BOOLEAN'>('NUMERIC');
-  const [minValue, setMinValue] = useState('');
-  const [maxValue, setMaxValue] = useState('');
-  const [categoriesText, setCategoriesText] = useState('good=1\nbad=0');
-  const [error, setError] = useState<string | null>(null);
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const payload: Record<string, unknown> = { name, description: description || undefined, dataType };
-      if (dataType === 'NUMERIC') { if (minValue) payload.minValue = Number(minValue); if (maxValue) payload.maxValue = Number(maxValue); }
-      if (dataType === 'CATEGORICAL') {
-        payload.categories = categoriesText.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
-          const [label, value] = l.split('='); return { label: label.trim(), value: Number(value) };
-        });
-      }
-      const parsed = scoreConfigCreateSchema.safeParse(payload);
-      if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-      const res = await fetch('/api/evaluation/score-configs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed');
-    },
-    onSuccess: () => { setOpen(false); setName(''); setError(null); qc.invalidateQueries({ queryKey: ['eval-score-configs'] }); },
-    onError: (e: Error) => setError(e.message),
-  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ScoreConfigForDialog | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<string | null>(null);
+
   const archive = useMutation({
-    mutationFn: async (id: string) => fetch(`/api/evaluation/score-configs/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['eval-score-configs'] }),
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/evaluation/score-configs/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to archive config');
+    },
+    onSuccess: () => {
+      toast.success('Config archived');
+      setArchiveTarget(null);
+      qc.invalidateQueries({ queryKey: ['eval-score-configs'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setDialogOpen(true);
+  };
+  const openEdit = (c: ScoreConfig) => {
+    setEditTarget(c);
+    setDialogOpen(true);
+  };
+
+  const columns: ColumnDef<ScoreConfig>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+        cell: ({ row }) => (
+          <button
+            className="font-medium hover:underline text-left"
+            onClick={() => router.push(`/evaluation/scores/configs/${row.original.id}`)}
+          >
+            {row.original.name}
+          </button>
+        ),
+      },
+      {
+        accessorKey: 'dataType',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+        cell: ({ row }) => <Badge variant="outline">{row.original.dataType}</Badge>,
+      },
+      {
+        id: 'range',
+        header: () => <span>Range / Categories</span>,
+        cell: ({ row }) => {
+          const c = row.original;
+          return (
+            <span className="text-muted-foreground">
+              {c.dataType === 'NUMERIC'
+                ? `${c.minValue ?? '−∞'} … ${c.maxValue ?? '∞'}`
+                : c.dataType === 'CATEGORICAL'
+                  ? (c.categories ?? []).map((x) => x.label).join(', ')
+                  : 'true / false'}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => router.push(`/evaluation/scores/configs/${row.original.id}`)}
+              aria-label="View config"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => openEdit(row.original)}
+              aria-label="Edit config"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive"
+              onClick={() => setArchiveTarget(row.original.id)}
+              aria-label="Archive config"
+            >
+              <Archive className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const header = (
+    <div className="flex justify-end">
+      <Button onClick={openCreate}>
+        <Plus className="h-4 w-4 mr-2" /> New config
+      </Button>
+    </div>
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button><Plus className="size-4 mr-1" /> New config</Button>} />
-          <DialogContent>
-            <DialogHeader><DialogTitle>New score config</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="helpfulness" /></div>
-              <div><Label>Description</Label><Input value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-              <div>
-                <Label>Data type</Label>
-                <Select value={dataType} onValueChange={(v) => setDataType(v as typeof dataType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NUMERIC">Numeric</SelectItem>
-                    <SelectItem value="CATEGORICAL">Categorical</SelectItem>
-                    <SelectItem value="BOOLEAN">Boolean</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {dataType === 'NUMERIC' && (
-                <div className="flex gap-2">
-                  <div><Label>Min</Label><Input type="number" value={minValue} onChange={(e) => setMinValue(e.target.value)} /></div>
-                  <div><Label>Max</Label><Input type="number" value={maxValue} onChange={(e) => setMaxValue(e.target.value)} /></div>
-                </div>
-              )}
-              {dataType === 'CATEGORICAL' && (
-                <div><Label>Categories (one `label=value` per line)</Label><Textarea value={categoriesText} onChange={(e) => setCategoriesText(e.target.value)} rows={4} /></div>
-              )}
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-            <DialogFooter><Button onClick={() => create.mutate()} disabled={create.isPending || !name}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-      {isLoading ? <p className="text-sm text-muted-foreground py-8">Loading…</p> : (
-        <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Range / Categories</TableHead><TableHead></TableHead></TableRow></TableHeader>
-          <TableBody>
-            {(data?.configs ?? []).map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.name}</TableCell>
-                <TableCell><Badge variant="outline">{c.dataType}</Badge></TableCell>
-                <TableCell className="text-muted-foreground">
-                  {c.dataType === 'NUMERIC' ? `${c.minValue ?? '−∞'} … ${c.maxValue ?? '∞'}` : c.dataType === 'CATEGORICAL' ? (c.categories ?? []).map((x) => x.label).join(', ') : 'true / false'}
-                </TableCell>
-                <TableCell><Button variant="ghost" size="sm" onClick={() => archive.mutate(c.id)}>Archive</Button></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Score configs</CardTitle>
+        <CardDescription>Reusable definitions for how traces are graded.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataTable
+          columns={columns}
+          data={data?.configs ?? []}
+          loading={isLoading}
+          enableFiltering={false}
+          defaultPageSize={25}
+          emptyMessage="No score configs yet. Create one to start grading traces."
+          header={header}
+        />
+      </CardContent>
+
+      <ScoreConfigDialog open={dialogOpen} onOpenChange={setDialogOpen} config={editTarget} />
+
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive config?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The config will be hidden from new scoring. Existing scores are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setArchiveTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => archiveTarget && archive.mutate(archiveTarget)}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }
