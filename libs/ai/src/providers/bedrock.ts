@@ -1,4 +1,4 @@
-import { streamText, generateText, embed, embedMany } from 'ai';
+import { streamText, generateText, embed, embedMany, wrapLanguageModel } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
@@ -45,9 +45,12 @@ export class BedrockLLMProvider implements LLMProvider {
       tools,
       maxSteps,
       onFinish,
+      middleware,
     } = options;
+    const baseModel = this.client(model ?? this.chatModel);
+    const wrappedModel = middleware ? wrapLanguageModel({ model: baseModel, middleware }) : baseModel;
     return streamText({
-      model: this.client(model ?? this.chatModel),
+      model: wrappedModel,
       messages,
       system,
       temperature,

@@ -1,4 +1,4 @@
-import type { ModelMessage, LanguageModelUsage, ToolSet, TextStreamPart } from 'ai';
+import type { ModelMessage, LanguageModelUsage, ToolSet, TextStreamPart, LanguageModelMiddleware } from 'ai';
 import type { ProviderName } from './types';
 
 export interface BaseStreamChatOptions {
@@ -10,6 +10,8 @@ export interface BaseStreamChatOptions {
   tools?: ToolSet;
   maxSteps?: number;
   onFinish?: (result: { text: string; usage: LanguageModelUsage }) => void | Promise<void>;
+  /** Optional AI SDK v6 middleware (e.g. guardrails) applied via wrapLanguageModel. */
+  middleware?: LanguageModelMiddleware | LanguageModelMiddleware[];
 }
 
 export interface StreamChatResult {

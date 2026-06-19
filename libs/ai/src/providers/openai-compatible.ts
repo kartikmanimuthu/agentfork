@@ -1,4 +1,4 @@
-import { streamText, generateText, embed, embedMany } from 'ai';
+import { streamText, generateText, embed, embedMany, wrapLanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
 import type { ToolSet } from 'ai';
@@ -40,9 +40,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
       tools,
       maxSteps,
       onFinish,
+      middleware,
     } = options;
+    const baseModel = this.client(model ?? this.chatModel);
+    const wrappedModel = middleware ? wrapLanguageModel({ model: baseModel, middleware }) : baseModel;
     return streamText({
-      model: this.client(model ?? this.chatModel),
+      model: wrappedModel,
       messages,
       system,
       temperature,
