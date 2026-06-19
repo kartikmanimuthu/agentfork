@@ -5,6 +5,7 @@ import { Code2 } from 'lucide-react';
 import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +18,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiGuideDialog } from '@/components/api-keys/api-guide-dialog';
 
+const AVAILABLE_SCOPES = [
+  { value: 'inference:read', label: 'Inference read', description: 'POST /api/v1/inference' },
+  { value: 'scores:write', label: 'Evaluation scores write', description: 'POST /api/v1/scores' },
+] as const;
+
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
+  scopes: z.array(z.string()).min(1, 'Select at least one scope'),
   dailyReqLimit: z.number().int().min(0).optional(),
   dailyTokenLimit: z.number().int().min(0).optional(),
   minuteReqLimit: z.number().int().min(0).optional(),
@@ -45,6 +52,7 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
   const form = useForm({
     defaultValues: {
       name: '',
+      scopes: ['inference:read'],
       dailyReqLimit: 1000,
       dailyTokenLimit: 100000,
       minuteReqLimit: 100,
@@ -54,6 +62,7 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
     onSubmit: async ({ value }) => {
       const input: Record<string, unknown> = {
         name: value.name.trim(),
+        scopes: value.scopes,
         dailyReqLimit: value.dailyReqLimit,
         dailyTokenLimit: value.dailyTokenLimit,
         minuteReqLimit: value.minuteReqLimit,
@@ -130,6 +139,37 @@ export function CreateKeyDialog({ onCreate, onSuccess }: CreateKeyDialogProps) {
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                     />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    )}
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name="scopes">
+                {(field) => (
+                  <div className="grid gap-2">
+                    <Label>Scopes</Label>
+                    <div className="space-y-2">
+                      {AVAILABLE_SCOPES.map((scope) => (
+                        <div key={scope.value} className="flex items-start gap-2">
+                          <Checkbox
+                            id={scope.value}
+                            checked={field.state.value.includes(scope.value)}
+                            onCheckedChange={(checked) => {
+                              const next = checked
+                                ? [...field.state.value, scope.value]
+                                : field.state.value.filter((s) => s !== scope.value);
+                              field.handleChange(next);
+                            }}
+                          />
+                          <div className="grid gap-0.5">
+                            <label htmlFor={scope.value} className="text-sm font-medium leading-none cursor-pointer">{scope.label}</label>
+                            <p className="text-xs text-muted-foreground">{scope.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     {field.state.meta.errors.length > 0 && (
                       <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
                     )}

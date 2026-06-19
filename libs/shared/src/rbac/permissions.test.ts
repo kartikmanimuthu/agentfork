@@ -79,6 +79,7 @@ describe('hasCustomPermission', () => {
     KnowledgeBases: [],
     McpServers: [],
     LlmProviders: [],
+    Evaluation: [],
   });
 
   it('returns true when custom set includes the action', () => {
@@ -94,5 +95,14 @@ describe('hasCustomPermission', () => {
   it('returns false for empty module actions', () => {
     const custom: PermissionSet = emptySet();
     expect(hasCustomPermission(custom, 'read', 'Agents')).toBe(false);
+  });
+});
+
+describe('Evaluation module permissions', () => {
+  it('grants Owner full Evaluation CRUD', () => {
+    expect(ROLE_PERMISSIONS.Owner.Evaluation).toEqual(['create', 'read', 'update', 'delete']);
+  });
+  it('grants Viewer read-only Evaluation', () => {
+    expect(ROLE_PERMISSIONS.Viewer.Evaluation).toEqual(['read']);
   });
 });

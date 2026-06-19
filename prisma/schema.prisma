@@ -32,6 +32,9 @@ model Tenant {
   apiKeys           ApiKey[]
   whatsappAccounts  WhatsAppAccount[]
   sdkWidgets        SdkWidget[]
+  scoreConfigs      ScoreConfig[]
+  scores            Score[]
+  datasets          Dataset[]
 
   @@index([status])
   @@map("tenants")
@@ -485,10 +488,11 @@ model ApiKeyExecution {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  apiKey  ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  session InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  agent   Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  agentVersion AgentVersion? @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  apiKey       ApiKey            @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  session      InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent        Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion?     @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  scores       Score[]
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
@@ -523,6 +527,7 @@ model InferenceSession {
   sdkSession   SdkSession?
   feedbacks    MessageFeedback[]
   csatResponse CsatResponse?
+  scores       Score[]
 
   @@index([apiKeyId])
   @@index([tenantId, agentId])
@@ -543,8 +548,9 @@ model InferenceSessionMessage {
   embedding   Unsupported("vector(1024)")?
   createdAt   DateTime                     @default(now())
 
-  session InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session  InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback MessageFeedback?
+  scores   Score[]
 
   @@index([sessionId])
   @@index([sessionId, createdAt])
@@ -910,4 +916,97 @@ model AgentWorkflow {
   @@index([agentId, isActive])
   @@index([tenantId])
   @@map("agent_workflows")
+}
+
+model ScoreConfig {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  dataType    String   // NUMERIC | CATEGORICAL | BOOLEAN
+  minValue    Float?
+  maxValue    Float?
+  categories  Json?    // [{ label: string, value: number }] for CATEGORICAL
+  isArchived  Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scores Score[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isArchived])
+  @@map("score_configs")
+}
+
+model Score {
+  id           String   @id @default(cuid())
+  tenantId     String
+  configId     String
+  targetType   String   // MESSAGE | SESSION | EXECUTION
+  messageId    String?
+  sessionId    String?
+  executionId  String?
+  numericValue Float?
+  stringValue  String?
+  comment      String?
+  source       String   @default("ANNOTATION") // ANNOTATION | API
+  authorUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant    Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  config    ScoreConfig                     @relation(fields: [configId], references: [id], onDelete: Restrict)
+  message   InferenceSessionMessage?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  session   InferenceSession?               @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  execution ApiKeyExecution?                @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([messageId])
+  @@index([sessionId])
+  @@index([executionId])
+  @@index([configId])
+  @@index([tenantId, source])
+  @@map("scores")
+}
+
+model Dataset {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  metadata    Json?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  DatasetItem[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("datasets")
+}
+
+model DatasetItem {
+  id              String   @id @default(cuid())
+  datasetId       String
+  input           Json
+  expectedOutput  Json?
+  metadata        Json?
+  status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  sourceMessageId   String?  // provenance only, no FK
+  sourceSessionId   String?  // provenance only, no FK
+  sourceExecutionId String?  // provenance only, no FK
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  dataset Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([datasetId])
+  @@index([datasetId, status])
+  @@map("dataset_items")
 }
