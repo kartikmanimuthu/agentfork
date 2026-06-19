@@ -61,6 +61,8 @@ export { DatasetService } from './services/dataset-service';
 export type { CreateDatasetInput, UpdateDatasetInput, DatasetDb } from './services/dataset-service';
 export { DatasetItemService } from './services/dataset-item-service';
 export type { CreateDatasetItemInput, UpdateDatasetItemInput, AddFromTraceInput, DatasetItemDb } from './services/dataset-item-service';
+export { exportDatasetItems } from './services/dataset-export';
+export type { DatasetExportFormat, ExportableItem, ExportResult } from './services/dataset-export';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 

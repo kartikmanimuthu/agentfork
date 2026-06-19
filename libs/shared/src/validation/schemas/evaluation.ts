@@ -78,6 +78,10 @@ export const addFromTraceSchema = z.object({
   targetId: z.string().min(1),
 });
 
+export const datasetExportFormatSchema = z
+  .enum(['jsonl', 'json', 'openai', 'prompt-completion', 'anthropic', 'csv'])
+  .default('jsonl');
+
 export type ScoreConfigCreate = z.infer<typeof scoreConfigCreateSchema>;
 export type ScoreManualCreate = z.infer<typeof scoreManualCreateSchema>;
 export type ScoreIngest = z.infer<typeof scoreIngestSchema>;
