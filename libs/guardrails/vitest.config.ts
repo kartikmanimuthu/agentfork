@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   test: {
@@ -11,6 +12,11 @@ export default defineConfig({
         branches: 60,
         functions: 60,
       },
+    },
+  },
+  resolve: {
+    alias: {
+      '@chatbot/shared': path.resolve(__dirname, '../shared/src/index.ts'),
     },
   },
 });
