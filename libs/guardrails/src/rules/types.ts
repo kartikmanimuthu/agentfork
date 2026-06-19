@@ -10,6 +10,8 @@ export interface RuleFinding {
   reason?: string;
   /** True when this finding is a heuristic signal worth escalating to the LLM judge. */
   flagsSuspicion?: boolean;
+  /** True when the rule threw internally and degraded to a fail-open warn. */
+  degraded?: boolean;
 }
 
 export interface RuleContext {
