@@ -47,26 +47,31 @@ export async function judgeText(args: {
     }
     const provider = createLLMProvider(judgeConfig);
 
-    const result = await Promise.race([
-      provider.generateText({
-        messages: [{ role: 'user', content: judgeUserPrompt(text) } as any],
-        system: judgeSystemPrompt(categories),
-        tools: {
-          submit_verdict: tool({
-            description: 'Submit the classification verdict.',
-            inputSchema: jsonSchema({
-              type: 'object',
-              properties: {
-                violated: { type: 'boolean' },
-                category: { type: 'string' },
-                confidence: { type: 'number' },
-              },
-              required: ['violated', 'confidence'],
-            }),
+    const providerPromise = provider.generateText({
+      messages: [{ role: 'user', content: judgeUserPrompt(text) } as any],
+      system: judgeSystemPrompt(categories),
+      tools: {
+        submit_verdict: tool({
+          description: 'Submit the classification verdict.',
+          inputSchema: jsonSchema({
+            type: 'object',
+            properties: {
+              violated: { type: 'boolean' },
+              category: { type: 'string' },
+              confidence: { type: 'number' },
+            },
+            required: ['violated', 'confidence'],
           }),
-        },
-        toolChoice: { type: 'tool', toolName: 'submit_verdict' },
-      }),
+        }),
+      },
+      toolChoice: { type: 'tool', toolName: 'submit_verdict' },
+    });
+    // Swallow any late rejection if the timeout wins the race, so a provider
+    // error that fires after the timeout doesn't surface as an unhandledRejection.
+    providerPromise.catch(() => {});
+
+    const result = await Promise.race([
+      providerPromise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('judge-timeout')), JUDGE_TIMEOUT_MS)),
     ]) as { toolCalls: Array<{ toolName: string; args: any }> };
 

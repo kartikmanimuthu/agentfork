@@ -69,4 +69,29 @@ describe('judgeText', () => {
     expect(verdict.violated).toBe(false);
     expect(verdict.degraded).toBe(true);
   });
+
+  it('fails open when the provider rejects after the 5s timeout wins', async () => {
+    // Provider rejects AFTER the 5s timeout wins the race. The judge must
+    // return fail-open (timeout path). The providerPromise.catch(() => {})
+    // safeguard swallows the late rejection so it doesn't surface as an
+    // unhandledRejection; vitest in this config does not fail on unhandled
+    // rejections, so this test guards the timeout fail-open behavior, not the
+    // safeguard itself (the safeguard is validated by code review + the fact
+    // that removing it does not change the verdict here).
+    const { createLLMProvider } = await import('@chatbot/ai');
+    (createLLMProvider as any).mockReturnValueOnce({
+      generateText: vi.fn(
+        () => new Promise((_, reject) => setTimeout(() => reject(new Error('late')), 5200)),
+      ),
+    });
+    const verdict = await judgeText({
+      text: 'hello',
+      categories: ['toxicity'],
+      ctx,
+    });
+    expect(verdict.violated).toBe(false);
+    expect(verdict.degraded).toBe(true);
+    // Allow the late rejection (5200ms) to settle after the 5s timeout wins.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }, 7000);
 });
