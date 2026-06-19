@@ -1,6 +1,7 @@
-import { streamText, embed, embedMany } from 'ai';
+import { streamText, generateText, embed, embedMany } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LLMProvider, BaseStreamChatOptions, StreamChatResult } from '../provider';
+import type { ToolSet } from 'ai';
 import type { TenantLLMConfig, ProviderName } from '../types';
 import {
   DEFAULT_OPENAI_CHAT_MODEL,
@@ -49,6 +50,22 @@ export class OpenAICompatibleProvider implements LLMProvider {
       ...(tools && Object.keys(tools).length > 0 ? { tools, maxSteps: maxSteps ?? 5 } : {}),
       onFinish,
     });
+  }
+
+  async generateText(options: Omit<BaseStreamChatOptions, 'maxSteps' | 'onFinish'> & {
+    tools?: ToolSet;
+    toolChoice?: { type: 'tool'; toolName: string };
+  }): Promise<{ toolCalls: Array<{ toolName: string; args: Record<string, unknown> }> }> {
+    const r = await generateText({
+      model: this.client(options.model ?? this.chatModel),
+      messages: options.messages,
+      system: options.system,
+      temperature: options.temperature,
+      maxOutputTokens: options.maxOutputTokens,
+      ...(options.tools ? { tools: options.tools } : {}),
+      ...(options.toolChoice ? { toolChoice: options.toolChoice } : {}),
+    });
+    return { toolCalls: r.toolCalls.map((c) => ({ toolName: c.toolName, args: (c as { input: Record<string, unknown> }).input })) };
   }
 
   async embed(text: string): Promise<number[]> {

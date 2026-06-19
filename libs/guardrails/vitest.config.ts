@@ -17,6 +17,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@chatbot/shared': path.resolve(__dirname, '../shared/src/index.ts'),
+      '@chatbot/ai': path.resolve(__dirname, '../ai/src/index.ts'),
     },
   },
 });

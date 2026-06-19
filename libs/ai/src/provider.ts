@@ -31,6 +31,10 @@ export interface LLMProvider {
   readonly embeddingDimensions: number;
 
   streamChat(options: BaseStreamChatOptions): StreamChatResult;
+  generateText(options: Omit<BaseStreamChatOptions, 'maxSteps' | 'onFinish'> & {
+    tools?: ToolSet;
+    toolChoice?: { type: 'tool'; toolName: string };
+  }): Promise<{ toolCalls: Array<{ toolName: string; args: Record<string, unknown> }> }>;
   embed(text: string): Promise<number[]>;
   embedBatch(texts: string[]): Promise<number[][]>;
   /** Validate that the provider is usable (e.g. credentials are resolvable). Throws on failure. */
