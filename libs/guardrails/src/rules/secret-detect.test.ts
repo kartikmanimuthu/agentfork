@@ -27,4 +27,13 @@ describe('secretDetectRule', () => {
     const r = await secretDetectRule.evaluate('AKIAIOSFODNN7EXAMPLE', c);
     expect(r.matched).toBe(false);
   });
+
+  it('fully redacts a complete PEM private key block', async () => {
+    const c = ctx('input'); c.config.input.secretDetection.enabled = true;
+    const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA...secretpemdata...\n-----END RSA PRIVATE KEY-----';
+    const r = await secretDetectRule.evaluate(block, c);
+    expect(r.matched).toBe(true);
+    expect(r.maskedText).not.toContain('MIIEowIBAAKCAQEA');
+    expect(r.maskedText).not.toContain('secretpemdata');
+  });
 });

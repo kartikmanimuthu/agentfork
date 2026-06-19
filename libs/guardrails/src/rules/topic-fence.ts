@@ -14,10 +14,10 @@ export const topicFenceRule: Rule = {
     const useKeyword = cfg.mode === 'keyword';
     if (!useKeyword) return { matched: false, action: cfg.action }; // judge mode handled by LlmJudge
     if (cfg.deniedSubjects?.length && anyMatch(text, cfg.deniedSubjects)) {
-      return { matched: true, action: cfg.action, reason: 'denied-subject', flagsSuspicion: cfg.mode === 'both' };
+      return { matched: true, action: cfg.action, reason: 'denied-subject', flagsSuspicion: false };
     }
     if (cfg.allowedSubjects?.length && !anyMatch(text, cfg.allowedSubjects)) {
-      return { matched: true, action: cfg.action, reason: 'off-topic', flagsSuspicion: cfg.mode === 'both' };
+      return { matched: true, action: cfg.action, reason: 'off-topic', flagsSuspicion: false };
     }
     return { matched: false, action: cfg.action };
   },
