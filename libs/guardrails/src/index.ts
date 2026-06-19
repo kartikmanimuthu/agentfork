@@ -5,3 +5,4 @@ export { runInputGuardrails } from './engine/guardrail-engine';
 export type { GuardrailContext, GuardrailResult, GuardrailDecision } from './engine/types';
 export type { Rule, RuleContext, RuleFinding, GuardrailAction } from './rules/types';
 export { createGuardrailsMiddleware } from './output/middleware';
+export { logGuardrailDecision } from './logging/audit-writer';
