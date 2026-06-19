@@ -9,6 +9,8 @@ import { handleDocumentIngestion } from './jobs/document-ingestion/handler.js';
 import { handleWebCrawl } from './jobs/web-crawl/handler.js';
 import { handleInferenceSessionAnalytics } from './jobs/inference-session-analytics/handler.js';
 import { handleInferenceSessionIdleWatcher } from './jobs/inference-session-idle-watcher/handler.js';
+import { handleEvaluatorRun } from './jobs/evaluator-run/handler.js';
+import { handleExperimentRun } from './jobs/experiment-run/handler.js';
 
 const log = createLogger('job-runner');
 
@@ -50,8 +52,10 @@ async function main(): Promise<void> {
   executor.registerHandler('inference-session-analytics', handleInferenceSessionAnalytics);
   // wrap so the handler receives boss, not jobData
   executor.registerHandler('inference-session-idle-watcher', () => handleInferenceSessionIdleWatcher(boss));
+  executor.registerHandler('evaluator-run', (data) => handleEvaluatorRun(data, boss));
+  executor.registerHandler('experiment-run', (data) => handleExperimentRun(data, boss));
 
-  const knownJobs = ['document-ingestion', 'web-crawl', 'inference-session-analytics', 'inference-session-idle-watcher'];
+  const knownJobs = ['document-ingestion', 'web-crawl', 'inference-session-analytics', 'inference-session-idle-watcher', 'evaluator-run', 'experiment-run'];
   if (!knownJobs.includes(job)) {
     log.error('Unknown job name', { job, available: knownJobs });
     await boss.stop({ graceful: false });

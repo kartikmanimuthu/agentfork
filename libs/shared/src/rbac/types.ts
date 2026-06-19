@@ -31,6 +31,11 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   ScoreConfig: 'Evaluation',
   Dataset: 'Evaluation',
   DatasetItem: 'Evaluation',
+  Evaluator: 'Evaluation',
+  AnnotationQueue: 'Evaluation',
+  AnnotationQueueItem: 'Evaluation',
+  Experiment: 'Evaluation',
+  ExperimentRunItem: 'Evaluation',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

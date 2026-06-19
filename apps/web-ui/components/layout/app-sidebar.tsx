@@ -62,6 +62,7 @@ import {
   Plug,
   ClipboardCheck,
   ListChecks,
+  FlaskConical,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
@@ -79,6 +80,9 @@ const analyticsNav = [
 const evaluationNav = [
   { name: 'Scores', href: '/evaluation/scores', icon: ClipboardCheck },
   { name: 'Datasets', href: '/evaluation/datasets', icon: ListChecks },
+  { name: 'Evaluators', href: '/evaluation/evaluators', icon: Bot },
+  { name: 'Annotation Queues', href: '/evaluation/annotation-queues', icon: Users },
+  { name: 'Experiments', href: '/evaluation/experiments', icon: FlaskConical },
 ];
 
 const agentStudioNav = [
