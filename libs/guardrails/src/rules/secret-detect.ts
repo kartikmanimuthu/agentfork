@@ -4,7 +4,8 @@ const SECRET_PATTERNS: RegExp[] = [
   /\bAKIA[0-9A-Z]{16}\b/g,                          // AWS access key id
   /\bsk-[a-zA-Z0-9]{20,}\b/g,                        // OpenAI-style
   /\bgh[pousr]_[A-Za-z0-9]{36,}\b/g,                 // GitHub tokens
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/g,             // PEM private-key header (BEGIN-only)
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, // full PEM block
   /\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g, // JWT
 ];
 

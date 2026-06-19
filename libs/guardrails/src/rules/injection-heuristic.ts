@@ -14,9 +14,9 @@ export const injectionHeuristicRule: Rule = {
   phase: 'input',
   evaluate(text, ctx: RuleContext): RuleFinding {
     const cfg = ctx.config.input.injectionDetection;
-    if (!cfg.enabled) return { matched: false, action: 'warn' };
+    if (!cfg.enabled) return { matched: false, action: 'warn', flagsSuspicion: false };
     const flagged = INJECTION_MARKERS.some((re) => re.test(text));
-    if (!flagged) return { matched: false, action: 'warn' };
+    if (!flagged) return { matched: false, action: 'warn', flagsSuspicion: false };
     // Heuristic only flags suspicion; the pipeline escalates to the LLM judge,
     // and only on a confirmed violation does the configured action apply.
     return { matched: false, action: cfg.action, reason: 'injection-suspected', flagsSuspicion: true };
