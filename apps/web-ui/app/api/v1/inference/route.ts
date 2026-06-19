@@ -34,6 +34,12 @@ import type { ToolSet } from 'ai';
 import { jsonSchema } from 'ai';
 import { validateInferenceApiKey } from './lib/auth';
 import { z } from 'zod';
+import {
+  runInputGuardrails,
+  logGuardrailDecision,
+  guardrailsConfigSchema,
+  refusalResponse,
+} from '@chatbot/guardrails';
 
 const logger = createLogger('api:inference');
 
@@ -425,6 +431,81 @@ export async function POST(req: NextRequest) {
         content: m.content ?? '',
       }));
 
+      // Plain SSE format for SDK widget / custom clients — hoisted here so the
+      // input-guardrails block can build a format-appropriate refusal response.
+      const sseFormat = req.nextUrl.searchParams.get('format') === 'sse';
+
+      // ─── Guardrails: input ─────────────────────────────────────────────
+      // Fail-open: a malformed stored guardrails config must NEVER break the
+      // chat. Use `safeParse`; on failure log a warn and treat guardrails as
+      // disabled (proceed to the model unguarded).
+      const rawGuardrails = (config as Record<string, unknown>).guardrails;
+      let guardrailsCtx: {
+        config: ReturnType<typeof guardrailsConfigSchema.parse>;
+        tenantId: string;
+        agentId: string;
+        agentVersionId: string;
+        db: typeof db;
+      } | null = null;
+      if (rawGuardrails) {
+        const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
+        if (parsedGuardrails.success) {
+          guardrailsCtx = {
+            config: parsedGuardrails.data,
+            tenantId,
+            agentId,
+            agentVersionId: version.id,
+            db,
+          };
+        } else {
+          logger.warn(
+            { tenantId, agentId, errorMessage: parsedGuardrails.error.issues[0]?.message },
+            'Guardrail config invalid — skipping guardrails',
+          );
+        }
+      }
+
+      if (guardrailsCtx && guardrailsCtx.config.enabled) {
+        try {
+          const grResult = await runInputGuardrails(coreMessages as never, guardrailsCtx);
+          if (grResult.decision === 'block') {
+            await logGuardrailDecision({ ctx: guardrailsCtx, result: grResult, executionId, sessionId });
+            await db.apiKeyExecution.update({
+              where: { id: executionId },
+              data: {
+                status: 'failed',
+                output: { error: 'guardrail:block', text: grResult.refusalMessage },
+                completedAt: new Date(),
+              },
+            }).catch(() => {});
+            await deliverWebhook('failed', undefined, 'guardrail:block').catch(() => {});
+            return refusalResponse({
+              stream: !!stream,
+              sseFormat,
+              executionId,
+              sessionId,
+              message: grResult.refusalMessage ?? 'Blocked by guardrails.',
+            });
+          }
+          if (grResult.maskedMessages) {
+            // Replace `coreMessages` in place (it's `const`) so every downstream
+            // path (SSE, UI-stream, JSON) receives the masked variant.
+            (coreMessages as unknown[]).splice(0, coreMessages.length, ...grResult.maskedMessages);
+          }
+          if (grResult.triggered.some((t) => t.action === 'warn')) {
+            await logGuardrailDecision({ ctx: guardrailsCtx, result: grResult, executionId, sessionId }).catch(() => {});
+          }
+        } catch (grErr) {
+          // Defensive fail-open: the engine is not expected to throw, but a
+          // thrown guardrail must never break the chat — log and proceed.
+          const grError = grErr instanceof Error ? grErr : new Error(String(grErr));
+          logger.error(
+            { tenantId, agentId, executionId, errorMessage: grError.message },
+            'Input guardrail evaluation failed — proceeding unguarded (fail-open)',
+          );
+        }
+      }
+
       const lastUserContent = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const userQuery = typeof lastUserContent === 'string'
         ? lastUserContent
@@ -517,9 +598,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Plain SSE format for SDK widget / custom clients
-      const sseFormat = req.nextUrl.searchParams.get('format') === 'sse';
-
+      // Plain SSE format for SDK widget / custom clients — `sseFormat` is
+      // hoisted above (near `coreMessages`) so the guardrails block can reuse it.
       if (stream && sseFormat) {
         const encoder = new TextEncoder();
 

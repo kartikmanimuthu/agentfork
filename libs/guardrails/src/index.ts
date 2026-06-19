@@ -6,3 +6,4 @@ export type { GuardrailContext, GuardrailResult, GuardrailDecision } from './eng
 export type { Rule, RuleContext, RuleFinding, GuardrailAction } from './rules/types';
 export { createGuardrailsMiddleware } from './output/middleware';
 export { logGuardrailDecision } from './logging/audit-writer';
+export { refusalResponse } from './integration/refusal-response';

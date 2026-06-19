@@ -45,6 +45,9 @@
       ],
       "@chatbot/whatsapp": [
         "../../libs/whatsapp/src/index.ts"
+      ],
+      "@chatbot/guardrails": [
+        "../../libs/guardrails/src/index.ts"
       ]
     },
     "isolatedModules": true
