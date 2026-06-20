@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, createAgentSchema, createLogger } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, createAgentSchema, validateAgentConfig, createLogger } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
@@ -52,6 +52,21 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    // Validate + normalize the guardrails config so malformed shapes are rejected
+    // (400) and valid-but-partial configs are deep-merged over full defaults
+    // before storage (Zod v4 cascade gap would otherwise leave nested guards
+    // empty → guardrails silently non-functional until a designer PUT normalizes).
+    // `createAgentSchema.config = z.any()` (no `.optional()`), so `parsed.data.config`
+    // is always present on a successful create — guard accordingly.
+    const cfgCheck = validateAgentConfig(parsed.data.config);
+    if (!cfgCheck.success) {
+      return NextResponse.json(
+        { error: 'Invalid guardrails config', issues: cfgCheck.error.issues },
+        { status: 400 },
+      );
+    }
+    // Store the normalized config so the DB never holds a partial guardrails policy.
+    parsed.data.config = cfgCheck.data;
     const db = getPrismaClient();
     const service = new AgentService(tenantId, db as any);
     const agent = await service.create({ ...parsed.data, tenantId });

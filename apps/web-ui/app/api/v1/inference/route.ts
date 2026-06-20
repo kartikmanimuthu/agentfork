@@ -42,6 +42,7 @@ import {
   createGuardrailsMiddleware,
   outputLooksSuspicious,
   judgeText,
+  redactInputPiiAndSecrets,
 } from '@chatbot/guardrails';
 
 const logger = createLogger('api:inference');
@@ -269,6 +270,40 @@ export async function POST(req: NextRequest) {
     const config = (version.config as Record<string, unknown>) ?? {};
     const startedAt = new Date();
 
+    // ─── Guardrails config (hoisted before session-append) ───────────────
+    // Fail-open: a malformed stored guardrails config must NEVER break the
+    // chat. Use `safeParse`; on failure log a warn and treat guardrails as
+    // disabled (proceed to the model unguarded). Hoisted here (before the
+    // session-append below) so the persisted user turn can be masked at the
+    // persistence point — the session store must never hold raw PII/secrets
+    // when input redaction is enabled. The full input-guardrails block
+    // (block/mask/warn on `coreMessages`) still runs later unchanged.
+    const rawGuardrails = (config as Record<string, unknown>).guardrails;
+    let guardrailsCtx: {
+      config: ReturnType<typeof guardrailsConfigSchema.parse>;
+      tenantId: string;
+      agentId: string;
+      agentVersionId: string;
+      db: typeof db;
+    } | null = null;
+    if (rawGuardrails) {
+      const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
+      if (parsedGuardrails.success) {
+        guardrailsCtx = {
+          config: parsedGuardrails.data,
+          tenantId,
+          agentId,
+          agentVersionId: version.id,
+          db,
+        };
+      } else {
+        logger.warn(
+          { tenantId, agentId, errorMessage: parsedGuardrails.error.issues[0]?.message },
+          'Guardrail config invalid — skipping guardrails',
+        );
+      }
+    }
+
     // ─── Session loading (stateful flow) ─────────────────────────────────
     // For stateful calls (sessionId present): load prior messages, persist agentVersionId
     // on the session if not yet set, and append the incoming user turn(s).
@@ -313,12 +348,29 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Append the inbound user turn(s) to the session before invoking the model
+      // Append the inbound user turn(s) to the session before invoking the model.
+      // When input PII/secret redaction is enabled, mask the persisted user content
+      // so the session store never holds raw PII/secrets (the model-facing pipeline
+      // runs the full `runInputGuardrails` later). Fail-open: if masking throws,
+      // persist the original content rather than 500 the chat — a 500 breaks the
+      // chat, which is the worse outcome per the fail-open mandate.
       for (const msg of normalizedMessages) {
         if (msg.role === 'user') {
+          let persistedContent = msg.content;
+          if (guardrailsCtx && guardrailsCtx.config.enabled) {
+            try {
+              persistedContent = redactInputPiiAndSecrets(msg.content, guardrailsCtx.config);
+            } catch (maskErr) {
+              const maskError = maskErr instanceof Error ? maskErr : new Error(String(maskErr));
+              logger.error(
+                { tenantId, agentId, sessionId, errorMessage: maskError.message },
+                'Persisted-user-turn masking failed — persisting original (fail-open)',
+              );
+            }
+          }
           await sessionService.appendMessage(sessionId, {
             role: 'user',
-            content: msg.content,
+            content: persistedContent,
             ...(msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
           });
         }
@@ -439,35 +491,9 @@ export async function POST(req: NextRequest) {
       const sseFormat = req.nextUrl.searchParams.get('format') === 'sse';
 
       // ─── Guardrails: input ─────────────────────────────────────────────
-      // Fail-open: a malformed stored guardrails config must NEVER break the
-      // chat. Use `safeParse`; on failure log a warn and treat guardrails as
-      // disabled (proceed to the model unguarded).
-      const rawGuardrails = (config as Record<string, unknown>).guardrails;
-      let guardrailsCtx: {
-        config: ReturnType<typeof guardrailsConfigSchema.parse>;
-        tenantId: string;
-        agentId: string;
-        agentVersionId: string;
-        db: typeof db;
-      } | null = null;
-      if (rawGuardrails) {
-        const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
-        if (parsedGuardrails.success) {
-          guardrailsCtx = {
-            config: parsedGuardrails.data,
-            tenantId,
-            agentId,
-            agentVersionId: version.id,
-            db,
-          };
-        } else {
-          logger.warn(
-            { tenantId, agentId, errorMessage: parsedGuardrails.error.issues[0]?.message },
-            'Guardrail config invalid — skipping guardrails',
-          );
-        }
-      }
-
+      // `guardrailsCtx` is hoisted above (before the session-append) so the
+      // persisted user turn can be masked. The full input-guardrails block
+      // (block/mask/warn on `coreMessages`) runs here, unchanged.
       if (guardrailsCtx && guardrailsCtx.config.enabled) {
         try {
           const grResult = await runInputGuardrails(coreMessages as never, guardrailsCtx);

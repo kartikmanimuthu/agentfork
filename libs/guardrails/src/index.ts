@@ -10,3 +10,4 @@ export { judgeText } from './judge/llm-judge';
 export type { JudgeVerdict, JudgeContext } from './judge/llm-judge';
 export { logGuardrailDecision } from './logging/audit-writer';
 export { refusalResponse } from './integration/refusal-response';
+export { redactInputPiiAndSecrets } from './rules/redact-input';

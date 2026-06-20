@@ -43,7 +43,7 @@ export async function runInputGuardrails(
       const userMsg = current[current.length - 1];
       if (!userMsg) break;
       const text = extractText(userMsg);
-      const finding = evaluateRule(rule, text, ruleCtx('input'));
+      const finding = await evaluateRule(rule, text, ruleCtx('input'));
 
       if (finding.degraded) degraded = true;
       if (finding.matched) {

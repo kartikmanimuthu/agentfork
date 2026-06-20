@@ -17,6 +17,7 @@ import {
   logGuardrailDecision,
   guardrailsConfigSchema,
   refusalResponse,
+  redactInputPiiAndSecrets,
 } from '@chatbot/guardrails';
 import type { GuardrailsConfig } from '@chatbot/guardrails';
 import { authOptions } from '@/lib/auth';
@@ -122,6 +123,68 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return new Response(JSON.stringify({ error: 'Agent has no versions. Please publish a version first.' }), { status: 400 });
     }
 
+    // ─── Guardrails config (hoisted before execution-create) ─────────────
+    // Fail-open: a malformed stored guardrails config must NEVER break the
+    // chat. Use `safeParse`; on failure log a warn and treat guardrails as
+    // disabled (proceed to the model unguarded). Hoisted here (before the
+    // execution-create below) so the persisted request messages can be
+    // masked at the persistence point — the execution store must never hold
+    // raw PII/secrets when input redaction is enabled. The full
+    // input-guardrails block (block/mask/warn on `resolvedCoreMessages`)
+    // still runs later, unchanged.
+    const rawGuardrails = (resolvedConfig as Record<string, unknown>).guardrails;
+    let guardrailsCtx: {
+      config: GuardrailsConfig;
+      tenantId: string;
+      agentId: string;
+      agentVersionId: string;
+      db: typeof db;
+    } | null = null;
+    if (rawGuardrails) {
+      const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
+      if (parsedGuardrails.success) {
+        guardrailsCtx = {
+          config: parsedGuardrails.data,
+          tenantId,
+          agentId: id,
+          agentVersionId: resolvedVersionId as string,
+          db,
+        };
+      } else {
+        logger.warn(
+          { tenantId, agentId: id, errorMessage: parsedGuardrails.error.issues[0]?.message },
+          'Guardrail config invalid — skipping guardrails',
+        );
+      }
+    }
+
+    // Build a masked copy of the request messages for persistence so the
+    // execution store never holds raw PII/secrets when input redaction is
+    // enabled. The model-facing `messages` are NOT mutated — the full
+    // `runInputGuardrails` runs later. Fail-open: if masking throws, persist
+    // the original messages rather than 500 the chat.
+    let persistedMessages = messages;
+    if (guardrailsCtx && guardrailsCtx.config.enabled) {
+      try {
+        persistedMessages = messages.map((m) => {
+          if (m.role !== 'user') return m;
+          const maskedContent =
+            m.content != null ? redactInputPiiAndSecrets(m.content, guardrailsCtx.config) : m.content;
+          const maskedParts = m.parts?.map((p) => ({
+            ...p,
+            text: p.text != null ? redactInputPiiAndSecrets(p.text, guardrailsCtx.config) : p.text,
+          }));
+          return { ...m, content: maskedContent, parts: maskedParts };
+        });
+      } catch (maskErr) {
+        const maskError = maskErr instanceof Error ? maskErr : new Error(String(maskErr));
+        logger.error(
+          { tenantId, agentId: id, errorMessage: maskError.message },
+          'Persisted-messages masking failed — persisting original (fail-open)',
+        );
+      }
+    }
+
     const startedAt = new Date();
     const execution = await db.agentExecution.create({
       data: {
@@ -130,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         tenantId,
         userId,
         status: 'running',
-        input: { messages, overrides: { systemPrompt, model, temperature } },
+        input: { messages: persistedMessages, overrides: { systemPrompt, model, temperature } },
         startedAt,
       },
     });
@@ -208,35 +271,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
 
       // ─── Guardrails: input ─────────────────────────────────────────────
-      // Fail-open: a malformed stored guardrails config must NEVER break the
-      // chat. Use `safeParse`; on failure log a warn and treat guardrails as
-      // disabled (proceed to the model unguarded).
-      const rawGuardrails = (resolvedConfig as Record<string, unknown>).guardrails;
-      let guardrailsCtx: {
-        config: GuardrailsConfig;
-        tenantId: string;
-        agentId: string;
-        agentVersionId: string;
-        db: typeof db;
-      } | null = null;
-      if (rawGuardrails) {
-        const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
-        if (parsedGuardrails.success) {
-          guardrailsCtx = {
-            config: parsedGuardrails.data,
-            tenantId,
-            agentId: id,
-            agentVersionId: resolvedVersionId as string,
-            db,
-          };
-        } else {
-          logger.warn(
-            { tenantId, agentId: id, errorMessage: parsedGuardrails.error.issues[0]?.message },
-            'Guardrail config invalid — skipping guardrails',
-          );
-        }
-      }
-
+      // `guardrailsCtx` is hoisted above (before the execution-create) so the
+      // persisted request messages can be masked. The full input-guardrails
+      // block (block/mask/warn on `resolvedCoreMessages`) runs here, unchanged.
       if (guardrailsCtx && guardrailsCtx.config.enabled) {
         try {
           const grResult = await runInputGuardrails(resolvedCoreMessages as never, guardrailsCtx);

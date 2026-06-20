@@ -83,7 +83,7 @@ export function createGuardrailsMiddleware(ctx: GuardrailContext): LanguageModel
                   .catch(() => { /* fail open */ });
               }
             } catch (err) {
-              logger.error({ errorMessage: (err as Error).message }, 'Output flush failed');
+              logger.error({ tenantId: ctx.tenantId, agentId: ctx.agentId, errorMessage: (err as Error).message }, 'Output flush failed');
             }
           },
         } as any),

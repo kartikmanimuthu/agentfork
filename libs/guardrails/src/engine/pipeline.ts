@@ -15,9 +15,9 @@ export const INPUT_RULE_ORDER: Rule[] = [
   injectionHeuristicRule,
 ];
 
-export function evaluateRule(rule: Rule, text: string, ctx: RuleContext): RuleFinding {
+export async function evaluateRule(rule: Rule, text: string, ctx: RuleContext): Promise<RuleFinding> {
   try {
-    return rule.evaluate(text, ctx) as RuleFinding;
+    return await rule.evaluate(text, ctx);
   } catch (err) {
     return {
       matched: false,
