@@ -5,5 +5,8 @@ export { runInputGuardrails } from './engine/guardrail-engine';
 export type { GuardrailContext, GuardrailResult, GuardrailDecision } from './engine/types';
 export type { Rule, RuleContext, RuleFinding, GuardrailAction } from './rules/types';
 export { createGuardrailsMiddleware } from './output/middleware';
+export { outputLooksSuspicious } from './output/heuristic';
+export { judgeText } from './judge/llm-judge';
+export type { JudgeVerdict, JudgeContext } from './judge/llm-judge';
 export { logGuardrailDecision } from './logging/audit-writer';
 export { refusalResponse } from './integration/refusal-response';

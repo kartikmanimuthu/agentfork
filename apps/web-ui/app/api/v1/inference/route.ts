@@ -39,6 +39,9 @@ import {
   logGuardrailDecision,
   guardrailsConfigSchema,
   refusalResponse,
+  createGuardrailsMiddleware,
+  outputLooksSuspicious,
+  judgeText,
 } from '@chatbot/guardrails';
 
 const logger = createLogger('api:inference');
@@ -506,6 +509,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ─── Guardrails: output middleware ─────────────────────────────────
+      // Build the in-flight output masker once per request. Applied to all
+      // three streamChat paths (SSE / UI-stream / JSON) via the `middleware`
+      // option (Task 8 wires it through `wrapLanguageModel`). The middleware
+      // internally fail-opens on partial `output` configs via its own
+      // try/catch, so a malformed config never breaks the stream.
+      const outputMiddleware =
+        guardrailsCtx && guardrailsCtx.config.enabled && guardrailsCtx.config.output
+          ? createGuardrailsMiddleware(guardrailsCtx)
+          : undefined;
+
       const lastUserContent = coreMessages.filter((m) => m.role === 'user').pop()?.content ?? '';
       const userQuery = typeof lastUserContent === 'string'
         ? lastUserContent
@@ -791,6 +805,7 @@ export async function POST(req: NextRequest) {
                 temperature: effectiveTemperature,
                 maxOutputTokens: effectiveMaxTokens,
                 ...(hasSseTools ? { tools: sseAllTools, maxSteps: 5 } : {}),
+                ...(outputMiddleware ? { middleware: outputMiddleware } : {}),
               });
 
               for await (const ev of emitter.run(sseResult.fullStream)) {
@@ -863,6 +878,7 @@ export async function POST(req: NextRequest) {
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
           ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
+          ...(outputMiddleware ? { middleware: outputMiddleware } : {}),
           onFinish: async ({ text, usage }) => {
             await mcpCleanup();
             const completedAt = new Date();
@@ -918,12 +934,83 @@ export async function POST(req: NextRequest) {
           temperature: effectiveTemperature,
           maxOutputTokens: effectiveMaxTokens,
           ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
+          ...(outputMiddleware ? { middleware: outputMiddleware } : {}),
         });
 
         // Drain the plain text stream (NOT the UI message stream — that returns SSE frames).
         let text = '';
         for await (const chunk of result.textStream) {
           text += chunk;
+        }
+
+        // ─── Guardrails: output hard-block (JSON path only) ───────────────
+        // The JSON path holds the full assembled text before responding, so
+        // it can hard-refuse on a judge verdict. The streaming paths (SSE /
+        // UI-stream) cannot un-stream, so they rely on the middleware's
+        // in-flight masking + audit-only judge. Fail-open: the entire block
+        // is wrapped in try/catch and every nested config read is
+        // optional-chained, so a partial `output` config (e.g. a user config
+        // that omits `output.bannedPhrases`) or a judge edge case can NEVER
+        // cause a 500 — on any error we log and fall through to the normal
+        // JSON response below.
+        try {
+          if (guardrailsCtx && guardrailsCtx.config.enabled) {
+            const looksBad = outputLooksSuspicious(text, guardrailsCtx.config);
+            if (
+              looksBad &&
+              guardrailsCtx.config.judge?.enabled &&
+              (guardrailsCtx.config.output?.secretDetection?.action === 'block' ||
+                guardrailsCtx.config.output?.bannedPhrases?.action === 'block' ||
+                guardrailsCtx.config.output?.topicFence?.action === 'block')
+            ) {
+              const v = await judgeText({
+                text,
+                categories: ['toxicity', 'off-topic', 'secret-leak'],
+                ctx: guardrailsCtx,
+              });
+              if (
+                v.violated &&
+                (guardrailsCtx.config.output?.secretDetection?.action === 'block' ||
+                  guardrailsCtx.config.output?.bannedPhrases?.action === 'block' ||
+                  guardrailsCtx.config.output?.topicFence?.action === 'block')
+              ) {
+                await logGuardrailDecision({
+                  ctx: guardrailsCtx,
+                  result: {
+                    decision: 'block',
+                    refusalMessage: guardrailsCtx.config.refusalMessage,
+                    triggered: [
+                      { ruleId: 'output-judge', action: 'block', reason: `judge:${v.category}` },
+                    ],
+                    degraded: !!v.degraded,
+                  },
+                  executionId,
+                  sessionId,
+                }).catch(() => {});
+                await db.apiKeyExecution.update({
+                  where: { id: executionId },
+                  data: {
+                    status: 'failed',
+                    output: { error: 'guardrail:output-block' },
+                    completedAt: new Date(),
+                  },
+                }).catch(() => {});
+                return refusalResponse({
+                  stream: false,
+                  sseFormat: false,
+                  executionId,
+                  sessionId,
+                  message: guardrailsCtx.config.refusalMessage ?? 'Blocked by guardrails.',
+                });
+              }
+            }
+          }
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          logger.error(
+            { tenantId, agentId, executionId, errorMessage: error.message },
+            'Output guardrail hard-block failed — proceeding (fail-open)',
+          );
         }
 
         // usage is a PromiseLike on the streamChat result; wrap so we can .catch.
