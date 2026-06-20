@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hasPermission, hasCustomPermission, ROLE_PERMISSIONS, ROLE_LEVELS } from './permissions';
+import { SUBJECT_TO_MODULE } from './types';
 import type { PermissionSet } from './types';
 
 describe('ROLE_PERMISSIONS', () => {
@@ -80,6 +81,7 @@ describe('hasCustomPermission', () => {
     McpServers: [],
     LlmProviders: [],
     Evaluation: [],
+    Dashboards: [],
   });
 
   it('returns true when custom set includes the action', () => {
@@ -104,5 +106,21 @@ describe('Evaluation module permissions', () => {
   });
   it('grants Viewer read-only Evaluation', () => {
     expect(ROLE_PERMISSIONS.Viewer.Evaluation).toEqual(['read']);
+  });
+});
+
+describe('Dashboards RBAC', () => {
+  it('maps the Dashboard subject to the Dashboards module', () => {
+    expect(SUBJECT_TO_MODULE.Dashboard).toBe('Dashboards');
+  });
+  it('grants Admin full dashboard control and Viewer read-only', () => {
+    expect(hasPermission('Admin', 'create', 'Dashboards')).toBe(true);
+    expect(hasPermission('Viewer', 'create', 'Dashboards')).toBe(false);
+    expect(hasPermission('Viewer', 'read', 'Dashboards')).toBe(true);
+  });
+  it('declares Dashboards for every role', () => {
+    for (const role of Object.keys(ROLE_PERMISSIONS)) {
+      expect(ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS].Dashboards).toBeDefined();
+    }
   });
 });

@@ -40,6 +40,7 @@ model Tenant {
   annotationQueueItems AnnotationQueueItem[]
   experiments       Experiment[]
   experimentRunItems ExperimentRunItem[]
+  dashboards        Dashboard[]
 
   @@index([status])
   @@map("tenants")
@@ -1157,4 +1158,40 @@ model DatasetItem {
   @@index([datasetId])
   @@index([datasetId, status])
   @@map("dataset_items")
+}
+
+model Dashboard {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isDefault   Boolean           @default(false)
+  createdById String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  widgets DashboardWidget[]
+
+  @@index([tenantId])
+  @@map("dashboards")
+}
+
+model DashboardWidget {
+  id          String   @id @default(cuid())
+  dashboardId String
+  tenantId    String
+  title       String
+  vizType     String
+  querySpec   Json
+  layout      Json
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@index([tenantId])
+  @@map("dashboard_widgets")
 }
