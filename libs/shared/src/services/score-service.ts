@@ -23,6 +23,7 @@ export interface IngestScoreInput {
   targetId: string;
   value: ScoreValue;
   comment?: string;
+  source?: 'ANNOTATION' | 'API' | 'EVALUATOR';
 }
 
 export interface ScoreFilters {
@@ -31,7 +32,7 @@ export interface ScoreFilters {
   sessionId?: string;
   messageId?: string;
   executionId?: string;
-  source?: 'ANNOTATION' | 'API';
+  source?: 'ANNOTATION' | 'API' | 'EVALUATOR';
   fromDate?: string;
   toDate?: string;
   limit?: number;
@@ -163,7 +164,7 @@ export class ScoreService {
           ...cols,
           ...resolved,
           comment: input.comment ?? null,
-          source: 'API',
+          source: input.source ?? 'API',
           authorUserId: null,
         },
       });
