@@ -26,6 +26,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const widget = await new DashboardService(getPrismaClient() as unknown as DashboardDb).addWidget(tenantId, id, parsed.data);
     return NextResponse.json({ widget }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     if (error instanceof Error && /not found/i.test(error.message)) {
       return NextResponse.json({ error: { type: 'not_found', message: error.message } }, { status: 404 });
     }

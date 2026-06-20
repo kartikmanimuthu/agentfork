@@ -26,6 +26,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await new DashboardService(getPrismaClient() as unknown as DashboardDb).saveLayout(tenantId, id, parsed.data.layouts);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
+    if (error instanceof Error && /not found/i.test(error.message)) {
+      return NextResponse.json({ error: { type: 'not_found', message: error.message } }, { status: 404 });
+    }
     logger.error({ err: error }, 'Failed to save layout');
     return NextResponse.json({ error: { type: 'internal_error', message: 'Internal server error' } }, { status: 500 });
   }

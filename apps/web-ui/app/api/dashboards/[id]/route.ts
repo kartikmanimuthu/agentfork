@@ -26,6 +26,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ dashboard });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     logger.error({ err: error }, 'Failed to load dashboard');
     return NextResponse.json({ error: { type: 'internal_error', message: 'Internal server error' } }, { status: 500 });
   }
@@ -44,6 +53,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const dashboard = await service().update(tenantId, id, parsed.data);
     return NextResponse.json({ dashboard });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     if (error instanceof Error && /not found/i.test(error.message)) {
       return NextResponse.json({ error: { type: 'not_found', message: error.message } }, { status: 404 });
     }
@@ -61,6 +79,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     await service().remove(tenantId, id);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     if (error instanceof Error && /not found/i.test(error.message)) {
       return NextResponse.json({ error: { type: 'not_found', message: error.message } }, { status: 404 });
     }

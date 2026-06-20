@@ -12,6 +12,15 @@ export async function GET() {
     if (authError) return authError;
     return NextResponse.json({ sources: getRegistryMeta() });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     logger.error({ err: error }, 'Failed to load dashboard registry');
     return NextResponse.json({ error: { type: 'internal_error', message: 'Internal server error' } }, { status: 500 });
   }

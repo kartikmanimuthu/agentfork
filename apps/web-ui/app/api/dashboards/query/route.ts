@@ -26,6 +26,15 @@ export async function POST(req: NextRequest) {
     const rows = await new DashboardQueryService(getPrismaClient() as unknown as DashboardQueryDb).run(tenantId, parsed.data);
     return NextResponse.json({ rows });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Unauthenticated')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: error.message },
+        { status: 403 },
+      );
+    }
     if (error instanceof ValidationError) {
       return NextResponse.json({ error: { type: 'validation_error', issues: error.issues } }, { status: 422 });
     }
