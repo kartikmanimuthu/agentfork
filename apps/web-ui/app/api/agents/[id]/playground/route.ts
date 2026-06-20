@@ -11,6 +11,14 @@ import {
   playgroundRequestSchema,
 } from '@chatbot/shared';
 import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, buildBuiltInTools } from '@chatbot/ai';
+import {
+  runInputGuardrails,
+  createGuardrailsMiddleware,
+  logGuardrailDecision,
+  guardrailsConfigSchema,
+  refusalResponse,
+} from '@chatbot/guardrails';
+import type { GuardrailsConfig } from '@chatbot/guardrails';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground');
@@ -199,6 +207,82 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         resolvedCoreMessages = coreMessages.map((m) => ({ role: m.role, content: m.content }));
       }
 
+      // ─── Guardrails: input ─────────────────────────────────────────────
+      // Fail-open: a malformed stored guardrails config must NEVER break the
+      // chat. Use `safeParse`; on failure log a warn and treat guardrails as
+      // disabled (proceed to the model unguarded).
+      const rawGuardrails = (resolvedConfig as Record<string, unknown>).guardrails;
+      let guardrailsCtx: {
+        config: GuardrailsConfig;
+        tenantId: string;
+        agentId: string;
+        agentVersionId: string;
+        db: typeof db;
+      } | null = null;
+      if (rawGuardrails) {
+        const parsedGuardrails = guardrailsConfigSchema.safeParse(rawGuardrails);
+        if (parsedGuardrails.success) {
+          guardrailsCtx = {
+            config: parsedGuardrails.data,
+            tenantId,
+            agentId: id,
+            agentVersionId: resolvedVersionId as string,
+            db,
+          };
+        } else {
+          logger.warn(
+            { tenantId, agentId: id, errorMessage: parsedGuardrails.error.issues[0]?.message },
+            'Guardrail config invalid — skipping guardrails',
+          );
+        }
+      }
+
+      if (guardrailsCtx && guardrailsCtx.config.enabled) {
+        try {
+          const grResult = await runInputGuardrails(resolvedCoreMessages as never, guardrailsCtx);
+          if (grResult.decision === 'block') {
+            await logGuardrailDecision({ ctx: guardrailsCtx, result: grResult, executionId: execution.id }).catch(() => {});
+            await db.agentExecution.update({
+              where: { id: execution.id },
+              data: { status: 'failed', error: 'guardrail:block', completedAt: new Date() },
+            }).catch(() => {});
+            return refusalResponse({
+              stream: true,
+              sseFormat: false,
+              executionId: execution.id,
+              message: grResult.refusalMessage ?? 'Blocked by guardrails.',
+            });
+          }
+          if (grResult.maskedMessages) {
+            // Replace `resolvedCoreMessages` in place (it's `let`) so every
+            // downstream path (userQuery, KB retrieval, streamChat) receives
+            // the masked variant.
+            (resolvedCoreMessages as unknown[]).splice(0, resolvedCoreMessages.length, ...grResult.maskedMessages);
+          }
+          if (grResult.triggered.some((t) => t.action === 'warn')) {
+            await logGuardrailDecision({ ctx: guardrailsCtx, result: grResult, executionId: execution.id }).catch(() => {});
+          }
+        } catch (grErr) {
+          // Defensive fail-open: the engine is not expected to throw, but a
+          // thrown guardrail must never break the chat — log and proceed.
+          const grError = grErr instanceof Error ? grErr : new Error(String(grErr));
+          logger.error(
+            { tenantId, agentId: id, executionId: execution.id, errorMessage: grError.message },
+            'Input guardrail evaluation failed — proceeding unguarded (fail-open)',
+          );
+        }
+      }
+
+      // ─── Guardrails: output middleware ─────────────────────────────────
+      // Build the in-flight output masker once per request. Applied to the
+      // streamChat call via the `middleware` option. The middleware
+      // internally fail-opens on partial `output` configs via its own
+      // try/catch, so a malformed config never breaks the stream.
+      const outputMiddleware =
+        guardrailsCtx && guardrailsCtx.config.enabled && guardrailsCtx.config.output
+          ? createGuardrailsMiddleware(guardrailsCtx)
+          : undefined;
+
       const userQuery = typeof resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content === 'string'
         ? resolvedCoreMessages[resolvedCoreMessages.length - 1].content as string
         : (resolvedCoreMessages[resolvedCoreMessages.length - 1]?.content as Array<{ type: string; text?: string }>)
@@ -255,6 +339,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         temperature: effectiveTemperature,
         maxOutputTokens: maxTokens ?? simpleConfig.maxTokens ?? undefined,
         ...(hasTools ? { tools: allTools, maxSteps: 5 } : {}),
+        ...(outputMiddleware ? { middleware: outputMiddleware } : {}),
         onFinish: async ({ text, usage }) => {
           await mcpCleanup();
           const completedAt = new Date();
