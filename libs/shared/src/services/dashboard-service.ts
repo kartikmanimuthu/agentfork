@@ -127,7 +127,7 @@ export class DashboardService {
     try {
       await this.assertOwned(tenantId, dashboardId);
       await Promise.all(
-        layouts.map((l) => this.db.dashboardWidget.update({ where: { id: l.id }, data: { layout: l.layout } })),
+        layouts.map((l) => this.db.dashboardWidget.update({ where: { id: l.id, tenantId, dashboardId }, data: { layout: l.layout } })),
       );
     } catch (error) {
       logger.error({ err: error, tenantId, dashboardId }, 'Failed to save layout');

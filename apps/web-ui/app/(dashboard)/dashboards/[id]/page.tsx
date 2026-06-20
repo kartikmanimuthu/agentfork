@@ -60,7 +60,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
           <Button className="mt-3" onClick={() => { setEditing(true); setBuilderOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add your first widget</Button>
         </div>
       ) : (
-        <DashboardGrid key={dashboard.widgets.length} dashboard={dashboard} editable={editing} />
+        <DashboardGrid key={`${dashboard.id}-${dashboard.widgets.length}`} dashboard={dashboard} editable={editing} />
       )}
 
       <WidgetBuilder open={builderOpen} onOpenChange={setBuilderOpen} onSave={(input) => addWidget.mutate(input)} />
