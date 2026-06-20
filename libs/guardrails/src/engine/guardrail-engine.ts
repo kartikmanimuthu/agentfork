@@ -31,6 +31,11 @@ export async function runInputGuardrails(
     let current = messages;
     let degraded = false;
 
+    logger.debug(
+      { tenantId: gctx.tenantId, agentId: gctx.agentId, messageCount: messages.length, ruleCount: INPUT_RULE_ORDER.length, judgeEnabled: cfg.judge?.enabled === true },
+      'Input guardrail run started',
+    );
+
     const ruleCtx = (phase: 'input' | 'output'): RuleContext => ({
       config: cfg,
       tenantId: gctx.tenantId,
@@ -53,6 +58,10 @@ export async function runInputGuardrails(
           reason: finding.reason,
           flagsSuspicion: finding.flagsSuspicion,
         });
+        logger.info(
+          { tenantId: gctx.tenantId, agentId: gctx.agentId, ruleId: rule.id, action: finding.action, reason: finding.reason },
+          'Input rule matched',
+        );
         if (finding.action === 'block') {
           logger.info({ tenantId: gctx.tenantId, agentId: gctx.agentId, ruleId: rule.id }, 'Input blocked');
           return { decision: 'block', refusalMessage: cfg.refusalMessage, triggered: decisions, degraded };
@@ -61,10 +70,19 @@ export async function runInputGuardrails(
           masked = true;
           current = current.map((m, i) => (i === current.length - 1 ? withText(m, finding.maskedText!) : m));
         }
+      } else {
+        logger.debug(
+          { tenantId: gctx.tenantId, agentId: gctx.agentId, ruleId: rule.id },
+          'Input rule did not match',
+        );
       }
 
       // Heuristic-gated judge: only escalate when a rule flags suspicion and judge is enabled.
       if (finding.flagsSuspicion && cfg.judge?.enabled) {
+        logger.info(
+          { tenantId: gctx.tenantId, agentId: gctx.agentId, ruleId: rule.id },
+          'Input heuristic flagged — invoking judge',
+        );
         const verdict = await judgeText({
           text: extractText(current[current.length - 1]),
           categories: ['prompt-injection', 'toxicity', 'off-topic'],
@@ -88,13 +106,27 @@ export async function runInputGuardrails(
             flagsSuspicion: false,
             degraded: verdict.degraded,
           });
+          logger.warn(
+            { tenantId: gctx.tenantId, agentId: gctx.agentId, category: verdict.category, action, degraded: verdict.degraded },
+            'Input judge flagged',
+          );
           if (action === 'block') {
             return { decision: 'block', refusalMessage: cfg.refusalMessage, triggered: decisions, degraded };
           }
+        } else {
+          logger.debug(
+            { tenantId: gctx.tenantId, agentId: gctx.agentId, degraded: verdict.degraded },
+            'Input judge cleared',
+          );
         }
       }
     }
 
+    const decision = masked ? 'mask' : 'pass';
+    logger.info(
+      { tenantId: gctx.tenantId, agentId: gctx.agentId, decision, triggeredCount: decisions.length, degraded },
+      'Input guardrail run complete',
+    );
     return masked
       ? { decision: 'mask', maskedMessages: current, triggered: decisions, degraded }
       : { decision: 'pass', triggered: decisions, degraded };
