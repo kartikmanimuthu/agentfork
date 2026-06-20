@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import { evaluatorCreateSchema, evaluatorUpdateSchema } from '@chatbot/shared/client';
 
 interface ScoreConfigOption {
@@ -157,14 +159,17 @@ export function EvaluatorDialog({ open, onOpenChange, onSaved, evaluator }: Eval
               rows={6}
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Temperature</Label>
+              <span className="text-xs text-muted-foreground">{temperature || '0.7'}</span>
+            </div>
+            <Slider min={0} max={2} step={0.1} value={[temperature ? Number(temperature) : 0.7]} onValueChange={(vals) => setTemperature(String(Array.isArray(vals) ? vals[0] : vals))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="model">Model (optional)</Label>
-              <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. anthropic.claude-3-5-sonnet" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="temperature">Temperature</Label>
-              <Input id="temperature" type="number" min={0} max={2} step={0.1} value={temperature} onChange={(e) => setTemperature(e.target.value)} placeholder="0.7" />
+              <ProviderModelSelect capability="chat" value={model} onChange={setModel} placeholder="Default provider model" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="maxTokens">Max tokens</Label>
