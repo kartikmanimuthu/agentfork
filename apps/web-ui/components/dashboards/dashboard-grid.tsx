@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import type { LayoutItem } from 'react-grid-layout';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ const ResponsiveGrid = WidthProvider(Responsive);
 export function DashboardGrid({ dashboard, editable }: { dashboard: DashboardDTO; editable: boolean }) {
   const qc = useQueryClient();
   const [widgets, setWidgets] = useState<WidgetDTO[]>(dashboard.widgets);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const saveLayout = useMutation({
     mutationFn: async (layouts: { id: string; layout: WidgetDTO['layout'] }[]) => {
@@ -44,7 +45,10 @@ export function DashboardGrid({ dashboard, editable }: { dashboard: DashboardDTO
       return l ? { ...w, layout: { x: l.x, y: l.y, w: l.w, h: l.h } } : w;
     });
     setWidgets(updated);
-    saveLayout.mutate(updated.map((w) => ({ id: w.id, layout: w.layout })));
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveLayout.mutate(updated.map((w) => ({ id: w.id, layout: w.layout })));
+    }, 600);
   }
 
   return (
