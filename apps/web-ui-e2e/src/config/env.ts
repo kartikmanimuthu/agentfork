@@ -18,6 +18,8 @@ export const env = createEnv({
     NEXTAUTH_SECRET: z.string().min(1).default('test-secret-for-e2e'),
     E2E_SSO_EMAIL: z.string().default(''),
     E2E_SSO_PASSWORD: z.string().default(''),
+    E2E_GUARDRAILS_AGENT_ID: z.string().default(''),
+    E2E_GUARDRAILS_API_KEY: z.string().default(''),
     CI: z.string().optional(),
     E2E_GREP: z.string().optional(),
     E2E_GREP_INVERT: z.string().optional(),
@@ -30,3 +32,12 @@ export const env = createEnv({
 /** True when both SSO credentials are present — gates the Cognito specs. */
 export const hasSsoCreds = (): boolean =>
   Boolean(env.E2E_SSO_EMAIL && env.E2E_SSO_PASSWORD);
+
+/** True when both a seeded guardrails agent id and API key are present —
+ *  gates the positive guardrails route-level specs (block/mask). The negative
+ *  parity test (unauth → 401) runs unconditionally. Positive route-level
+ *  coverage is ALSO provided by the in-process integration test at
+ *  `libs/guardrails/src/integration/inference.integration.test.ts`, so these
+ *  gated e2e positives are an additional CI-only layer. */
+export const hasGuardrailsCreds = (): boolean =>
+  Boolean(env.E2E_GUARDRAILS_AGENT_ID && env.E2E_GUARDRAILS_API_KEY);

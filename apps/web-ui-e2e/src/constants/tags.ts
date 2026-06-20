@@ -16,6 +16,7 @@ export const TAG = {
   docs: '@docs',
   navigation: '@navigation',
   inferenceApi: '@inference-api',
+  guardrails: '@guardrails',
 
   // type / priority axis
   smoke: '@smoke',
