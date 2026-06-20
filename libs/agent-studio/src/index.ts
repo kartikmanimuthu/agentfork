@@ -14,6 +14,10 @@ export type {
   SimpleAgentConfig,
 } from './types/agent';
 
+// Re-export the GuardrailsConfig type so consumers of agent-studio can reference
+// the per-agent guardrail policy type alongside SimpleAgentConfig.
+export type { GuardrailsConfig } from '@chatbot/guardrails';
+
 export type {
   NodeType,
   NodeConfig,

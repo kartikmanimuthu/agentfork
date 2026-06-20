@@ -1,4 +1,5 @@
 import type { NodeConfig } from './nodes';
+import type { GuardrailsConfig } from '@chatbot/guardrails';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ export interface SimpleAgentConfig {
   maxTokens?: number;
   /** Names of tools available to this agent */
   tools?: string[];
+  /** Per-agent guardrail policy (see @chatbot/guardrails GuardrailsConfig). */
+  guardrails?: GuardrailsConfig;
 }
 
 // ─── CRUD inputs ──────────────────────────────────────────────────────────────

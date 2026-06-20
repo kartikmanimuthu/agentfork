@@ -17,6 +17,7 @@ import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-stu
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
 import { ToolsTab } from '@/components/agents/tabs/tools-tab';
+import { GuardrailsTab } from '@/components/agents/tabs/guardrails-tab';
 import { KnowledgeBasesTab } from '@/components/agents/tabs/knowledge-bases-tab';
 import { VersionsTab } from '@/components/agents/tabs/versions-tab';
 import { AliasManager } from '@/components/agents/tabs/alias-manager';
@@ -223,6 +224,7 @@ export default function AgentDetailPage() {
           <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
           <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
           <TabsTrigger value="tools">Tools</TabsTrigger>
+          <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
         </TabsList>
@@ -249,6 +251,13 @@ export default function AgentDetailPage() {
         </TabsContent>
         <TabsContent value="tools">
           <ToolsTab
+            config={simpleConfig}
+            onSave={handleSimpleSave}
+            saving={saving}
+          />
+        </TabsContent>
+        <TabsContent value="guardrails">
+          <GuardrailsTab
             config={simpleConfig}
             onSave={handleSimpleSave}
             saving={saving}
