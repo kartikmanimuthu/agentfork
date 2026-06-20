@@ -55,6 +55,7 @@ import {
   Server,
   Sparkles,
   BarChart3,
+  LayoutGrid,
   Zap,
   Code2,
   Palette,
@@ -68,12 +69,12 @@ import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Dashboards', href: '/dashboards', icon: LayoutDashboard },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
 const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
+  { name: 'Custom Dashboards', href: '/dashboards', icon: LayoutGrid },
   { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Inferences', href: '/inferences', icon: Zap },
 ];
@@ -128,6 +129,8 @@ export function AppSidebar() {
   const isAnalyticsActive =
     pathname === '/analytics' ||
     pathname.startsWith('/analytics/') ||
+    pathname === '/dashboards' ||
+    pathname.startsWith('/dashboards/') ||
     pathname === '/sessions' ||
     pathname.startsWith('/sessions/') ||
     pathname === '/inferences' ||
