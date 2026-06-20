@@ -68,6 +68,7 @@ import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
 const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Dashboards', href: '/dashboards', icon: LayoutDashboard },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
