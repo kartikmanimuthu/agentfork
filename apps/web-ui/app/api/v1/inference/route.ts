@@ -304,6 +304,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ─── Masked messages for persistence + webhook egress ────────────────
+    // Build a masked deep copy of the inbound `messages` (the raw request body)
+    // for the TWO consumers that persist/stream user content downstream:
+    // `db.apiKeyExecution.create({ input: { messages, ... } })` and the
+    // `deliverWebhook` payload. The model-facing pipeline (`coreMessages` /
+    // `resolvedCoreMessages` / `runInputGuardrails` / `streamChat`) is NOT
+    // touched — it builds its own arrays from `messages` and runs the full
+    // guardrails block later. Fail-open: if masking throws, fall back to the
+    // original `messages` + structured error log — never 500 the chat.
+    let persistedInputMessages: typeof messages = messages;
+    if (guardrailsCtx && guardrailsCtx.config.enabled) {
+      try {
+        persistedInputMessages = messages.map((m) => {
+          if (m.role !== 'user') return m;
+          // content may be a plain string OR an array of content parts
+          // ({type:'text',text} | {type:'file',...}). Mask only text — file
+          // parts carry no user PII.
+          let maskedContent: typeof m.content = m.content;
+          if (typeof m.content === 'string') {
+            maskedContent = redactInputPiiAndSecrets(m.content, guardrailsCtx.config);
+          } else if (Array.isArray(m.content)) {
+            maskedContent = m.content.map((p) =>
+              p.type === 'text'
+                ? { ...p, text: redactInputPiiAndSecrets(p.text, guardrailsCtx.config) }
+                : p
+            );
+          }
+          return { ...m, content: maskedContent };
+        });
+      } catch (maskErr) {
+        const maskError = maskErr instanceof Error ? maskErr : new Error(String(maskErr));
+        logger.error(
+          { tenantId, agentId, sessionId, errorMessage: maskError.message },
+          'Persisted-input-messages masking failed — persisting original (fail-open)',
+        );
+      }
+    }
+
     // ─── Session loading (stateful flow) ─────────────────────────────────
     // For stateful calls (sessionId present): load prior messages, persist agentVersionId
     // on the session if not yet set, and append the incoming user turn(s).
@@ -420,7 +458,7 @@ export async function POST(req: NextRequest) {
         agentVersionId: version.id,
         sessionId: sessionId ?? null,
         status: 'running',
-        input: { messages, sessionId, systemPrompt, temperature, maxTokens },
+        input: { messages: persistedInputMessages, sessionId, systemPrompt, temperature, maxTokens },
         startedAt,
         webhookUrl: keyLimits.webhookUrl,
       },
@@ -443,7 +481,7 @@ export async function POST(req: NextRequest) {
         agentVersionId: version!.id,
         sessionId: sessionId ?? null,
         status,
-        input: { messages, sessionId },
+        input: { messages: persistedInputMessages, sessionId },
         output,
         error,
         tokenUsage,
