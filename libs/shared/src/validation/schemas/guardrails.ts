@@ -71,6 +71,52 @@ export const guardrailsConfigSchema = z.object({
 
 export type GuardrailsConfig = z.infer<typeof guardrailsConfigSchema>;
 
+/**
+ * Deep-merge `override` over `base`. For each key, if both `base[key]` and
+ * `override[key]` are plain objects (not arrays, not null), recurse; else if
+ * `override[key] !== undefined`, take `override[key]`; else keep `base[key]`.
+ * Arrays are leaf values (override replaces, no concatenation).
+ */
+function mergeDeep<T>(base: T, override: unknown): T {
+  if (override === null || typeof override !== 'object' || Array.isArray(override)) {
+    return (override === undefined ? base : (override as T));
+  }
+  if (base === null || typeof base !== 'object' || Array.isArray(base)) {
+    // base is not an object; fall back to the override (shape already validated).
+    return { ...(override as Record<string, unknown>) } as T;
+  }
+  const result: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  for (const key of Object.keys(override as Record<string, unknown>)) {
+    const bVal = (base as Record<string, unknown>)[key];
+    const oVal = (override as Record<string, unknown>)[key];
+    if (
+      oVal !== null &&
+      typeof oVal === 'object' &&
+      !Array.isArray(oVal) &&
+      bVal !== null &&
+      typeof bVal === 'object' &&
+      !Array.isArray(bVal)
+    ) {
+      result[key] = mergeDeep(bVal, oVal);
+    } else if (oVal !== undefined) {
+      result[key] = oVal;
+    }
+  }
+  return result as T;
+}
+
+/**
+ * Deep-merge a (valid) partial guardrails config over the full default so every
+ * nested guard is present. Works around the Zod v4 `.default({} as never)`
+ * cascade gap that leaves `input`/`output` empty on a partial parse.
+ * Callers must have already validated `partial` with `guardrailsConfigSchema.safeParse`.
+ */
+export function normalizeGuardrailsConfig(partial: unknown): GuardrailsConfig {
+  const base = defaultGuardrailsConfig();
+  if (!partial || typeof partial !== 'object') return base;
+  return mergeDeep(base, partial) as GuardrailsConfig;
+}
+
 export function defaultGuardrailsConfig(): GuardrailsConfig {
   // Pass explicit empty objects for each nested section so Zod parses them and
   // cascades the per-field `.default()` values. Under Zod v4, a parent `.default({})`

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema, createLogger } from '@chatbot/shared';
+import { getSessionTenantId, authorize, getPrismaClient, updateAgentSchema, validateAgentConfig, createLogger } from '@chatbot/shared';
 import { AgentService } from '@chatbot/agent-studio';
 import { authOptions } from '@/lib/auth';
 
@@ -49,6 +49,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
         { status: 400 }
       );
+    }
+    // Validate + normalize the guardrails config so malformed shapes are rejected
+    // (400) and valid-but-partial configs are deep-merged over full defaults
+    // before storage (Zod v4 cascade gap would otherwise leave nested guards empty).
+    if (parsed.success && parsed.data.config !== undefined) {
+      const cfgCheck = validateAgentConfig(parsed.data.config);
+      if (!cfgCheck.success) {
+        return NextResponse.json(
+          { error: 'Invalid guardrails config', issues: cfgCheck.error.issues },
+          { status: 400 },
+        );
+      }
+      // Store the normalized config so the DB never holds a partial guardrails policy.
+      parsed.data.config = cfgCheck.data;
     }
     const validatedBody = parsed.data;
     const db = getPrismaClient();

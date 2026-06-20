@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { ZodError } from 'zod';
+import { guardrailsConfigSchema, normalizeGuardrailsConfig } from './guardrails';
 
 export const agentTypeSchema = z.enum(['simple', 'graph']);
 
@@ -184,6 +186,39 @@ export const createMcpServerVersionSchema = z.object({
 export const rotateApiKeySchema = z.object({
   gracePeriodHours: z.number().int().min(0).optional(),
 });
+
+/**
+ * Validate an agent `config` payload, with special handling for the guardrails
+ * section: if `config.guardrails` is present, it is validated against
+ * `guardrailsConfigSchema` (rejecting malformed shapes with a 400 at the route
+ * boundary) AND normalized via `normalizeGuardrailsConfig` so the stored config
+ * always has a fully-defaulted guardrails policy — the Zod v4 `.default({} as never)`
+ * cascade gap would otherwise leave `input`/`output` empty on a partial parse.
+ *
+ * Returns `{ success: true, data }` where `data` is the (normalized) config to
+ * store, or `{ success: false, error }` with the Zod error for the caller to
+ * surface as a 400.
+ */
+export function validateAgentConfig(
+  config: unknown,
+): { success: true; data: unknown } | { success: false; error: ZodError } {
+  if (config && typeof config === 'object' && 'guardrails' in (config as Record<string, unknown>)) {
+    const gr = (config as Record<string, unknown>).guardrails;
+    if (gr !== null && gr !== undefined) {
+      const parsed = guardrailsConfigSchema.safeParse(gr);
+      if (!parsed.success) return { success: false, error: parsed.error };
+      // Normalize: deep-merge over full defaults so nested guards are always present.
+      return {
+        success: true,
+        data: {
+          ...(config as Record<string, unknown>),
+          guardrails: normalizeGuardrailsConfig(gr),
+        },
+      };
+    }
+  }
+  return { success: true, data: config };
+}
 
 export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
