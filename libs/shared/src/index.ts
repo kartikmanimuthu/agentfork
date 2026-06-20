@@ -62,8 +62,6 @@ export type { SubmitCsatInput } from './services/csat-service';
 
 // Validation
 export * from './validation';
-export { guardrailsConfigSchema, defaultGuardrailsConfig } from './validation/schemas/guardrails';
-export type { GuardrailsConfig } from './validation/schemas/guardrails';
 
 // Workflow
 export {

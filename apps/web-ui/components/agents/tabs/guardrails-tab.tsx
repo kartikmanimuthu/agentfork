@@ -9,7 +9,10 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { defaultGuardrailsConfig, guardrailsConfigSchema, type GuardrailsConfig } from '@chatbot/guardrails';
+// Client-safe guardrails config/schema/types come from @chatbot/shared/client, NOT @chatbot/guardrails.
+// The guardrails barrel transitively imports @chatbot/ai (via refusal-response.ts) → pdf-parse → Node
+// 'fs', which breaks client bundling. The config schema's canonical home is shared (client-safe).
+import { defaultGuardrailsConfig, guardrailsConfigSchema, type GuardrailsConfig } from '@chatbot/shared/client';
 import type { SimpleAgentConfig } from '@chatbot/agent-studio';
 
 interface Props {
