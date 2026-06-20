@@ -79,6 +79,8 @@ export * from './validation';
 
 // Dashboards
 export * from './dashboards';
+export { DashboardQueryService, TOP_N } from './services/dashboard-query-service';
+export type { DashboardQueryDb, QueryResultRow } from './services/dashboard-query-service';
 
 // Workflow
 export {
