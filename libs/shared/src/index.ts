@@ -77,6 +77,9 @@ export type { DatasetExportFormat, ExportableItem, ExportResult } from './servic
 // Validation
 export * from './validation';
 
+// Dashboards
+export * from './dashboards';
+
 // Workflow
 export {
   workflowDefinitionSchema,
