@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -22,9 +22,11 @@ export interface WidgetBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (input: { title: string; querySpec: WidgetQuerySpec; layout: { x: number; y: number; w: number; h: number } }) => void;
+  initialSpec?: WidgetQuerySpec;
+  initialTitle?: string;
 }
 
-export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps) {
+export function WidgetBuilder({ open, onOpenChange, onSave, initialSpec, initialTitle }: WidgetBuilderProps) {
   const { data: registry } = useRegistry();
   const sources = registry?.sources ?? [];
 
@@ -35,6 +37,25 @@ export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps
   const [timeBucket, setTimeBucket] = useState<string>('none');
   const [preset, setPreset] = useState<'last_7d' | 'last_30d' | 'last_90d'>('last_30d');
   const [vizType, setVizType] = useState<VizType>('bar');
+  const [filters, setFilters] = useState<Array<{ field: string; op: 'eq' | 'in'; value: string }>>([]);
+
+  // Fix 2: Initialize state from initialSpec/initialTitle when the sheet opens
+  useEffect(() => {
+    if (!open) return;
+    if (initialTitle) setTitle(initialTitle);
+    if (initialSpec) {
+      setSourceKey(initialSpec.source);
+      setMetricKey(initialSpec.metric.key);
+      setDimension(initialSpec.dimension ?? 'none');
+      setTimeBucket(initialSpec.timeBucket ?? 'none');
+      setPreset(
+        'preset' in initialSpec.dateRange
+          ? initialSpec.dateRange.preset
+          : 'last_30d',
+      );
+      setVizType(initialSpec.vizType);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const source = sources.find((s) => s.key === sourceKey);
   const metric = source?.metrics.find((m) => m.key === metricKey);
@@ -46,11 +67,11 @@ export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps
       metric: { key: metric.key },
       dimension: dimension !== 'none' && timeBucket === 'none' ? dimension : undefined,
       timeBucket: timeBucket !== 'none' ? (timeBucket as 'day' | 'week' | 'month') : undefined,
-      filters: [],
+      filters: filters.filter(f => f.field && f.value).map(f => ({ field: f.field, op: f.op, value: f.value })),
       dateRange: { preset },
       vizType,
     } as WidgetQuerySpec;
-  }, [source, metric, dimension, timeBucket, preset, vizType]);
+  }, [source, metric, dimension, timeBucket, preset, vizType, filters]);
 
   const { data, isLoading, error } = useWidgetData(open ? spec : null);
 
@@ -68,7 +89,8 @@ export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Data source</Label>
-              <Select value={sourceKey} onValueChange={(v) => { setSourceKey(v); setMetricKey(''); setDimension('none'); }}>
+              {/* Fix 1 (source change): reset vizType to 'bar' when source changes */}
+              <Select value={sourceKey} onValueChange={(v) => { setSourceKey(v); setMetricKey(''); setDimension('none'); setVizType('bar'); setFilters([]); }}>
                 <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
                 <SelectContent>
                   {sources.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
@@ -78,7 +100,18 @@ export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps
 
             <div className="space-y-1.5">
               <Label>Metric</Label>
-              <Select value={metricKey} onValueChange={setMetricKey} disabled={!source}>
+              {/* Fix 1 (metric change): reset vizType to first valid viz for the new metric */}
+              <Select
+                value={metricKey}
+                onValueChange={(v) => {
+                  setMetricKey(v);
+                  const newMetric = source?.metrics.find(m => m.key === v);
+                  if (newMetric && newMetric.validViz.length > 0) {
+                    setVizType(newMetric.validViz[0]);
+                  }
+                }}
+                disabled={!source}
+              >
                 <SelectTrigger><SelectValue placeholder="Select metric" /></SelectTrigger>
                 <SelectContent>
                   {source?.metrics.map((m) => <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>)}
@@ -108,6 +141,35 @@ export function WidgetBuilder({ open, onOpenChange, onSave }: WidgetBuilderProps
                   <SelectItem value="month">Month</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Fix 3: Filters section */}
+            <div className="space-y-1.5">
+              <Label>Filters</Label>
+              <div className="space-y-2">
+                {filters.map((f, i) => (
+                  <div key={i} className="flex gap-1">
+                    <Select value={f.field} onValueChange={(v) => setFilters(prev => prev.map((x, j) => j === i ? { ...x, field: v } : x))}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Field" /></SelectTrigger>
+                      <SelectContent>
+                        {source?.filters.map(fd => <SelectItem key={fd.key} value={fd.key}>{fd.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={f.op} onValueChange={(v) => setFilters(prev => prev.map((x, j) => j === i ? { ...x, op: v as 'eq' | 'in' } : x))}>
+                      <SelectTrigger className="w-16"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="eq">=</SelectItem>
+                        <SelectItem value="in">in</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input className="flex-1" value={f.value} onChange={(e) => setFilters(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="value" />
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setFilters(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" disabled={!source} onClick={() => setFilters(prev => [...prev, { field: source!.filters[0]?.key ?? '', op: 'eq', value: '' }])}>
+                  + Add filter
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
