@@ -219,7 +219,7 @@ export function WidgetBuilder({ open, onOpenChange, onSave, initialSpec, initial
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             disabled={!spec || !title.trim()}
-            onClick={() => { if (spec) { onSave({ title: title.trim(), querySpec: spec, layout: { x: 0, y: Infinity, w: 6, h: 6 } }); onOpenChange(false); } }}
+            onClick={() => { if (spec) { onSave({ title: title.trim(), querySpec: spec, layout: { x: 0, y: 0, w: 6, h: 6 } }); onOpenChange(false); } }}
           >
             Save widget
           </Button>

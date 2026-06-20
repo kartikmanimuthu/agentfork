@@ -63,7 +63,19 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         <DashboardGrid key={`${dashboard.id}-${dashboard.widgets.length}`} dashboard={dashboard} editable={editing} />
       )}
 
-      <WidgetBuilder open={builderOpen} onOpenChange={setBuilderOpen} onSave={(input) => addWidget.mutate(input)} />
+      <WidgetBuilder
+        open={builderOpen}
+        onOpenChange={setBuilderOpen}
+        onSave={(input) => {
+          // Place the new widget on the next free row (react-grid-layout has no
+          // JSON-safe "bottom" sentinel — Infinity serializes to null).
+          const nextY = dashboard.widgets.reduce(
+            (max, w) => Math.max(max, (w.layout?.y ?? 0) + (w.layout?.h ?? 0)),
+            0,
+          );
+          addWidget.mutate({ ...input, layout: { ...input.layout, y: nextY } });
+        }}
+      />
     </div>
   );
 }
