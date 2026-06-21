@@ -16,6 +16,13 @@
         "command": "bunx eslint src/",
         "cwd": "libs/whatsapp"
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx tsc --noEmit -p tsconfig.json",
+        "cwd": "libs/whatsapp"
+      }
     }
   }
 }

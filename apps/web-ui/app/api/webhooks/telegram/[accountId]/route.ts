@@ -6,10 +6,10 @@ const logger = createLogger('telegram-webhook');
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { accountId: string } },
+  { params }: { params: Promise<{ accountId: string }> },
 ): Promise<NextResponse> {
   try {
-    const { accountId } = params;
+    const { accountId } = await params;
 
     const rawBody = await req.text();
     const secretHeader = req.headers.get('x-telegram-bot-api-secret-token') ?? '';

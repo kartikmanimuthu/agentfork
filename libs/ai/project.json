@@ -19,6 +19,13 @@
         "command": "bunx vitest run",
         "cwd": "libs/ai"
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx tsc --noEmit -p tsconfig.json",
+        "cwd": "libs/ai"
+      }
     }
   }
 }

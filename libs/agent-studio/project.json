@@ -20,6 +20,13 @@
         "command": "bunx vitest run",
         "cwd": "libs/agent-studio"
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx tsc --noEmit -p tsconfig.json",
+        "cwd": "libs/agent-studio"
+      }
     }
   }
 }

@@ -11,7 +11,8 @@
     "start": "node --env-file=../../.env dist/index.js",
     "build": "tsc",
     "test": "vitest run",
-    "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts"
+    "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^2.0.0",
