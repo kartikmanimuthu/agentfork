@@ -61,8 +61,27 @@ export class LlmNodeExecutor implements NodeExecutor {
         }
       }
 
-      // Build MCP ToolSet if server IDs are configured
+      // Resolve any configured built-in tool names against the execution tool registry.
       const tools: ToolSet = {};
+      const registry = ctx.services.toolRegistry;
+      const requestedTools = config.tools ?? [];
+      const missingTools: string[] = [];
+      for (const toolName of requestedTools) {
+        const tool = registry?.[toolName];
+        if (tool) {
+          (tools as any)[toolName] = tool;
+        } else {
+          missingTools.push(toolName);
+        }
+      }
+      if (missingTools.length > 0) {
+        logger.warn(
+          { nodeId: ctx.node.id, missingTools },
+          'llm node references tools that are not in the registry',
+        );
+      }
+
+      // Build MCP ToolSet if server IDs are configured
       const mcpServerIds = config.mcpServerIds ?? [];
 
       for (const serverId of mcpServerIds) {
@@ -128,7 +147,7 @@ export class LlmNodeExecutor implements NodeExecutor {
           status: 'completed',
           startedAt,
           completedAt: new Date().toISOString(),
-          input: { messageCount: messages.length, model: config.model },
+          input: { messageCount: messages.length, model: config.model, toolCount: Object.keys(tools).length },
           output: { responseLength: fullText.length },
         },
       };

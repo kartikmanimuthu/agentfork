@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionTenantId, getSessionUserId, authorize, getPrismaClient, ExperimentService, createLogger, ValidationError, parseJson } from '@chatbot/shared';
+import { experimentCreateSchema } from '@chatbot/shared';
+import type { ExperimentDb } from '@chatbot/shared';
+import { authOptions } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
+const logger = createLogger('api:experiments');
+
+export async function GET() {
+  try {
+    const tenantId = await getSessionTenantId(authOptions);
+    const authError = await authorize('read', 'Experiment', authOptions);
+    if (authError) return authError;
+    const service = new ExperimentService(getPrismaClient() as unknown as ExperimentDb);
+    const experiments = await service.list(tenantId);
+    return NextResponse.json({ experiments });
+  } catch (error) {
+    return handleError(error, 'list experiments');
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const tenantId = await getSessionTenantId(authOptions);
+    const userId = await getSessionUserId(authOptions);
+    const authError = await authorize('create', 'Experiment', authOptions);
+    if (authError) return authError;
+    const body = await parseJson(req, experimentCreateSchema);
+    const service = new ExperimentService(getPrismaClient() as unknown as ExperimentDb);
+    const experiment = await service.create({ ...body, tenantId, createdBy: userId });
+    return NextResponse.json({ experiment }, { status: 201 });
+  } catch (error) {
+    return handleError(error, 'create experiment');
+  }
+}
+
+function handleError(error: unknown, action: string): NextResponse {
+  if (error instanceof ValidationError) {
+    return NextResponse.json({ error: 'Validation failed', issues: error.issues }, { status: 422 });
+  }
+  if (error instanceof Error && error.message.includes('Unauthenticated')) {
+    return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+  }
+  logger.error({ err: error, action }, `Failed to ${action}`);
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+}

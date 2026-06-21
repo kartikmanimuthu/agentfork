@@ -61,6 +61,23 @@ export {
   type PdfInput,
 } from './file-generation';
 
+export {
+  type SearchResult,
+  type WebSearchConfig,
+  type SearchProvider,
+  TavilySearchProvider,
+  BraveSearchProvider,
+  SearxngSearchProvider,
+  createSearchProvider,
+  buildWebSearchTool,
+  type WebFetchOptions,
+  type WebFetchResult,
+  fetchWebPage,
+  buildWebFetchTool,
+  buildBuiltInTools,
+  type ConfigResolver,
+} from './tools';
+
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.
 export { getBedrockProvider } from './bedrock-client';

@@ -28,6 +28,8 @@ import { InferenceOverview } from '@/components/inferences/inference-overview';
 import { InferenceTrace } from '@/components/inferences/inference-trace';
 import { InferenceRaw } from '@/components/inferences/inference-raw';
 import { InferenceMetrics } from '@/components/inferences/inference-metrics';
+import { ScoreDrawer } from '@/components/evaluation/score-drawer';
+import { AddToDatasetDrawer } from '@/components/evaluation/add-to-dataset-drawer';
 
 interface InferenceDetail {
   execution: {
@@ -201,6 +203,19 @@ export default function InferenceDetailPage() {
                 {ex.cacheHit ? 'Cache Hit' : 'Cache Miss'}
               </Badge>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isStateful && session ? (
+              <>
+                <ScoreDrawer targetType="SESSION" targetId={session.id} />
+                <AddToDatasetDrawer targetType="SESSION" targetId={session.id} />
+              </>
+            ) : (
+              <>
+                <ScoreDrawer targetType="EXECUTION" targetId={ex.id} />
+                <AddToDatasetDrawer targetType="EXECUTION" targetId={ex.id} />
+              </>
+            )}
           </div>
         </div>
       </div>

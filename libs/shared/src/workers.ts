@@ -5,3 +5,5 @@ export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { createLogger } from './logging/logger';
 export { TenantConfigService } from './services/tenant-config-service';
 export { LlmProviderService } from './services/llm-provider-service';
+export { EvaluatorRunnerService } from './services/evaluator-runner-service';
+export { ExperimentRunnerService } from './services/experiment-runner-service';

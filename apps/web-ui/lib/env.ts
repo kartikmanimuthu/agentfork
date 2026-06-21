@@ -21,6 +21,11 @@ export const env = createEnv({
     // Bedrock
     BEDROCK_CHAT_MODEL: z.string().optional(),
     BEDROCK_EMBEDDING_MODEL: z.string().optional(),
+
+    // Web Search
+    TAVILY_API_KEY: z.string().optional(),
+    BRAVE_API_KEY: z.string().optional(),
+    SEARXNG_API_BASE: z.string().url().optional(),
   },
   client: {},
   experimental__runtimeEnv: {},

@@ -33,6 +33,15 @@ model Tenant {
   whatsappAccounts  WhatsAppAccount[]
   telegramAccounts  TelegramAccount[]
   sdkWidgets        SdkWidget[]
+  scoreConfigs      ScoreConfig[]
+  scores            Score[]
+  datasets          Dataset[]
+  evaluators        Evaluator[]
+  annotationQueues  AnnotationQueue[]
+  annotationQueueItems AnnotationQueueItem[]
+  experiments       Experiment[]
+  experimentRunItems ExperimentRunItem[]
+  dashboards        Dashboard[]
 
   @@index([status])
   @@map("tenants")
@@ -274,6 +283,7 @@ model AgentVersion {
   aliases            AgentAlias[]
   inferenceSessions  InferenceSession[]
   apiKeyExecutions   ApiKeyExecution[]
+  experimentRunItems ExperimentRunItem[]
 
   @@unique([agentId, version])
   @@index([agentId])
@@ -511,6 +521,8 @@ model ApiKeyExecution {
   session      InferenceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   agent        Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
   agentVersion AgentVersion?     @relation(fields: [agentVersionId], references: [id], onDelete: SetNull)
+  scores       Score[]
+  annotationQueueItems AnnotationQueueItem[]
 
   @@index([apiKeyId, createdAt])
   @@index([tenantId, createdAt])
@@ -545,6 +557,9 @@ model InferenceSession {
   sdkSession   SdkSession?
   feedbacks    MessageFeedback[]
   csatResponse CsatResponse?
+  scores       Score[]
+  experimentRunItems ExperimentRunItem[]
+  annotationQueueItems AnnotationQueueItem[]
 
   @@index([apiKeyId])
   @@index([tenantId, agentId])
@@ -567,6 +582,8 @@ model InferenceSessionMessage {
 
   session  InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback MessageFeedback?
+  scores   Score[]
+  annotationQueueItems AnnotationQueueItem[]
 
   @@index([sessionId])
   @@index([sessionId, createdAt])
@@ -1001,4 +1018,271 @@ model AgentWorkflow {
   @@index([agentId, isActive])
   @@index([tenantId])
   @@map("agent_workflows")
+}
+
+model ScoreConfig {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  dataType    String   // NUMERIC | CATEGORICAL | BOOLEAN
+  minValue    Float?
+  maxValue    Float?
+  categories  Json?    // [{ label: string, value: number }] for CATEGORICAL
+  isArchived  Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scores Score[]
+  evaluators       Evaluator[]
+  annotationQueues AnnotationQueue[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isArchived])
+  @@map("score_configs")
+}
+
+model Score {
+  id           String   @id @default(cuid())
+  tenantId     String
+  configId     String
+  targetType   String   // MESSAGE | SESSION | EXECUTION
+  messageId    String?
+  sessionId    String?
+  executionId  String?
+  numericValue Float?
+  stringValue  String?
+  comment      String?
+  source       String   @default("ANNOTATION") // ANNOTATION | API | EVALUATOR
+  authorUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant    Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  config    ScoreConfig                     @relation(fields: [configId], references: [id], onDelete: Restrict)
+  message   InferenceSessionMessage?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  session   InferenceSession?               @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  execution ApiKeyExecution?                @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  annotationQueueItems AnnotationQueueItem[]
+
+  @@index([tenantId])
+  @@index([messageId])
+  @@index([sessionId])
+  @@index([executionId])
+  @@index([configId])
+  @@index([tenantId, source])
+  @@map("scores")
+}
+
+model Evaluator {
+  id            String  @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  scoreConfigId String
+  prompt        String  @db.Text
+  model         String?
+  temperature   Float?  @default(0.7)
+  maxTokens     Int?    @default(4096)
+  isActive      Boolean @default(true)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scoreConfig ScoreConfig @relation(fields: [scoreConfigId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([scoreConfigId])
+  @@map("evaluators")
+}
+
+model AnnotationQueue {
+  id            String  @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  scoreConfigId String
+  targetType    String // MESSAGE | SESSION | EXECUTION
+  filters       Json? // { sessionIds?, messageIds?, executionIds?, dateRange? }
+  isActive      Boolean @default(true)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scoreConfig ScoreConfig         @relation(fields: [scoreConfigId], references: [id], onDelete: Restrict)
+  items       AnnotationQueueItem[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([scoreConfigId])
+  @@map("annotation_queues")
+}
+
+model AnnotationQueueItem {
+  id             String  @id @default(cuid())
+  queueId        String
+  tenantId       String
+  targetType     String // MESSAGE | SESSION | EXECUTION
+  messageId      String?
+  sessionId      String?
+  executionId    String?
+  status         String  @default("PENDING") // PENDING | REVIEWED | SKIPPED
+  reviewerUserId String?
+  scoreId        String?
+  comment        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  queue     AnnotationQueue        @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  message   InferenceSessionMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  session   InferenceSession?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  execution ApiKeyExecution?         @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  score     Score?                   @relation(fields: [scoreId], references: [id], onDelete: SetNull)
+
+  @@index([queueId])
+  @@index([queueId, status])
+  @@index([tenantId])
+  @@index([messageId])
+  @@index([sessionId])
+  @@index([executionId])
+  @@map("annotation_queue_items")
+}
+
+model Experiment {
+  id              String  @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  datasetId       String
+  agentVersionIds String[]
+  scoreConfigIds  String[]
+  status          String  @default("DRAFT") // DRAFT | RUNNING | COMPLETED | FAILED
+  metadata        Json?
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dataset  Dataset             @relation(fields: [datasetId], references: [id], onDelete: Restrict)
+  runItems ExperimentRunItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([datasetId])
+  @@map("experiments")
+}
+
+model ExperimentRunItem {
+  id                 String  @id @default(cuid())
+  experimentId       String
+  tenantId           String
+  datasetItemId      String
+  agentVersionId     String
+  inferenceSessionId String?
+  status             String  @default("PENDING") // PENDING | RUNNING | COMPLETED | FAILED
+  outputText         String? @db.Text
+  outputJson         Json?
+  latencyMs          Int?
+  tokenUsage         Json?
+  error              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  experiment   Experiment        @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  datasetItem  DatasetItem       @relation(fields: [datasetItemId], references: [id], onDelete: Cascade)
+  agentVersion AgentVersion      @relation(fields: [agentVersionId], references: [id], onDelete: Cascade)
+  session      InferenceSession? @relation(fields: [inferenceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([experimentId])
+  @@index([experimentId, datasetItemId])
+  @@index([experimentId, agentVersionId])
+  @@index([tenantId])
+  @@map("experiment_run_items")
+}
+
+model Dataset {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  metadata    Json?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  DatasetItem[]
+  experiments Experiment[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("datasets")
+}
+
+model DatasetItem {
+  id              String   @id @default(cuid())
+  datasetId       String
+  input           Json
+  expectedOutput  Json?
+  metadata        Json?
+  status          String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  sourceMessageId   String?  // provenance only, no FK
+  sourceSessionId   String?  // provenance only, no FK
+  sourceExecutionId String?  // provenance only, no FK
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  dataset Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  experimentRunItems ExperimentRunItem[]
+
+  @@index([datasetId])
+  @@index([datasetId, status])
+  @@map("dataset_items")
+}
+
+model Dashboard {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isDefault   Boolean           @default(false)
+  createdById String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  widgets DashboardWidget[]
+
+  @@index([tenantId])
+  @@map("dashboards")
+}
+
+model DashboardWidget {
+  id          String   @id @default(cuid())
+  dashboardId String
+  tenantId    String
+  title       String
+  vizType     String
+  querySpec   Json
+  layout      Json
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@index([tenantId])
+  @@map("dashboard_widgets")
 }

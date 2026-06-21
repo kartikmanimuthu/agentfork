@@ -10,9 +10,11 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { LlmNodeConfig } from '@chatbot/agent-studio';
 import { useMcpServers } from '@/hooks/use-mcp-servers';
+import { BUILT_IN_TOOLS, BUILT_IN_TOOL_NAMES } from './built-in-tools';
 
 const schema = z.object({
   model: z.string().min(1, 'Model is required'),
@@ -36,6 +38,11 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
   const selectedServerIdsRef = useRef<string[]>(config.mcpServerIds ?? []);
   const [selectedServerIds, setSelectedServerIds] = useState<string[]>(config.mcpServerIds ?? []);
 
+  // Preserve any non-built-in tool names already wired into this node.
+  const [enabledBuiltIns, setEnabledBuiltIns] = useState<string[]>(
+    (config.tools ?? []).filter((t) => BUILT_IN_TOOL_NAMES.includes(t)),
+  );
+
   const form = useForm({
     defaultValues: {
       model: config.model ?? '',
@@ -46,6 +53,8 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
     } as LlmFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
+      const nonBuiltInTools = (config.tools ?? []).filter((t) => !BUILT_IN_TOOL_NAMES.includes(t));
+      const tools = [...nonBuiltInTools, ...enabledBuiltIns];
       onChange({
         type: 'llm',
         model: value.model,
@@ -56,6 +65,7 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
           ? value.contextChannels.filter(Boolean)
           : undefined,
         mcpServerIds: selectedServerIdsRef.current.length ? selectedServerIdsRef.current : undefined,
+        tools: tools.length > 0 ? tools : undefined,
       });
     },
   });
@@ -69,6 +79,28 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
     selectedServerIdsRef.current = next;
     setSelectedServerIds(next);
     form.handleSubmit();
+  };
+
+  const toggleBuiltIn = (name: string, enabled: boolean) => {
+    setEnabledBuiltIns((prev) => {
+      const next = enabled ? [...new Set([...prev, name])] : prev.filter((t) => t !== name);
+      // Persist immediately so the change is saved without needing another field blur.
+      const nonBuiltInTools = (config.tools ?? []).filter((t) => !BUILT_IN_TOOL_NAMES.includes(t));
+      const tools = [...nonBuiltInTools, ...next];
+      onChange({
+        type: 'llm',
+        model: form.state.values.model,
+        systemPrompt: form.state.values.systemPrompt || undefined,
+        temperature: form.state.values.temperature,
+        maxTokens: form.state.values.maxTokens || undefined,
+        contextChannels: form.state.values.contextChannels?.filter(Boolean).length
+          ? form.state.values.contextChannels.filter(Boolean)
+          : undefined,
+        mcpServerIds: selectedServerIdsRef.current.length ? selectedServerIdsRef.current : undefined,
+        tools: tools.length > 0 ? tools : undefined,
+      });
+      return next;
+    });
   };
 
   return (
@@ -256,6 +288,33 @@ export function LlmNodeForm({ config, onChange }: LlmNodeFormProps) {
         <p className="text-xs text-muted-foreground">
           Selected servers&apos; tools are passed to the LLM at inference time.
         </p>
+      </div>
+
+      <div className="grid gap-3">
+        <div>
+          <Label>Tools</Label>
+          <p className="text-xs text-muted-foreground">
+            Built-in tools this node can call during agentic loops.
+          </p>
+        </div>
+        {BUILT_IN_TOOLS.map((tool) => {
+          const checked = enabledBuiltIns.includes(tool.name);
+          return (
+            <div key={tool.name} className="flex items-center justify-between gap-4 rounded-md border p-3">
+              <div className="grid gap-0.5">
+                <Label htmlFor={`llm-tool-${tool.name}`} className="cursor-pointer">
+                  {tool.label}
+                </Label>
+                <p className="text-xs text-muted-foreground">{tool.description}</p>
+              </div>
+              <Switch
+                id={`llm-tool-${tool.name}`}
+                checked={checked}
+                onCheckedChange={(v) => toggleBuiltIn(tool.name, v)}
+              />
+            </div>
+          );
+        })}
       </div>
     </form>
   );

@@ -1,4 +1,4 @@
-export type Module = 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders';
+export type Module = 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders' | 'Evaluation' | 'Dashboards';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -27,6 +27,17 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   McpServers: 'McpServers',
   LlmProvider: 'LlmProviders',
   LlmProviders: 'LlmProviders',
+  Score: 'Evaluation',
+  ScoreConfig: 'Evaluation',
+  Dataset: 'Evaluation',
+  DatasetItem: 'Evaluation',
+  Evaluator: 'Evaluation',
+  AnnotationQueue: 'Evaluation',
+  AnnotationQueueItem: 'Evaluation',
+  Experiment: 'Evaluation',
+  ExperimentRunItem: 'Evaluation',
+  Dashboard: 'Dashboards',
+  DashboardWidget: 'Dashboards',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

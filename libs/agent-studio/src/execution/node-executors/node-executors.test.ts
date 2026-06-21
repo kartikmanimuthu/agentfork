@@ -193,22 +193,58 @@ describe('RouterNodeExecutor', () => {
 describe('ToolNodeExecutor', () => {
   const executor = new ToolNodeExecutor();
 
-  it('returns empty result with tool_result channel', async () => {
+  it('resolves the tool from the registry, executes it, and writes a named result channel', async () => {
+    const execute = vi.fn().mockResolvedValue({ results: ['ok'] });
     const ctx = createMockContext({
       node: createMockNode({ id: 'tool-1', type: 'tool', label: 'Tool' }),
       config: {
         type: 'tool',
-        toolName: 'search',
+        toolName: 'web_search',
         parameters: { query: 'test' },
+      },
+      services: {
+        llmProvider: vi.fn(),
+        prisma: {},
+        toolRegistry: { web_search: { description: 'd', execute } },
       },
     });
 
     const result = await executor.execute(ctx);
 
-    expect(result.stateUpdates).toEqual({ tool_result: null });
+    expect(execute).toHaveBeenCalledWith({ query: 'test' }, {});
+    expect(result.stateUpdates).toEqual({ web_search_result: { results: ['ok'] }, tool_result: { results: ['ok'] } });
     expect(result.next).toBeNull();
     expect(result.trace.status).toBe('completed');
-    expect(result.trace.input).toEqual({ toolName: 'search', parameters: { query: 'test' } });
+    expect(result.trace.input).toEqual({ toolName: 'web_search', parameters: { query: 'test' } });
+  });
+
+  it('fails gracefully when the tool is not in the registry', async () => {
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'tool-1', type: 'tool', label: 'Tool' }),
+      config: { type: 'tool', toolName: 'missing', parameters: {} },
+      services: { llmProvider: vi.fn(), prisma: {}, toolRegistry: {} },
+    });
+
+    const result = await executor.execute(ctx);
+
+    expect(result.stateUpdates).toEqual({ missing_result: null, tool_result: null });
+    expect(result.trace.status).toBe('failed');
+    expect(result.trace.error).toMatch(/not available/);
+  });
+
+  it('surfaces a thrown tool error as a failed trace', async () => {
+    const execute = vi.fn().mockRejectedValue(new Error('tool boom'));
+    const ctx = createMockContext({
+      node: createMockNode({ id: 'tool-1', type: 'tool', label: 'Tool' }),
+      config: { type: 'tool', toolName: 'web_fetch', parameters: { url: 'https://x' } },
+      services: { llmProvider: vi.fn(), prisma: {}, toolRegistry: { web_fetch: { execute } } },
+    });
+
+    const result = await executor.execute(ctx);
+
+    expect(result.trace.status).toBe('failed');
+    expect(result.trace.error).toBe('tool boom');
+    expect(result.stateUpdates).toEqual({ web_fetch_result: null, tool_result: null });
   });
 });
 
@@ -244,7 +280,7 @@ describe('LlmNodeExecutor', () => {
     expect(result.stateUpdates).toEqual({ response: 'Hello world' });
     expect(result.next).toBeNull();
     expect(result.trace.status).toBe('completed');
-    expect(result.trace.input).toEqual({ messageCount: 1, model: 'claude-3' });
+    expect(result.trace.input).toEqual({ messageCount: 1, model: 'claude-3', toolCount: 0 });
     expect(result.trace.output).toEqual({ responseLength: 11 });
 
     expect(emit).toHaveBeenCalledTimes(3);
@@ -259,6 +295,33 @@ describe('LlmNodeExecutor', () => {
       temperature: 0.7,
       maxOutputTokens: undefined,
     });
+  });
+
+  it('resolves configured tool names from the registry and passes them to the provider', async () => {
+    const mockProvider = {
+      streamChat: vi.fn().mockReturnValue({
+        textStream: (async function* () { yield 'ok'; })(),
+      }),
+    };
+    const webSearchTool = { description: 'search', execute: vi.fn() };
+    const ctx = createMockContext({
+      state: createMockState({ messages: [{ role: 'user', content: 'Hi' }] }),
+      node: createMockNode({ id: 'llm-1', type: 'llm', label: 'LLM' }),
+      config: { type: 'llm', model: 'claude-3', tools: ['web_search', 'not_registered'] },
+      services: {
+        llmProvider: vi.fn().mockResolvedValue(mockProvider),
+        prisma: {},
+        toolRegistry: { web_search: webSearchTool },
+      },
+      emit: vi.fn(),
+    });
+
+    const result = await executor.execute(ctx);
+
+    expect(result.trace.input).toEqual({ messageCount: 1, model: 'claude-3', toolCount: 1 });
+    const call = mockProvider.streamChat.mock.calls[0][0];
+    expect(call.tools).toEqual({ web_search: webSearchTool });
+    expect(call.maxSteps).toBe(10);
   });
 
   it('propagates provider errors', async () => {

@@ -28,6 +28,8 @@ export interface LlmNodeConfig {
   mcpServerIds?: string[];
   /** Channel names whose string values are injected as RAG context into the last user message */
   contextChannels?: string[];
+  /** Built-in tool names wired into this node */
+  tools?: string[];
 }
 
 export interface ToolNodeConfig {

@@ -64,11 +64,36 @@ export { FeedbackService } from './services/feedback-service';
 export type { SubmitFeedbackInput } from './services/feedback-service';
 export { CsatService } from './services/csat-service';
 export type { SubmitCsatInput } from './services/csat-service';
+export { ScoreConfigService } from './services/score-config-service';
+export type { CreateScoreConfigInput, UpdateScoreConfigInput, ScoreDataType, ScoreCategory, ScoreConfigDb } from './services/score-config-service';
+export { ScoreService } from './services/score-service';
+export type { CreateManualScoreInput, IngestScoreInput, ScoreFilters, ScoreTargetType, ScoreValue, ScoreDb } from './services/score-service';
+export { DatasetService } from './services/dataset-service';
+export type { CreateDatasetInput, UpdateDatasetInput, DatasetDb } from './services/dataset-service';
+export { DatasetItemService } from './services/dataset-item-service';
+export type { CreateDatasetItemInput, UpdateDatasetItemInput, AddFromTraceInput, DatasetItemDb } from './services/dataset-item-service';
+export { EvaluatorService } from './services/evaluator-service';
+export type { CreateEvaluatorInput, UpdateEvaluatorInput, EvaluatorDb } from './services/evaluator-service';
+export { AnnotationQueueService } from './services/annotation-queue-service';
+export type { CreateAnnotationQueueInput, UpdateAnnotationQueueInput, AnnotationQueueDb } from './services/annotation-queue-service';
+export { AnnotationQueueItemService } from './services/annotation-queue-item-service';
+export type { ReviewQueueItemInput, AnnotationQueueItemDb } from './services/annotation-queue-item-service';
+export { ExperimentService } from './services/experiment-service';
+export type { CreateExperimentInput, UpdateExperimentInput, ExperimentDb } from './services/experiment-service';
+export { exportDatasetItems } from './services/dataset-export';
+export type { DatasetExportFormat, ExportableItem, ExportResult } from './services/dataset-export';
 // SES email service available for future use when @aws-sdk/client-ses is installed:
 // export { SESEmailService } from './services/ses-email-service';
 
 // Validation
 export * from './validation';
+
+// Dashboards
+export * from './dashboards';
+export { DashboardQueryService, TOP_N } from './services/dashboard-query-service';
+export type { DashboardQueryDb, QueryResultRow } from './services/dashboard-query-service';
+export { DashboardService } from './services/dashboard-service';
+export type { DashboardDb } from './services/dashboard-service';
 
 // Workflow
 export {
