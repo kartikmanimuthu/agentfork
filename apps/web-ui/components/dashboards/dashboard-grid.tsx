@@ -12,7 +12,7 @@ const ResponsiveGrid = WidthProvider(Responsive);
 export function DashboardGrid({ dashboard, editable }: { dashboard: DashboardDTO; editable: boolean }) {
   const qc = useQueryClient();
   const [widgets, setWidgets] = useState<WidgetDTO[]>(dashboard.widgets);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const saveLayout = useMutation({
     mutationFn: async (layouts: { id: string; layout: WidgetDTO['layout'] }[]) => {

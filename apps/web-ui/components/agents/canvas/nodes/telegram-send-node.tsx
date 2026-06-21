@@ -28,7 +28,7 @@ export const TelegramSendNode = memo(function TelegramSendNode({ data, selected 
       </div>
 
       <div className="px-3 py-2 space-y-1">
-        <p className="text-[11px] text-muted-foreground truncate">{nodeData.config.text || 'No text configured'}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{nodeData.config.messageChannel ?? 'No channel configured'}</p>
       </div>
 
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />

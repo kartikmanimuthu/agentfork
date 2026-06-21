@@ -48,7 +48,7 @@ export function Pricing() {
           {tiers.map((tier) => {
             const Card = tier.highlighted ? motion.div : 'div';
             const cardProps = tier.highlighted
-              ? { whileHover: { scale: 1.02 }, transition: { type: 'spring', stiffness: 300, damping: 20 } }
+              ? { whileHover: { scale: 1.02 }, transition: { type: 'spring' as const, stiffness: 300, damping: 20 } }
               : {};
 
             return (

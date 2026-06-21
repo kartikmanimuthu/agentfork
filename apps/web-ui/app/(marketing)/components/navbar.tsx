@@ -57,13 +57,14 @@ export function Navbar() {
           >
             Sign in
           </Link>
-          <Button
-            asChild
-            size="sm"
-            className="bg-[#6366f1] hover:bg-[#4f46e5] text-white border-none"
-          >
-            <Link href="/register">Get Started</Link>
-          </Button>
+          <Link href="/register">
+            <Button
+              size="sm"
+              className="bg-[#6366f1] hover:bg-[#4f46e5] text-white border-none"
+            >
+              Get Started
+            </Button>
+          </Link>
         </div>
       </div>
     </header>
