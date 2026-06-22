@@ -98,6 +98,68 @@ Click through the flow in the browser, copy the generated snippet from the inspe
 
 > Codegen does **not** start the `webServer` — that only happens during `playwright test` runs. Start the server yourself first.
 
+### Prompt template — handing a recording to an agent
+
+Paste this into a new chat/session along with the raw codegen snippet. You don't need to know the module name, the target file, or whether a spec already exists for this flow — the agent figures that out by inspecting the repo. Self-contained — works even if the agent hasn't read this file yet.
+
+```
+Convert this Playwright codegen recording into a proper e2e test for
+this project (apps/web-ui-e2e), following its existing conventions —
+see apps/web-ui-e2e/README.md for the full reference if anything below
+is unclear.
+
+What I was testing: <one sentence, e.g. "viewing the Custom Dashboards
+list and opening one">
+
+First, figure out where this belongs before writing anything — the
+e2e suite (apps/web-ui-e2e) only has test code for features someone
+already wrote a test for, so don't rely on it alone:
+- List apps/web-ui-e2e/src/modules/ and check src/constants/tags.ts to
+  see which modules already exist.
+- Also check the real app source at apps/web-ui/app/(dashboard)/ — each
+  top-level folder there is a real feature (e.g. mcp-servers, audit,
+  analytics, sessions, knowledge-bases) and may have no e2e module yet.
+  Use this to name the module even when nothing matches in step 1.
+- If apps/web-ui/components/<route-name>/ exists, glance at it for
+  distinct sub-flows under the same route (e.g. agents/ contains both
+  a simple-agent-form and a graph canvas) so the test lands in the
+  right describe block, not lumped in with an unrelated flow.
+- Match the recording's URLs/UI against the above — reuse an existing
+  module folder if this flow clearly belongs to one already (check its
+  existing .spec.ts file for overlap first), otherwise create a new
+  src/modules/<module>/ folder and a matching tag in tags.ts.
+- Tell me what module/file you decided on and why, before or alongside
+  the test — this is your checkpoint to correct a wrong call before
+  anything is written.
+
+Raw codegen output:
+```ts
+<paste the inspector's generated code here>
+```
+
+Requirements:
+- Import { test, expect } from '../../fixtures/base' (not '@playwright/test').
+- Use the `anonPage` fixture for unauthenticated flows, the default `page`
+  fixture for authenticated ones — never inline `storageState`.
+- Use `ROUTES` constants (src/constants/routes.ts) instead of hardcoded
+  URLs; add a new ROUTES entry if the path is missing.
+- Replace any hardcoded personal data (real email/password/names) with
+  generated unique values, e.g. `` `e2e-${Date.now()}@example.com` `` —
+  the test must pass on every run, not just the first.
+- Strip recorder noise (duplicate clicks, dblclicks, redundant .click()
+  immediately before .fill()).
+- Add real `expect(...)` assertions for the end state — the recorder
+  only logs actions, never checks anything.
+- Tag the describe block per src/constants/tags.ts: one module tag +
+  one or more priority tags (@smoke/@regression/@critical/@anon/etc).
+- Reuse existing page objects/helpers (src/pages/, src/helpers/) instead
+  of inlining selectors, if one already exists for this flow.
+- Verify any fragile-looking selector against the real running app
+  before finalizing (e.g. the playwright-cli skill, or manual codegen) —
+  don't trust the recorder's selectors blindly, especially around
+  Radix/Base UI components (checkboxes/selects often have label quirks).
+```
+
 ---
 
 ## Architecture
