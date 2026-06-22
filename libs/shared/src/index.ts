@@ -84,6 +84,15 @@ export type { DashboardQueryDb, QueryResultRow } from './services/dashboard-quer
 export { DashboardService } from './services/dashboard-service';
 export type { DashboardDb } from './services/dashboard-service';
 
+// Reports (custom SQL)
+export * from './reports';
+export { ReportService } from './services/report-service';
+export type { ReportDb } from './services/report-service';
+export { ReportQueryService, ReportQueryError } from './services/report-query-service';
+export type { ReportQueryDb, ReportTx } from './services/report-query-service';
+export { ReportSchemaService } from './services/report-schema-service';
+export type { ReportSchemaDb } from './services/report-schema-service';
+
 // Workflow
 export {
   workflowDefinitionSchema,

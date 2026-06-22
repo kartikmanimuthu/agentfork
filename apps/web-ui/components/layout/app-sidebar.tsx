@@ -64,6 +64,7 @@ import {
   ClipboardCheck,
   ListChecks,
   FlaskConical,
+  FileBarChart2,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
@@ -75,6 +76,7 @@ const mainNav = [
 const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
   { name: 'Custom Dashboards', href: '/dashboards', icon: LayoutGrid },
+  { name: 'SQL Reports', href: '/reports', icon: FileBarChart2 },
   { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Inferences', href: '/inferences', icon: Zap },
 ];

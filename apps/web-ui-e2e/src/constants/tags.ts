@@ -17,6 +17,7 @@ export const TAG = {
   navigation: '@navigation',
   inferenceApi: '@inference-api',
   dashboards: '@dashboards',
+  reports: '@reports',
 
   // type / priority axis
   smoke: '@smoke',

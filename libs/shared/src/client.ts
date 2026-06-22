@@ -4,6 +4,9 @@
 export * from './validation/schemas';
 export * from './validation/parse-request';
 
+// Reports — pure viz types, zod schemas, and constants (no prisma/env deps).
+export * from './reports';
+
 // Workflow — pure graph utilities + types/schemas (no env/prisma/aws deps).
 export {
   graphToDefinition,

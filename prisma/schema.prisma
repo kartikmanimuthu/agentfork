@@ -41,6 +41,7 @@ model Tenant {
   experiments       Experiment[]
   experimentRunItems ExperimentRunItem[]
   dashboards        Dashboard[]
+  reports           Report[]
 
   @@index([status])
   @@map("tenants")
@@ -1194,4 +1195,25 @@ model DashboardWidget {
   @@index([dashboardId])
   @@index([tenantId])
   @@map("dashboard_widgets")
+}
+
+// Custom SQL reports (Metabase-style). Admin-authored read-only native queries,
+// executed under RLS as the dedicated read-only role (see migration). vizConfig
+// maps result columns to chart axes: { xKey, yKeys[], seriesKey? }.
+model Report {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  sqlText     String
+  vizType     String   @default("table") // table | line | bar | area | pie | kpi
+  vizConfig   Json     @default("{}")
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("reports")
 }

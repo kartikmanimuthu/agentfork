@@ -14,6 +14,7 @@ const permissionSetSchema = z.object({
   LlmProviders: actionArraySchema,
   Evaluation: actionArraySchema,
   Dashboards: actionArraySchema,
+  Reports: actionArraySchema,
 }).refine(
   (p) => Object.values(p).flat().length > 0,
   { message: 'At least one permission is required' }

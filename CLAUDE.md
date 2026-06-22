@@ -142,6 +142,8 @@ bun run dev:all                      # web-ui + workers + SDK dev server (SDK_DE
 - Prisma client must be regenerated after schema changes (`bunx prisma generate`).
 - E2e tests depend on `web-ui:build` (configured in `nx.json` targetDefaults).
 - `serverExternalPackages` in `next.config.ts` excludes `@prisma/client`, `bcryptjs`, `pino`, and `thread-stream` from bundling.
+- **Client components must import _values_ from `@chatbot/shared/client`, never `@chatbot/shared`.** The root barrel pulls in Prisma/pino (server-only) and throws at module-load in the browser (the route's error boundary renders "Something went wrong"). `import type` from the root barrel is fine (erased). `next.config.ts` has `typescript.ignoreBuildErrors: true`, so this is NOT caught at build time — only at runtime.
+- **UI components are Base UI (`@base-ui/react`), not Radix.** Different API: triggers use `render={<Button nativeButton={false}/>}` (not `asChild`), and menu/select `GroupLabel` parts **throw at render** if not wrapped in their `Group` ("MenuGroupRootContext is missing"). For a bare menu heading use a plain `<div>`, not `ContextMenuLabel`/`SelectLabel`.
 - Fumadocs v14 is pinned for Tailwind v3 compatibility. Import its CSS in `layout.tsx`, not `globals.css`.
 - SDK assets in `apps/web-ui/public/sdk-assets/` are build output — don't edit manually. Regenerate with `bun run sdk:build`.
 - The SDK widget uses `position: fixed` — preview pages render it inside an iframe to contain it.
