@@ -72,7 +72,7 @@ test.describe('Evaluation — Experiment validation', { tag: [TAG.evaluation, TA
       await page.getByLabel(new RegExp(`^${config.name} `)).first().check();
       await page.getByRole('button', { name: /^create$/i }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.locator('text=/required|invalid/i')).toBeVisible();
+      await expect(page.locator('p.text-destructive')).toBeVisible();
       await page.getByRole('button', { name: /cancel/i }).click();
     });
 

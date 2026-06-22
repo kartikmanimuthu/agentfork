@@ -57,7 +57,7 @@ test.describe('Evaluation — Evaluator validation', { tag: [TAG.evaluation, TAG
       await page.getByLabel('Prompt').fill('Rate this.');
       await page.getByRole('button', { name: /^create$/i }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.locator('text=/required|invalid/i')).toBeVisible();
+      await expect(page.locator('p.text-destructive')).toBeVisible();
       await page.getByRole('button', { name: /cancel/i }).click();
     });
 
