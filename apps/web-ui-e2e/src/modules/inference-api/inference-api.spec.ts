@@ -77,6 +77,47 @@ test.describe('Inferences Dashboard API', { tag: [TAG.inferenceApi, TAG.api, TAG
   });
 });
 
+test.describe('Scores Ingest API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke] }, () => {
+  test('rejects without API key', async ({ request }) => {
+    const res = await request.post('/api/v1/scores', { data: {} });
+    expect(res.status()).toBe(401);
+  });
+
+  test('rejects an API key missing the scores:write scope', async ({ request }) => {
+    const { apiKey } = await ensureSimpleAgentWithApiKey(request);
+    const res = await request.post('/api/v1/scores', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { configId: 'irrelevant', targetType: 'SESSION', targetId: 'irrelevant', value: 1 },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('ingests a score for a session target (authenticated, scores:write scope)', async ({ request, page }) => {
+    const { apiKey } = await ensureSimpleAgentWithApiKey(request, { scopes: ['inference:read', 'scores:write'] });
+
+    const sessionRes = await request.post('/api/v1/inference/sessions', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { name: 'e2e-score-target', channel: 'API' },
+    });
+    expect(sessionRes.ok()).toBeTruthy();
+    const session = await sessionRes.json();
+
+    const configRes = await page.request.post('/api/evaluation/score-configs', {
+      data: { name: `e2e-score-config-${Date.now()}`, dataType: 'NUMERIC', minValue: 0, maxValue: 1 },
+    });
+    expect(configRes.ok()).toBeTruthy();
+    const { config } = await configRes.json();
+
+    const res = await request.post('/api/v1/scores', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { configId: config.id, targetType: 'SESSION', targetId: session.id, value: 1 },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.score.configId).toBe(config.id);
+  });
+});
+
 // Deliberately not tagged @smoke/@critical — slower (real agent provisioning +
 // a live LLM call via whatever Bedrock credentials are in the local .env), runs
 // as part of `bun run e2e`/`e2e:dev` rather than the fast smoke subset.

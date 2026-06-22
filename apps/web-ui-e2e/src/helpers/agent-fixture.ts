@@ -13,9 +13,14 @@ import type { APIRequestContext } from '@playwright/test';
  *   publishing a version does NOT change the agent's own status.
  * - POST /api/agents/[id]/api-keys returns { rawKey, apiKey } — the raw secret
  *   is `rawKey`, NOT `apiKey.key` or `apiKey.token`.
+ *
+ * `options.scopes` defaults to the route's own default (`['inference:read']`)
+ * when omitted — pass e.g. `['inference:read', 'scores:write']` for routes
+ * that check a specific scope.
  */
 export async function ensureSimpleAgentWithApiKey(
   request: APIRequestContext,
+  options?: { scopes?: string[] },
 ): Promise<{ agentId: string; apiKey: string }> {
   const agentRes = await request.post('/api/agents', {
     data: { name: `e2e-agent-${Date.now()}`, type: 'simple', config: {} },
@@ -50,7 +55,7 @@ export async function ensureSimpleAgentWithApiKey(
   }
 
   const keyRes = await request.post(`/api/agents/${agentId}/api-keys`, {
-    data: { name: 'e2e-key' },
+    data: { name: 'e2e-key', scopes: options?.scopes },
   });
   if (!keyRes.ok()) {
     throw new Error(`Failed to mint API key: ${keyRes.status()} ${await keyRes.text()}`);
