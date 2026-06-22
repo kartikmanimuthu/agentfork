@@ -41,6 +41,7 @@
     "e2e:regression": "nx e2e:regression web-ui-e2e",
     "affected:test": "nx affected -t test",
     "affected:build": "nx affected -t build",
+    "verify": "nx affected -t typecheck && nx affected -t test && bun run e2e:smoke",
     "graph": "nx graph",
     "sdk:build": "cd apps/sdk && bunx stencil build && rm -rf ../web-ui/public/sdk-assets && mkdir -p ../web-ui/public/sdk-assets && cp dist/smc-chat-widget/*.js ../web-ui/public/sdk-assets/",
     "sdk:dev": "cd apps/sdk && bunx stencil build --dev --watch --serve --port 3007"
