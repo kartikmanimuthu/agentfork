@@ -1,18 +1,56 @@
 -- CreateTable
-CREATE TABLE "evaluators" (
+CREATE TABLE "score_configs" (
     "id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "score_config_id" TEXT NOT NULL,
+    "dataType" TEXT NOT NULL,
+    "minValue" DOUBLE PRECISION,
+    "maxValue" DOUBLE PRECISION,
+    "categories" JSONB,
+    "isArchived" BOOLEAN NOT NULL DEFAULT false,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "score_configs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "scores" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "configId" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "messageId" TEXT,
+    "sessionId" TEXT,
+    "executionId" TEXT,
+    "numericValue" DOUBLE PRECISION,
+    "stringValue" TEXT,
+    "comment" TEXT,
+    "source" TEXT NOT NULL DEFAULT 'ANNOTATION',
+    "authorUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "scores_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "evaluators" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "scoreConfigId" TEXT NOT NULL,
     "prompt" TEXT NOT NULL,
     "model" TEXT,
     "temperature" DOUBLE PRECISION DEFAULT 0.7,
-    "max_tokens" INTEGER DEFAULT 4096,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_by" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "maxTokens" INTEGER DEFAULT 4096,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "evaluators_pkey" PRIMARY KEY ("id")
 );
@@ -20,16 +58,16 @@ CREATE TABLE "evaluators" (
 -- CreateTable
 CREATE TABLE "annotation_queues" (
     "id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "score_config_id" TEXT NOT NULL,
-    "target_type" TEXT NOT NULL,
+    "scoreConfigId" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
     "filters" JSONB,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_by" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "annotation_queues_pkey" PRIMARY KEY ("id")
 );
@@ -37,18 +75,18 @@ CREATE TABLE "annotation_queues" (
 -- CreateTable
 CREATE TABLE "annotation_queue_items" (
     "id" TEXT NOT NULL,
-    "queue_id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
-    "target_type" TEXT NOT NULL,
-    "message_id" TEXT,
-    "session_id" TEXT,
-    "execution_id" TEXT,
+    "queueId" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "messageId" TEXT,
+    "sessionId" TEXT,
+    "executionId" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
-    "reviewer_user_id" TEXT,
-    "score_id" TEXT,
+    "reviewerUserId" TEXT,
+    "scoreId" TEXT,
     "comment" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "annotation_queue_items_pkey" PRIMARY KEY ("id")
 );
@@ -56,17 +94,17 @@ CREATE TABLE "annotation_queue_items" (
 -- CreateTable
 CREATE TABLE "experiments" (
     "id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "dataset_id" TEXT NOT NULL,
-    "agent_version_ids" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "score_config_ids" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "datasetId" TEXT NOT NULL,
+    "agentVersionIds" TEXT[],
+    "scoreConfigIds" TEXT[],
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
     "metadata" JSONB,
-    "created_by" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "experiments_pkey" PRIMARY KEY ("id")
 );
@@ -74,133 +112,274 @@ CREATE TABLE "experiments" (
 -- CreateTable
 CREATE TABLE "experiment_run_items" (
     "id" TEXT NOT NULL,
-    "experiment_id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
-    "dataset_item_id" TEXT NOT NULL,
-    "agent_version_id" TEXT NOT NULL,
-    "inference_session_id" TEXT,
+    "experimentId" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "datasetItemId" TEXT NOT NULL,
+    "agentVersionId" TEXT NOT NULL,
+    "inferenceSessionId" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
-    "output_text" TEXT,
-    "output_json" JSONB,
-    "latency_ms" INTEGER,
-    "token_usage" JSONB,
+    "outputText" TEXT,
+    "outputJson" JSONB,
+    "latencyMs" INTEGER,
+    "tokenUsage" JSONB,
     "error" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "experiment_run_items_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "evaluators_tenant_id_name_key" ON "evaluators"("tenant_id", "name");
+-- CreateTable
+CREATE TABLE "datasets" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "metadata" JSONB,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "datasets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "dataset_items" (
+    "id" TEXT NOT NULL,
+    "datasetId" TEXT NOT NULL,
+    "input" JSONB NOT NULL,
+    "expectedOutput" JSONB,
+    "metadata" JSONB,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "sourceMessageId" TEXT,
+    "sourceSessionId" TEXT,
+    "sourceExecutionId" TEXT,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "dataset_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "dashboards" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "dashboards_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "dashboard_widgets" (
+    "id" TEXT NOT NULL,
+    "dashboardId" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "vizType" TEXT NOT NULL,
+    "querySpec" JSONB NOT NULL,
+    "layout" JSONB NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "dashboard_widgets_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateIndex
-CREATE INDEX "evaluators_tenant_id_idx" ON "evaluators"("tenant_id");
+CREATE INDEX "score_configs_tenantId_idx" ON "score_configs"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "evaluators_tenant_id_is_active_idx" ON "evaluators"("tenant_id", "is_active");
+CREATE INDEX "score_configs_tenantId_isArchived_idx" ON "score_configs"("tenantId", "isArchived");
 
 -- CreateIndex
-CREATE INDEX "evaluators_score_config_id_idx" ON "evaluators"("score_config_id");
+CREATE UNIQUE INDEX "score_configs_tenantId_name_key" ON "score_configs"("tenantId", "name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "annotation_queues_tenant_id_name_key" ON "annotation_queues"("tenant_id", "name");
+CREATE INDEX "scores_tenantId_idx" ON "scores"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queues_tenant_id_idx" ON "annotation_queues"("tenant_id");
+CREATE INDEX "scores_messageId_idx" ON "scores"("messageId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queues_tenant_id_is_active_idx" ON "annotation_queues"("tenant_id", "is_active");
+CREATE INDEX "scores_sessionId_idx" ON "scores"("sessionId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queues_score_config_id_idx" ON "annotation_queues"("score_config_id");
+CREATE INDEX "scores_executionId_idx" ON "scores"("executionId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_queue_id_idx" ON "annotation_queue_items"("queue_id");
+CREATE INDEX "scores_configId_idx" ON "scores"("configId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_queue_id_status_idx" ON "annotation_queue_items"("queue_id", "status");
+CREATE INDEX "scores_tenantId_source_idx" ON "scores"("tenantId", "source");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_tenant_id_idx" ON "annotation_queue_items"("tenant_id");
+CREATE INDEX "evaluators_tenantId_idx" ON "evaluators"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_message_id_idx" ON "annotation_queue_items"("message_id");
+CREATE INDEX "evaluators_tenantId_isActive_idx" ON "evaluators"("tenantId", "isActive");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_session_id_idx" ON "annotation_queue_items"("session_id");
+CREATE INDEX "evaluators_scoreConfigId_idx" ON "evaluators"("scoreConfigId");
 
 -- CreateIndex
-CREATE INDEX "annotation_queue_items_execution_id_idx" ON "annotation_queue_items"("execution_id");
+CREATE UNIQUE INDEX "evaluators_tenantId_name_key" ON "evaluators"("tenantId", "name");
 
 -- CreateIndex
-CREATE INDEX "experiments_tenant_id_idx" ON "experiments"("tenant_id");
+CREATE INDEX "annotation_queues_tenantId_idx" ON "annotation_queues"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "experiments_tenant_id_status_idx" ON "experiments"("tenant_id", "status");
+CREATE INDEX "annotation_queues_tenantId_isActive_idx" ON "annotation_queues"("tenantId", "isActive");
 
 -- CreateIndex
-CREATE INDEX "experiments_dataset_id_idx" ON "experiments"("dataset_id");
+CREATE INDEX "annotation_queues_scoreConfigId_idx" ON "annotation_queues"("scoreConfigId");
 
 -- CreateIndex
-CREATE INDEX "experiment_run_items_experiment_id_idx" ON "experiment_run_items"("experiment_id");
+CREATE UNIQUE INDEX "annotation_queues_tenantId_name_key" ON "annotation_queues"("tenantId", "name");
 
 -- CreateIndex
-CREATE INDEX "experiment_run_items_experiment_id_dataset_item_id_idx" ON "experiment_run_items"("experiment_id", "dataset_item_id");
+CREATE INDEX "annotation_queue_items_queueId_idx" ON "annotation_queue_items"("queueId");
 
 -- CreateIndex
-CREATE INDEX "experiment_run_items_experiment_id_agent_version_id_idx" ON "experiment_run_items"("experiment_id", "agent_version_id");
+CREATE INDEX "annotation_queue_items_queueId_status_idx" ON "annotation_queue_items"("queueId", "status");
 
 -- CreateIndex
-CREATE INDEX "experiment_run_items_tenant_id_idx" ON "experiment_run_items"("tenant_id");
+CREATE INDEX "annotation_queue_items_tenantId_idx" ON "annotation_queue_items"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "annotation_queue_items_messageId_idx" ON "annotation_queue_items"("messageId");
+
+-- CreateIndex
+CREATE INDEX "annotation_queue_items_sessionId_idx" ON "annotation_queue_items"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "annotation_queue_items_executionId_idx" ON "annotation_queue_items"("executionId");
+
+-- CreateIndex
+CREATE INDEX "experiments_tenantId_idx" ON "experiments"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "experiments_tenantId_status_idx" ON "experiments"("tenantId", "status");
+
+-- CreateIndex
+CREATE INDEX "experiments_datasetId_idx" ON "experiments"("datasetId");
+
+-- CreateIndex
+CREATE INDEX "experiment_run_items_experimentId_idx" ON "experiment_run_items"("experimentId");
+
+-- CreateIndex
+CREATE INDEX "experiment_run_items_experimentId_datasetItemId_idx" ON "experiment_run_items"("experimentId", "datasetItemId");
+
+-- CreateIndex
+CREATE INDEX "experiment_run_items_experimentId_agentVersionId_idx" ON "experiment_run_items"("experimentId", "agentVersionId");
+
+-- CreateIndex
+CREATE INDEX "experiment_run_items_tenantId_idx" ON "experiment_run_items"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "datasets_tenantId_idx" ON "datasets"("tenantId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "datasets_tenantId_name_key" ON "datasets"("tenantId", "name");
+
+-- CreateIndex
+CREATE INDEX "dataset_items_datasetId_idx" ON "dataset_items"("datasetId");
+
+-- CreateIndex
+CREATE INDEX "dataset_items_datasetId_status_idx" ON "dataset_items"("datasetId", "status");
+
+-- CreateIndex
+CREATE INDEX "dashboards_tenantId_idx" ON "dashboards"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "dashboard_widgets_dashboardId_idx" ON "dashboard_widgets"("dashboardId");
+
+-- CreateIndex
+CREATE INDEX "dashboard_widgets_tenantId_idx" ON "dashboard_widgets"("tenantId");
 
 -- AddForeignKey
-ALTER TABLE "evaluators" ADD CONSTRAINT "evaluators_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "score_configs" ADD CONSTRAINT "score_configs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "evaluators" ADD CONSTRAINT "evaluators_score_config_id_fkey" FOREIGN KEY ("score_config_id") REFERENCES "score_configs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "scores" ADD CONSTRAINT "scores_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queues" ADD CONSTRAINT "annotation_queues_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "scores" ADD CONSTRAINT "scores_configId_fkey" FOREIGN KEY ("configId") REFERENCES "score_configs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queues" ADD CONSTRAINT "annotation_queues_score_config_id_fkey" FOREIGN KEY ("score_config_id") REFERENCES "score_configs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "scores" ADD CONSTRAINT "scores_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "inference_session_messages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_queue_id_fkey" FOREIGN KEY ("queue_id") REFERENCES "annotation_queues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "scores" ADD CONSTRAINT "scores_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "inference_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "scores" ADD CONSTRAINT "scores_executionId_fkey" FOREIGN KEY ("executionId") REFERENCES "api_key_executions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "inference_session_messages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "evaluators" ADD CONSTRAINT "evaluators_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "inference_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "evaluators" ADD CONSTRAINT "evaluators_scoreConfigId_fkey" FOREIGN KEY ("scoreConfigId") REFERENCES "score_configs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_execution_id_fkey" FOREIGN KEY ("execution_id") REFERENCES "api_key_executions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "annotation_queues" ADD CONSTRAINT "annotation_queues_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_score_id_fkey" FOREIGN KEY ("score_id") REFERENCES "scores"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "annotation_queues" ADD CONSTRAINT "annotation_queues_scoreConfigId_fkey" FOREIGN KEY ("scoreConfigId") REFERENCES "score_configs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiments" ADD CONSTRAINT "experiments_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_queueId_fkey" FOREIGN KEY ("queueId") REFERENCES "annotation_queues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiments" ADD CONSTRAINT "experiments_dataset_id_fkey" FOREIGN KEY ("dataset_id") REFERENCES "datasets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_experiment_id_fkey" FOREIGN KEY ("experiment_id") REFERENCES "experiments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "inference_session_messages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "inference_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_dataset_item_id_fkey" FOREIGN KEY ("dataset_item_id") REFERENCES "dataset_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_executionId_fkey" FOREIGN KEY ("executionId") REFERENCES "api_key_executions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_agent_version_id_fkey" FOREIGN KEY ("agent_version_id") REFERENCES "agent_versions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "annotation_queue_items" ADD CONSTRAINT "annotation_queue_items_scoreId_fkey" FOREIGN KEY ("scoreId") REFERENCES "scores"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_inference_session_id_fkey" FOREIGN KEY ("inference_session_id") REFERENCES "inference_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "experiments" ADD CONSTRAINT "experiments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiments" ADD CONSTRAINT "experiments_datasetId_fkey" FOREIGN KEY ("datasetId") REFERENCES "datasets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_experimentId_fkey" FOREIGN KEY ("experimentId") REFERENCES "experiments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_datasetItemId_fkey" FOREIGN KEY ("datasetItemId") REFERENCES "dataset_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_agentVersionId_fkey" FOREIGN KEY ("agentVersionId") REFERENCES "agent_versions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "experiment_run_items" ADD CONSTRAINT "experiment_run_items_inferenceSessionId_fkey" FOREIGN KEY ("inferenceSessionId") REFERENCES "inference_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "datasets" ADD CONSTRAINT "datasets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "dataset_items" ADD CONSTRAINT "dataset_items_datasetId_fkey" FOREIGN KEY ("datasetId") REFERENCES "datasets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "dashboards" ADD CONSTRAINT "dashboards_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_dashboardId_fkey" FOREIGN KEY ("dashboardId") REFERENCES "dashboards"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
