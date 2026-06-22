@@ -3,7 +3,10 @@ import { z } from 'zod';
 export const mcpServerNodeSchema = z.object({
   type: z.literal('mcp_server'),
   serverId: z.string().min(1),
-  toolName: z.string().min(1),
+  serverName: z.string().optional(),
+  toolMode: z.enum(['single', 'selected', 'all']).optional(),
+  toolName: z.string().optional(),
+  toolNames: z.array(z.string()).optional(),
   argumentSource: z.enum(['from_state', 'static']),
   staticArguments: z.record(z.string(), z.unknown()).optional(),
   channelMappings: z.record(z.string(), z.string()).optional(),

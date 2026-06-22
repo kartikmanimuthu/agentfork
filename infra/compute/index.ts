@@ -41,7 +41,13 @@ const region = aws.config.region ?? "us-east-1";
 const config = new pulumi.Config();
 const appUrl = config.get("appUrl") ?? "https://placeholder.cloudfront.net";
 const subscriptionEmails = config.get("subscriptionEmails") ?? "";
-const appName = "chatbot";
+const appName = config.get("appName") ?? "chatbot";
+// Bedrock API key (bearer token) for the bedrock-mantle OpenAI-compatible gateway —
+// set via `pulumi config set --secret bedrockBearerToken <value>`. Optional: only
+// needed for models routed through bedrock-mantle (e.g. moonshotai.*, deepseek.*) when tools are attached.
+const bedrockBearerToken = config.getSecret("bedrockBearerToken");
+// Postgres identifiers (dbName, username) only allow letters, numbers, underscores
+const dbIdentifier = appName.replace(/-/g, "_");
 
 // Dynamically generated — stored in AWS Secrets Manager, never in Pulumi config
 const nextauthSecretRandom = new random.RandomPassword("nextauth-secret-random", {
@@ -89,6 +95,21 @@ const databaseUrlSm = new aws.secretsmanager.Secret("database-url", {
     recoveryWindowInDays: 0,
 });
 
+// Bedrock bearer token — only created if `bedrockBearerToken` config is set
+let bedrockBearerTokenSm: aws.secretsmanager.Secret | undefined;
+if (bedrockBearerToken) {
+    bedrockBearerTokenSm = new aws.secretsmanager.Secret("bedrock-bearer-token", {
+        name: `${appName}/bedrock-bearer-token`,
+        description: "Bedrock API key (bearer token) for the bedrock-mantle gateway",
+        recoveryWindowInDays: 0,
+    });
+
+    new aws.secretsmanager.SecretVersion("bedrock-bearer-token-version", {
+        secretId: bedrockBearerTokenSm.id,
+        secretString: bedrockBearerToken,
+    });
+}
+
 // database-url-version is created after postgresInstance (needs .address output)
 
 const nextauthSecret = nextauthSecretRandom.result;
@@ -100,7 +121,8 @@ const dbPassword = dbPasswordRandom.result;
 
 // StackReference to networking project.
 // Format for S3 backend: "organization/<project>/<stack>" (literal "organization" required)
-const networking = new pulumi.StackReference("organization/chatbot-networking/prod");
+const currentStack = pulumi.getStack();
+const networking = new pulumi.StackReference(`organization/chatbot-networking/${currentStack}`);
 
 // Networking outputs — all required (networking must be deployed before compute can preview)
 const vpcId = networking.requireOutput("vpcId") as pulumi.Output<string>;
@@ -308,10 +330,10 @@ const rdsSecurityGroup = new aws.ec2.SecurityGroup("rds-sg", {
 const postgresInstance = new aws.rds.Instance("postgres", {
     identifier: `${appName}-postgres`,
     engine: "postgres",
-    engineVersion: "16.6",
+    engineVersion: "16.9",
     instanceClass: "db.t4g.micro",
-    dbName: appName,
-    username: `${appName}_admin`,
+    dbName: dbIdentifier,
+    username: `${dbIdentifier}_admin`,
     password: dbPassword,
     dbSubnetGroupName: dbSubnetGroupName,
     vpcSecurityGroupIds: [rdsSecurityGroup.id],
@@ -326,7 +348,7 @@ const postgresInstance = new aws.rds.Instance("postgres", {
 // Store full connection string in Secrets Manager (needs postgresInstance.address)
 new aws.secretsmanager.SecretVersion("database-url-version", {
     secretId: databaseUrlSm.id,
-    secretString: pulumi.interpolate`postgresql://${appName}_admin:${dbPasswordRandom.result}@${postgresInstance.address}:5432/${appName}?sslmode=require&uselibpqcompat=true`,
+    secretString: pulumi.interpolate`postgresql://${dbIdentifier}_admin:${dbPasswordRandom.result}@${postgresInstance.address}:5432/${dbIdentifier}?sslmode=require&uselibpqcompat=true`,
 });
 
 
@@ -482,14 +504,19 @@ new aws.iam.RolePolicyAttachment("ecs-task-execution-role-policy", {
 
 new aws.iam.RolePolicy("ecs-execution-role-secrets-policy", {
     role: ecsTaskExecutionRole.id,
-    policy: pulumi.all([nextauthSecretSm.arn, databaseUrlSm.arn, encryptionKeySm.arn]).apply(
-        ([nextauthArn, dbArn, encArn]) =>
+    policy: pulumi.all([
+        nextauthSecretSm.arn,
+        databaseUrlSm.arn,
+        encryptionKeySm.arn,
+        bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
+    ]).apply(
+        ([nextauthArn, dbArn, encArn, bedrockBearerArn]) =>
             JSON.stringify({
                 Version: "2012-10-17",
                 Statement: [{
                     Effect: "Allow",
                     Action: ["secretsmanager:GetSecretValue"],
-                    Resource: [nextauthArn, dbArn, encArn],
+                    Resource: [nextauthArn, dbArn, encArn, ...(bedrockBearerArn ? [bedrockBearerArn] : [])],
                 }],
             })
     ),
@@ -534,7 +561,7 @@ new aws.iam.RolePolicy("ecs-task-bedrock-policy", {
         Version: "2012-10-17",
         Statement: [{
             Effect: "Allow",
-            Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+            Action: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:ListFoundationModels"],
             Resource: ["*"],
         }],
     }),
@@ -605,11 +632,13 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         nextauthSecretSm.arn,
         databaseUrlSm.arn,
         encryptionKeySm.arn,
+        bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
     ]).apply(([
         cognitoPoolId, cognitoClientId, cognitoClientSecret,
         appBucketN,
         webUiLogGroupN, acctId, imageUri,
         nextauthSecretArn, databaseUrlArn, encryptionKeyArn,
+        bedrockBearerTokenArn,
     ]) => JSON.stringify([{
         name: "WebUIContainer",
         image: imageUri,
@@ -627,6 +656,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "NEXTAUTH_SECRET", valueFrom: nextauthSecretArn },
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
             { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
+            ...(bedrockBearerTokenArn ? [{ name: "AWS_BEARER_TOKEN_BEDROCK", valueFrom: bedrockBearerTokenArn }] : []),
         ],
         environment: [
             { name: "NODE_ENV", value: "production" },

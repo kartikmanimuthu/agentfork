@@ -12,8 +12,8 @@ export interface TenantLLMConfig {
   region?: string;
 }
 
-export const DEFAULT_BEDROCK_CHAT_MODEL = 'anthropic.claude-sonnet-4-20250514';
-export const DEFAULT_BEDROCK_EMBEDDING_MODEL = 'amazon.titan-embed-text-v2:0';
+export const DEFAULT_BEDROCK_CHAT_MODEL = process.env['BEDROCK_CHAT_MODEL'] ?? 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+export const DEFAULT_BEDROCK_EMBEDDING_MODEL = process.env['BEDROCK_EMBEDDING_MODEL'] ?? 'amazon.titan-embed-text-v2:0';
 export const DEFAULT_OPENAI_CHAT_MODEL = 'gpt-4o';
 export const DEFAULT_OPENAI_EMBEDDING_MODEL = 'text-embedding-3-large';
 

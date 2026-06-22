@@ -1,4 +1,4 @@
-import { createLogger as createPinoLogger } from '@chatbot/shared/workers';
+import pino from 'pino';
 import { env } from '../env';
 
 type LogArgs =
@@ -12,8 +12,41 @@ function parseArgs(args: LogArgs): [Record<string, unknown>, string] {
   return [args[0] as Record<string, unknown>, args[1] as string];
 }
 
+const isDev = env.NODE_ENV !== 'production';
+
+const baseLogger = pino({
+  level: env.LOG_LEVEL,
+  transport: isDev
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
+  redact: {
+    paths: [
+      'password',
+      'passwordHash',
+      'token',
+      'authorization',
+      'cookie',
+      'apiKey',
+      '*.password',
+      '*.passwordHash',
+      '*.token',
+      '*.authorization',
+      '*.cookie',
+      '*.apiKey',
+    ],
+    censor: '[Redacted]',
+  },
+});
+
 export function createLogger(context: string) {
-  const logger = createPinoLogger(context);
+  const logger = baseLogger.child({ context });
   return {
     info: (...args: LogArgs) => { const [data, msg] = parseArgs(args); logger.info(data, msg); },
     warn: (...args: LogArgs) => { const [data, msg] = parseArgs(args); logger.warn(data, msg); },

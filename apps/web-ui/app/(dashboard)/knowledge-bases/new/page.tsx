@@ -67,9 +67,10 @@ export default function NewKnowledgeBasePage() {
   const handleModelChange = (modelId: string) => {
     if (!providers) return;
     for (const provider of providers) {
-      const discovered = (provider.models as { models?: Array<{ id: string; name: string }> } | null)?.models ?? [];
-      const match = discovered.find((m) => m.id === modelId);
-      if (match) {
+      const discovered =
+        (provider.models as { models?: Array<{ id: string; name: string; capabilities: string[] }> } | null)?.models ?? [];
+      const match = discovered.find((m) => m.id === modelId && m.capabilities.includes('embedding'));
+      if (match || provider.embeddingModel === modelId) {
         form.setFieldValue('embeddingProvider', provider.id);
         form.setFieldValue('embeddingModel', modelId);
         form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);

@@ -18,6 +18,12 @@ export interface PlaygroundMessage extends UIMessage {
   trace?: Record<string, unknown>;
 }
 
+export interface PlaygroundPauseInfo {
+  prompt: string;
+  resumeToken: string;
+  executionId: string;
+}
+
 interface UsePlaygroundOptions {
   agentId: string;
   agentType: 'simple' | 'graph';
@@ -52,6 +58,7 @@ export function usePlayground({
   const [messageMetrics, setMessageMetrics] = useState<Map<string, MessageMetrics>>(new Map());
   const [rawDataMap, setRawDataMap] = useState<Map<string, RawData>>(new Map());
   const [thinkingMap, setThinkingMap] = useState<Map<string, ThinkingContent>>(new Map());
+  const [pauseInfo, setPauseInfo] = useState<PlaygroundPauseInfo | null>(null);
 
   // For simple agents, use AI SDK streaming
   const transport = useMemo(
@@ -214,6 +221,7 @@ export function usePlayground({
 
       // Graph agent: SSE streaming with console event capture
       setIsGraphLoading(true);
+      setPauseInfo(null);
       const assistantMessageId = crypto.randomUUID();
       const requestStartTime = Date.now();
       let fullText = '';
@@ -376,6 +384,13 @@ export function usePlayground({
                     next.set(assistantMessageId, metrics);
                     return next;
                   });
+                } else if (pendingEventType === 'execution_paused' && typeof data.resumeToken === 'string') {
+                  const executionIdHeader = res.headers.get('x-execution-id') ?? '';
+                  setPauseInfo({
+                    prompt: (data.prompt as string) ?? '',
+                    resumeToken: data.resumeToken,
+                    executionId: executionIdHeader,
+                  });
                 }
               } catch {
                 // skip malformed events
@@ -421,6 +436,177 @@ export function usePlayground({
     [agentId, agentType, versionId, alias, overrides, graphMessages, sendMessage, onError]
   );
 
+  const handleResume = useCallback(
+    async (userInput: string) => {
+      if (!pauseInfo) return;
+      setIsGraphLoading(true);
+
+      const userMessage: PlaygroundMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        parts: [{ type: 'text' as const, text: userInput }],
+      };
+      setGraphMessages((prev) => [...prev, userMessage]);
+      const capturedPauseInfo = pauseInfo;
+      setPauseInfo(null);
+
+      const resumeMessageId = crypto.randomUUID();
+      let resumeText = '';
+      const rawSseLines: string[] = [];
+      const resumeStartTime = Date.now();
+      let resumeTtftMs: number | undefined;
+
+      try {
+        const res = await fetch(`/api/agents/${agentId}/playground/resume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resumeToken: capturedPauseInfo.resumeToken,
+            userInput,
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error ?? 'Failed to resume agent');
+        }
+
+        const executionId = res.headers.get('x-execution-id') ?? undefined;
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          let pendingEventType = '';
+          for (const line of lines) {
+            rawSseLines.push(line);
+            if (line.startsWith('event: ')) {
+              pendingEventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ') && pendingEventType) {
+              try {
+                const data = JSON.parse(line.slice(6)) as Record<string, unknown>;
+                const relativeMs = Date.now() - resumeStartTime;
+
+                setConsoleEvents((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    messageId: resumeMessageId,
+                    timestamp: Date.now(),
+                    relativeMs,
+                    severity: pendingEventType === 'error' ? ('error' as const) : ('info' as const),
+                    type: pendingEventType,
+                    data,
+                  },
+                ]);
+
+                if (pendingEventType === 'text_delta' && typeof data.delta === 'string') {
+                  if (resumeTtftMs === undefined) resumeTtftMs = relativeMs;
+                  resumeText += data.delta;
+                  setGraphMessages((prev) => {
+                    const existing = prev.find((m) => m.id === resumeMessageId);
+                    if (existing) {
+                      return prev.map((m) =>
+                        m.id === resumeMessageId
+                          ? { ...m, parts: [{ type: 'text' as const, text: resumeText }] }
+                          : m
+                      );
+                    }
+                    return [
+                      ...prev,
+                      {
+                        id: resumeMessageId,
+                        role: 'assistant' as const,
+                        parts: [{ type: 'text' as const, text: resumeText }],
+                        executionId,
+                      },
+                    ];
+                  });
+                } else if (pendingEventType === 'execution_paused' && typeof data.resumeToken === 'string' && executionId) {
+                  setPauseInfo({
+                    prompt: (data.prompt as string) ?? '',
+                    resumeToken: data.resumeToken,
+                    executionId,
+                  });
+                } else if (pendingEventType === 'execution_end') {
+                  const usage = (data.usage as { inputTokens?: number; outputTokens?: number; thinkingTokens?: number }) ?? {};
+                  const model = (data.model as string) ?? 'unknown';
+                  setMessageMetrics((prev) => {
+                    const next = new Map(prev);
+                    next.set(resumeMessageId, {
+                      messageId: resumeMessageId,
+                      inputTokens: usage.inputTokens ?? 0,
+                      outputTokens: usage.outputTokens ?? 0,
+                      thinkingTokens: usage.thinkingTokens ?? 0,
+                      totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) + (usage.thinkingTokens ?? 0),
+                      ttftMs: resumeTtftMs ?? 0,
+                      durationMs: (data.durationMs as number) ?? Date.now() - resumeStartTime,
+                      model,
+                      costEstimate: calculateCost(model, {
+                        inputTokens: usage.inputTokens ?? 0,
+                        outputTokens: usage.outputTokens ?? 0,
+                        thinkingTokens: usage.thinkingTokens,
+                      }),
+                    });
+                    return next;
+                  });
+                }
+              } catch {
+                // skip malformed events
+              }
+              pendingEventType = '';
+            } else {
+              if (line === '') pendingEventType = '';
+            }
+          }
+        }
+
+        setRawDataMap((prev) => {
+          const next = new Map(prev);
+          next.set(resumeMessageId, {
+            request: {
+              method: 'POST',
+              url: `/api/agents/${agentId}/playground/resume`,
+              headers: { 'Content-Type': 'application/json' },
+              body: { resumeToken: capturedPauseInfo.resumeToken, userInput },
+            },
+            response: { status: res.status, headers: {} },
+            sseStream: rawSseLines,
+          });
+          return next;
+        });
+
+        if (resumeText) {
+          setGraphMessages((prev) => {
+            if (prev.find((m) => m.id === resumeMessageId)) return prev;
+            return [
+              ...prev,
+              {
+                id: resumeMessageId,
+                role: 'assistant' as const,
+                parts: [{ type: 'text' as const, text: resumeText }],
+                executionId,
+              },
+            ];
+          });
+        }
+      } catch (err) {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setIsGraphLoading(false);
+      }
+    },
+    [pauseInfo, agentId, setGraphMessages, setConsoleEvents, setMessageMetrics, setRawDataMap, onError]
+  );
+
   const handleRegenerate = useCallback(() => {
     if (!agentId) return;
     if (agentType === 'simple') {
@@ -459,11 +645,13 @@ export function usePlayground({
   return {
     messages,
     isLoading,
+    pauseInfo,
     overrides,
     setOverrides,
     executions,
     refreshExecutions,
     handleSend,
+    handleResume,
     handleRegenerate,
     setMessages,
     // Console data

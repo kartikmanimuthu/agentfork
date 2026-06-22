@@ -11,7 +11,8 @@
     "start": "node --env-file=../../.env dist/index.js",
     "build": "tsc",
     "test": "vitest run",
-    "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts"
+    "test:kb-sync": "tsx --env-file=../../.env src/scripts/test-kb-sync.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^2.0.0",
@@ -21,6 +22,8 @@
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
     "pg-boss": "^10.4.0",
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0",
     "uuid": "^10.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.4.2"

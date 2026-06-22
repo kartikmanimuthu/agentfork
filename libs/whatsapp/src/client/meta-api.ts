@@ -102,7 +102,7 @@ export class MetaWhatsAppClient {
   async uploadMedia(file: Buffer, mimeType: string, filename: string): Promise<UploadMediaResponse> {
     const formData = new FormData();
     formData.append('messaging_product', 'whatsapp');
-    formData.append('file', new Blob([file], { type: mimeType }), filename);
+    formData.append('file', new Blob([file as unknown as ArrayBuffer], { type: mimeType }), filename);
     formData.append('type', mimeType);
 
     const response = await fetch(`${this.baseUrl}/${this.phoneNumberId}/media`, {

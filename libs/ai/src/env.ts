@@ -7,6 +7,7 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
     AWS_SESSION_TOKEN: z.string().optional(),
+    AWS_BEARER_TOKEN_BEDROCK: z.string().optional(),
 
     // Web Search — at least one provider must be configured for the web_search tool to be available
     TAVILY_API_KEY: z.string().optional(),

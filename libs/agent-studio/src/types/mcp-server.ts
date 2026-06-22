@@ -15,7 +15,7 @@ export interface StdioTransportConfig {
 
 export interface HttpBridgeTransportConfig {
   bridgeUrl: string;
-  targetCommand: string;
+  targetCommand?: string;
 }
 
 export type McpServerTransportConfig =

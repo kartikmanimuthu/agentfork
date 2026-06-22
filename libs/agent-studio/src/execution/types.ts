@@ -68,8 +68,17 @@ export type ExecutionEvent =
   | { type: 'execution_complete'; finalState: GraphState; trace: NodeTraceEntry[] }
   | { type: 'execution_paused'; reason: string; resumeToken: string };
 
+export interface PauseInfo {
+  resumeToken: string;
+  nextNodeId: string | null;
+  prompt: string;
+  outputChannel: string;
+  state: GraphState;
+}
+
 export interface ExecutionOptions {
   onEvent?: (event: ExecutionEvent) => void;
   signal?: AbortSignal;
   maxSteps?: number;
+  onPause?: (info: PauseInfo) => Promise<void>;
 }

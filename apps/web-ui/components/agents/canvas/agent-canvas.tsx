@@ -13,6 +13,8 @@ import {
   type Node,
   type Edge,
   type OnConnect,
+  type OnEdgesChange,
+  type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NodeRegistry, GraphValidationService } from '@chatbot/agent-studio';
@@ -76,7 +78,39 @@ export function AgentCanvas({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState(initialNodes.map(toRfNode));
-  const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState(initialEdges.map(toRfEdge));
+  const [rfEdges, setRfEdges, onEdgesChangeBase] = useEdgesState(initialEdges.map(toRfEdge));
+
+  const onEdgesChange: OnEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      // When a KB→LLM edge is removed, unwire the KB channel from the LLM node
+      const removals = changes.filter((c) => c.type === 'remove');
+      if (removals.length > 0) {
+        setRfNodes((nds) => {
+          let updated = nds;
+          for (const change of removals) {
+            const edge = rfEdges.find((e) => e.id === (change as { id: string }).id);
+            if (!edge) continue;
+            const sourceNode = nds.find((n) => n.id === edge.source);
+            const targetNode = nds.find((n) => n.id === edge.target);
+            if (sourceNode?.type === 'knowledge_base' && targetNode?.type === 'llm') {
+              const kbConfig = sourceNode.data.config as Record<string, unknown>;
+              const llmConfig = targetNode.data.config as Record<string, unknown>;
+              const outputChannel = (kbConfig.outputChannel as string) ?? 'kb_results';
+              const existing = (llmConfig.contextChannels as string[]) ?? [];
+              updated = updated.map((n) =>
+                n.id === targetNode.id
+                  ? { ...n, data: { ...n.data, config: { ...llmConfig, contextChannels: existing.filter((ch) => ch !== outputChannel) } } }
+                  : n
+              );
+            }
+          }
+          return updated;
+        });
+      }
+      onEdgesChangeBase(changes);
+    },
+    [onEdgesChangeBase, rfEdges, setRfNodes]
+  );
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
@@ -110,9 +144,35 @@ export function AgentCanvas({
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       setRfEdges((eds) => addEdge(connection, eds));
+
+      // Auto-wire KB outputChannel → LLM contextChannels when a KB→LLM edge is drawn
+      if (connection.source && connection.target) {
+        setRfNodes((nds) => {
+          const sourceNode = nds.find((n) => n.id === connection.source);
+          const targetNode = nds.find((n) => n.id === connection.target);
+          if (
+            sourceNode?.type === 'knowledge_base' &&
+            targetNode?.type === 'llm'
+          ) {
+            const kbConfig = sourceNode.data.config as Record<string, unknown>;
+            const llmConfig = targetNode.data.config as Record<string, unknown>;
+            const outputChannel = (kbConfig.outputChannel as string) ?? 'kb_results';
+            const existing = (llmConfig.contextChannels as string[]) ?? [];
+            if (!existing.includes(outputChannel)) {
+              return nds.map((n) =>
+                n.id === targetNode.id
+                  ? { ...n, data: { ...n.data, config: { ...llmConfig, contextChannels: [...existing, outputChannel] } } }
+                  : n
+              );
+            }
+          }
+          return nds;
+        });
+      }
+
       setIsDirty(true);
     },
-    [setRfEdges]
+    [setRfEdges, setRfNodes]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -137,17 +197,25 @@ export function AgentCanvas({
 
       const def = NodeRegistry.get(nodeType as Parameters<typeof NodeRegistry.get>[0]);
       const id = `${nodeType}-${Date.now()}`;
+      const existingLabels = rfNodes.map((n) => (n.data as { label: string }).label);
+      const baseLabel = def.label;
+      let label = baseLabel;
+      if (existingLabels.includes(label)) {
+        let i = 2;
+        while (existingLabels.includes(`${baseLabel} ${i}`)) i++;
+        label = `${baseLabel} ${i}`;
+      }
       const newNode: Node = {
         id,
         type: nodeType,
         position,
-        data: { label: def.label, config: def.defaultConfig },
+        data: { label, config: def.defaultConfig },
       };
 
       setRfNodes((nds) => [...nds, newNode]);
       setIsDirty(true);
     },
-    [setRfNodes]
+    [setRfNodes, rfNodes]
   );
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -208,10 +276,19 @@ export function AgentCanvas({
       const source = rfNodes.find((n) => n.id === nodeId);
       if (!source) return;
       const id = `${source.type}-${Date.now()}`;
+      const baseLabel = (source.data as { label: string }).label;
+      const existingLabels = rfNodes.map((n) => (n.data as { label: string }).label);
+      let label = `${baseLabel} (copy)`;
+      if (existingLabels.includes(label)) {
+        let i = 2;
+        while (existingLabels.includes(`${baseLabel} (copy ${i})`)) i++;
+        label = `${baseLabel} (copy ${i})`;
+      }
       const newNode: Node = {
         ...source,
         id,
         position: { x: source.position.x + 50, y: source.position.y + 50 },
+        data: { ...(source.data as object), label },
         selected: false,
       };
       setRfNodes((nds) => [...nds, newNode]);
@@ -419,6 +496,14 @@ export function AgentCanvas({
 
         <ConfigPanel
           node={selectedNode}
+          allNodes={rfNodes
+            .filter((n) => n.id !== selectedNodeId)
+            .map((n) => ({
+              id: n.id,
+              label: (n.data as { label: string }).label,
+              type: n.type ?? 'unknown',
+            }))}
+          agentId={agentId}
           onClose={() => setSelectedNodeId(null)}
           onConfigChange={handleConfigChange}
           onDelete={handleDeleteNode}

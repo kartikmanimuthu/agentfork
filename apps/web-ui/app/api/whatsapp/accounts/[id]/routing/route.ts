@@ -7,12 +7,12 @@ const logger = createLogger('whatsapp-routing');
 
 const updateRoutingSchema = z.object({
   strategy: z.enum(['menu', 'keyword', 'ai_intent', 'time_based']),
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
   fallbackAgentId: z.string().nullable().optional(),
   rules: z.array(z.object({
     agentId: z.string().min(1),
     priority: z.number().int().min(0),
-    condition: z.record(z.unknown()),
+    condition: z.record(z.string(), z.unknown()),
     isActive: z.boolean().default(true),
   })).optional(),
 });

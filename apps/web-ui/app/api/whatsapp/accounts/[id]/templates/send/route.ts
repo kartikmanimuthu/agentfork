@@ -12,7 +12,7 @@ const sendTemplateSchema = z.object({
   languageCode: z.string().min(1),
   components: z.array(z.object({
     type: z.enum(['header', 'body', 'button']),
-    parameters: z.array(z.record(z.unknown())),
+    parameters: z.array(z.record(z.string(), z.unknown())),
     sub_type: z.string().optional(),
     index: z.number().optional(),
   })).optional(),

@@ -100,7 +100,11 @@ describe('MessageProcessor', () => {
     });
 
     expect(mockSessionManager.findActiveSession).toHaveBeenCalledWith('acc_1', '15559876543');
-    expect(mockAgentExecutor.execute).toHaveBeenCalledWith('agent_1', expect.objectContaining({ text: 'Hi' }), {});
+    expect(mockAgentExecutor.execute).toHaveBeenCalledWith(
+      'agent_1',
+      expect.objectContaining({ text: 'Hi', mediaType: 'text' }),
+      expect.objectContaining({ wa_sender_id: '15559876543', wa_session_id: 'sess_1' }),
+    );
     expect(mockMetaClient.sendTextMessage).toHaveBeenCalledWith('15559876543', 'Hello! How can I help?');
     expect(mockSessionManager.refreshWindow).toHaveBeenCalledWith('sess_1');
     expect(mockContactLock.release).toHaveBeenCalledWith('acc_1', '15559876543');

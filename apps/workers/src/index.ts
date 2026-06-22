@@ -5,6 +5,8 @@ import { register as registerDocumentIngestion } from './jobs/document-ingestion
 import { register as registerWebCrawl } from './jobs/web-crawl/register.js';
 import { register as registerInferenceSessionAnalytics } from './jobs/inference-session-analytics/register.js';
 import { register as registerInferenceSessionIdleWatcher } from './jobs/inference-session-idle-watcher/register.js';
+import { register as registerResumeAgentExecution } from './jobs/resume-agent-execution/register.js';
+import { register as registerExpirePausedExecutions } from './jobs/expire-paused-executions/register.js';
 import { register as registerEvaluatorRun } from './jobs/evaluator-run/register.js';
 import { register as registerExperimentRun } from './jobs/experiment-run/register.js';
 import { registerSchedules } from './jobs/web-crawl/scheduler.js';
@@ -28,6 +30,8 @@ async function main() {
   await registerWebCrawl(boss, executor);
   await registerInferenceSessionAnalytics(boss, executor);
   await registerInferenceSessionIdleWatcher(boss);
+  await registerResumeAgentExecution(boss, executor);
+  await registerExpirePausedExecutions(boss);
   await registerEvaluatorRun(boss, executor);
   await registerExperimentRun(boss, executor);
 

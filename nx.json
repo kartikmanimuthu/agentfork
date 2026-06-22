@@ -27,6 +27,10 @@
       "cache": false,
       "inputs": ["default", "^production"],
       "outputs": ["{projectRoot}/playwright-report", "{projectRoot}/test-results"]
+    },
+    "typecheck": {
+      "inputs": ["default", "^production"],
+      "cache": true
     }
   },
   "defaultBase": "main"

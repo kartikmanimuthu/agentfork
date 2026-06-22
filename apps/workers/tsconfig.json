@@ -1,6 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": {
+      "@chatbot/shared": ["libs/shared/src/index.ts"],
+      "@chatbot/shared/client": ["libs/shared/src/client.ts"],
+      "@chatbot/shared/workers": ["libs/shared/src/workers.ts"],
+      "@chatbot/ai": ["libs/ai/src/index.ts"],
+      "@chatbot/agent-studio": ["libs/agent-studio/src/index.ts"],
+      "@chatbot/agent-studio/server": ["libs/agent-studio/src/server.ts"],
+      "@chatbot/knowledge-base": ["libs/knowledge-base/src/index.ts"],
+      "@chatbot/whatsapp": ["libs/whatsapp/src/index.ts"],
+      "@chatbot/telegram": ["libs/telegram/src/index.ts"]
+    },
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -11,5 +23,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "dist"]
 }

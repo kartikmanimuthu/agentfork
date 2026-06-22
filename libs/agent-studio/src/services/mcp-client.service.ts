@@ -144,7 +144,7 @@ export async function buildMcpToolsForAgent(
         const capturedToolName = t.name;
         (tools as any)[namespaced] = {
           description: `[${server.name}] ${t.description}`,
-          parameters: jsonSchema(t.inputSchema as any),
+          inputSchema: jsonSchema({ ...t.inputSchema, type: 'object' } as any),
           execute: async (args: any) => {
             return capturedClient.executeTool(capturedToolName, args as Record<string, unknown>);
           },

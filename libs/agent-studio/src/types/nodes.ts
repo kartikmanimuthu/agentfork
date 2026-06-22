@@ -1,6 +1,6 @@
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay';
+export type NodeType = 'llm' | 'tool' | 'router' | 'state_schema' | 'input' | 'output' | 'memory' | 'knowledge_base' | 'mcp_server' | 'code' | 'condition' | 'http' | 'human' | 'parallel' | 'sub_agent' | 'delay' | 'whatsapp_trigger' | 'whatsapp_send' | 'whatsapp_send_template' | 'telegram_trigger' | 'telegram_send' | 'telegram_send_buttons';
 
 export interface SchemaField {
   name: string;
@@ -24,7 +24,11 @@ export interface LlmNodeConfig {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
-  /** Tool names wired into this node */
+  /** MCP server IDs whose tools are made available to the LLM at inference time */
+  mcpServerIds?: string[];
+  /** Channel names whose string values are injected as RAG context into the last user message */
+  contextChannels?: string[];
+  /** Built-in tool names wired into this node */
   tools?: string[];
 }
 
@@ -37,13 +41,17 @@ export interface ToolNodeConfig {
 
 export interface RouterNodeConfig {
   type: 'router';
+  mode?: 'expression' | 'natural_language';
   conditions: Array<{
-    /** Boolean expression evaluated at runtime */
+    /** Boolean JS expression (expression mode) or plain English (natural_language mode) */
     condition: string;
-    /** Target node id */
     target: string;
   }>;
   defaultTarget?: string;
+  /** Temperature for LLM classification in natural_language mode (0–1, default 0) */
+  nlTemperature?: number;
+  /** Model ID to use for NLP classification — must match a model in your LLM Providers */
+  classifierModel?: string;
 }
 
 export interface StateSchemaNodeConfig {
@@ -69,6 +77,7 @@ export interface MemoryNodeConfig {
   maxMessages?: number;
   maxTokens?: number;
   messagesChannel: string;
+  keepRecent?: number;
 }
 
 export interface KnowledgeBaseNodeConfig {
@@ -83,7 +92,10 @@ export interface KnowledgeBaseNodeConfig {
 export interface McpServerNodeConfig {
   type: 'mcp_server';
   serverId: string;
-  toolName: string;
+  serverName?: string;
+  toolMode?: 'single' | 'selected' | 'all';
+  toolName?: string;
+  toolNames?: string[];
   argumentSource: 'from_state' | 'static';
   staticArguments?: Record<string, unknown>;
   channelMappings?: Record<string, string>;
@@ -146,6 +158,62 @@ export interface DelayNodeConfig {
   delayChannel?: string;
 }
 
+export interface WhatsAppTriggerNodeConfig {
+  type: 'whatsapp_trigger';
+  channelMap?: {
+    senderIdChannel?: string;
+    messageTextChannel?: string;
+    messageTypeChannel?: string;
+    mediaIdChannel?: string;
+    withinWindowChannel?: string;
+  };
+}
+
+export interface WhatsAppSendNodeConfig {
+  type: 'whatsapp_send';
+  messageType: 'text' | 'image' | 'document' | 'audio' | 'video';
+  messageChannel: string;
+  mediaIdChannel?: string;
+  filenameChannel?: string;
+}
+
+export interface WhatsAppSendTemplateNodeConfig {
+  type: 'whatsapp_send_template';
+  templateName: string;
+  languageCode: string;
+  componentsChannel?: string;
+}
+
+export interface TelegramTriggerNodeConfig {
+  type: 'telegram_trigger';
+  accountId?: string;
+  channelMap?: {
+    chatIdChannel?: string;
+    textChannel?: string;
+    messageTypeChannel?: string;
+    mediaIdChannel?: string;
+    callbackDataChannel?: string;
+    fromNameChannel?: string;
+    isGroupChannel?: string;
+  };
+}
+
+export interface TelegramSendNodeConfig {
+  type: 'telegram_send';
+  messageChannel: string;
+  parseMode?: 'Markdown' | 'HTML';
+  replyToChannel?: string;
+}
+
+export interface TelegramSendButtonsNodeConfig {
+  type: 'telegram_send_buttons';
+  messageChannel: string;
+  buttons: Array<Array<{ text: string; callbackData: string }>>;
+  // buttonsChannel: overrides buttons with a JSON array from state (for dynamic/LLM-generated buttons)
+  buttonsChannel?: string;
+  parseMode?: 'Markdown' | 'HTML';
+}
+
 /** Discriminated union of all node configuration shapes */
 export type NodeConfig =
   | LlmNodeConfig
@@ -163,7 +231,13 @@ export type NodeConfig =
   | HumanNodeConfig
   | ParallelNodeConfig
   | SubAgentNodeConfig
-  | DelayNodeConfig;
+  | DelayNodeConfig
+  | WhatsAppTriggerNodeConfig
+  | WhatsAppSendNodeConfig
+  | WhatsAppSendTemplateNodeConfig
+  | TelegramTriggerNodeConfig
+  | TelegramSendNodeConfig
+  | TelegramSendButtonsNodeConfig;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 

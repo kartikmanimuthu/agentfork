@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
+import { NodePicker } from './node-picker';
+import type { NodeOption } from './node-picker';
+import { ProviderModelSelect } from '@/components/llm-providers/provider-model-select';
 import type { RouterNodeConfig } from '@chatbot/agent-studio';
 
 const conditionSchema = z.object({
@@ -14,8 +18,11 @@ const conditionSchema = z.object({
 });
 
 const schema = z.object({
+  mode: z.enum(['expression', 'natural_language']),
   conditions: z.array(conditionSchema).min(1, 'At least one condition is required'),
   defaultTarget: z.string().optional(),
+  nlTemperature: z.number().min(0).max(1),
+  classifierModel: z.string().optional(),
 });
 
 type RouterFormValues = z.infer<typeof schema>;
@@ -23,20 +30,27 @@ type RouterFormValues = z.infer<typeof schema>;
 interface RouterNodeFormProps {
   config: RouterNodeConfig;
   onChange: (config: RouterNodeConfig) => void;
+  allNodes: NodeOption[];
 }
 
-export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
+export function RouterNodeForm({ config, onChange, allNodes }: RouterNodeFormProps) {
   const form = useForm({
     defaultValues: {
+      mode: config.mode ?? 'expression',
       conditions: config.conditions ?? [],
       defaultTarget: config.defaultTarget ?? '',
+      nlTemperature: config.nlTemperature ?? 0,
+      classifierModel: config.classifierModel ?? '',
     } as RouterFormValues,
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
       onChange({
         type: 'router',
+        mode: value.mode,
         conditions: value.conditions,
         defaultTarget: value.defaultTarget || undefined,
+        nlTemperature: value.nlTemperature,
+        classifierModel: value.classifierModel || undefined,
       });
     },
   });
@@ -51,6 +65,79 @@ export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
       }}
       className="space-y-4"
     >
+      {/* Mode toggle */}
+      <form.Field name="mode">
+        {(field) => (
+          <div className="flex items-center justify-between">
+            <div className="grid gap-0.5">
+              <Label>Natural Language Mode</Label>
+              <p className="text-xs text-muted-foreground">
+                {field.state.value === 'natural_language'
+                  ? 'Write conditions in plain English — LLM classifies at runtime'
+                  : 'Write conditions as JS expressions (e.g. score > 0.8)'}
+              </p>
+            </div>
+            <Switch
+              checked={field.state.value === 'natural_language'}
+              onCheckedChange={(checked) => {
+                field.handleChange(checked ? 'natural_language' : 'expression');
+                handleBlur();
+              }}
+            />
+          </div>
+        )}
+      </form.Field>
+
+      {/* NL Temperature + Classifier Model — only visible in natural_language mode */}
+      <form.Subscribe selector={(s) => s.values.mode}>
+        {(mode) =>
+          mode === 'natural_language' ? (
+            <>
+              <form.Field name="classifierModel">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <Label>Classifier Model</Label>
+                    <ProviderModelSelect
+                      capability="chat"
+                      value={(field.state.value as string) || undefined}
+                      onChange={(v) => { field.handleChange(v); handleBlur(); }}
+                      placeholder="Select classifier model…"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Model used for NLP routing classification.
+                    </p>
+                  </div>
+                )}
+              </form.Field>
+              <form.Field name="nlTemperature">
+                {(field) => (
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label>Classifier Temperature: {(field.state.value as number).toFixed(1)}</Label>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={field.state.value as number}
+                      onChange={(e) => field.handleChange(Number(e.target.value))}
+                      onMouseUp={() => handleBlur()}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0 (precise)</span>
+                      <span>1 (creative)</span>
+                    </div>
+                  </div>
+                )}
+              </form.Field>
+            </>
+          ) : null
+        }
+      </form.Subscribe>
+
+      {/* Conditions */}
       <div className="grid gap-2">
         <div className="flex items-center justify-between">
           <Label>Conditions</Label>
@@ -77,26 +164,46 @@ export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
                   <div className="flex-1 grid gap-1">
                     <form.Field name={`conditions[${i}].condition`}>
                       {(condField) => (
-                        <Input
-                          value={condField.state.value as string}
-                          onChange={(e) => condField.handleChange(e.target.value)}
-                          onBlur={() => { condField.handleBlur(); handleBlur(); }}
-                          placeholder="x > 0"
-                          className="h-8 text-xs"
-                          aria-label={`Condition ${i + 1}`}
-                        />
+                        <>
+                          <form.Subscribe selector={(s) => s.values.mode}>
+                            {(mode) => (
+                              <Input
+                                value={condField.state.value as string}
+                                onChange={(e) => condField.handleChange(e.target.value)}
+                                onBlur={() => { condField.handleBlur(); handleBlur(); }}
+                                placeholder={
+                                  mode === 'natural_language'
+                                    ? 'e.g. user is asking about billing'
+                                    : 'e.g. score > 0.8'
+                                }
+                                className="h-8 text-xs"
+                                aria-label={`Condition ${i + 1}`}
+                              />
+                            )}
+                          </form.Subscribe>
+                          {condField.state.meta.errors.length > 0 && (
+                            <p className="text-xs text-destructive">{String(condField.state.meta.errors[0])}</p>
+                          )}
+                        </>
                       )}
                     </form.Field>
                     <form.Field name={`conditions[${i}].target`}>
                       {(targetField) => (
-                        <Input
-                          value={targetField.state.value as string}
-                          onChange={(e) => targetField.handleChange(e.target.value)}
-                          onBlur={() => { targetField.handleBlur(); handleBlur(); }}
-                          placeholder="target-node-id"
-                          className="h-8 text-xs"
-                          aria-label={`Target ${i + 1}`}
-                        />
+                        <>
+                          <NodePicker
+                            nodes={allNodes}
+                            value={targetField.state.value as string}
+                            onChange={(id) => {
+                              targetField.handleChange(id);
+                              handleBlur();
+                            }}
+                            placeholder="Target node…"
+                            className="h-8 text-xs"
+                          />
+                          {targetField.state.meta.errors.length > 0 && (
+                            <p className="text-xs text-destructive">{String(targetField.state.meta.errors[0])}</p>
+                          )}
+                        </>
                       )}
                     </form.Field>
                   </div>
@@ -119,21 +226,27 @@ export function RouterNodeForm({ config, onChange }: RouterNodeFormProps) {
               {(field.state.value as RouterFormValues['conditions']).length === 0 && (
                 <p className="text-xs text-muted-foreground italic">No conditions yet.</p>
               )}
+              {field.state.meta.errors.length > 0 && (
+                <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+              )}
             </div>
           )}
         </form.Field>
       </div>
 
+      {/* Default target */}
       <form.Field name="defaultTarget">
         {(field) => (
           <div className="grid gap-1.5">
-            <Label htmlFor={field.name}>Default Target (optional)</Label>
-            <Input
-              id={field.name}
+            <Label>Default Target (optional)</Label>
+            <NodePicker
+              nodes={allNodes}
               value={field.state.value as string ?? ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={() => { field.handleBlur(); handleBlur(); }}
-              placeholder="fallback-node-id"
+              onChange={(id) => {
+                field.handleChange(id);
+                handleBlur();
+              }}
+              placeholder="Fallback node…"
             />
           </div>
         )}

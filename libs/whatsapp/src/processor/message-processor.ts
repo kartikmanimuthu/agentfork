@@ -8,7 +8,7 @@ import { CommandHandler } from '../session/command-handler';
 import { createRouter } from '../router/factory';
 
 export interface AgentExecutor {
-  execute(agentId: string, message: { text?: string; mediaUrl?: string; mediaType?: string }, context: Record<string, unknown>): Promise<{ text: string }>;
+  execute(agentId: string, message: { text?: string; mediaUrl?: string; mediaType?: string; mediaId?: string }, context: Record<string, unknown>): Promise<{ text: string }>;
 }
 
 export interface MessageProcessorDeps {
@@ -106,28 +106,49 @@ export class MessageProcessor {
         });
       }
 
+      const withinWindow = session.lastMessageAt
+        ? Date.now() - new Date(session.lastMessageAt).getTime() < 24 * 60 * 60 * 1000
+        : true;
+
+      const mediaId = this.extractMediaId(message);
+
       const agentResponse = await this.deps.agentExecutor.execute(
         session.agentId,
-        { text: messageText },
-        session.context ?? {},
+        { text: messageText, mediaType: message.type, mediaId: mediaId ?? undefined },
+        {
+          ...(session.context ?? {}),
+          wa_sender_id: contact.wa_id,
+          wa_message_type: message.type,
+          wa_media_id: mediaId,
+          wa_phone_number_id: phoneNumberId,
+          wa_account_id: account.id,
+          wa_session_id: session.id,
+          wa_within_window: withinWindow,
+          tenantId: account.tenantId,
+        },
       );
 
-      const metaClient = this.deps.metaClientFactory(account.accessToken, account.phoneNumberId);
-      const sendResult = await metaClient.sendTextMessage(contact.wa_id, agentResponse.text);
-      this.deps.circuitBreaker.recordSuccess();
+      // When agentResponse.text is empty, graph handled sending via whatsapp_send node
+      if (agentResponse.text) {
+        const metaClient = this.deps.metaClientFactory(account.accessToken, account.phoneNumberId);
+        const sendResult = await metaClient.sendTextMessage(contact.wa_id, agentResponse.text);
+        this.deps.circuitBreaker.recordSuccess();
 
-      await (this.deps.prisma as any).whatsAppMessage.create({
-        data: {
-          accountId: account.id,
-          sessionId: session.id,
-          waMessageId: sendResult.messages[0].id,
-          direction: 'outbound',
-          contactPhone: contact.wa_id,
-          type: 'text',
-          content: { text: agentResponse.text },
-          status: 'sent',
-        },
-      });
+        await (this.deps.prisma as any).whatsAppMessage.create({
+          data: {
+            accountId: account.id,
+            sessionId: session.id,
+            waMessageId: sendResult.messages[0].id,
+            direction: 'outbound',
+            contactPhone: contact.wa_id,
+            type: 'text',
+            content: { text: agentResponse.text },
+            status: 'sent',
+          },
+        });
+      } else {
+        this.deps.circuitBreaker.recordSuccess();
+      }
 
       await this.deps.sessionManager.refreshWindow(session.id);
 
@@ -182,6 +203,15 @@ export class MessageProcessor {
         break;
       }
     }
+  }
+
+  private extractMediaId(message: any): string | null {
+    return message.image?.id
+      ?? message.video?.id
+      ?? message.audio?.id
+      ?? message.document?.id
+      ?? message.sticker?.id
+      ?? null;
   }
 
   private extractContent(message: any): Record<string, unknown> {

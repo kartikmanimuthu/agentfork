@@ -271,3 +271,163 @@ describe('GraphExecutor', () => {
     });
   });
 });
+
+describe('GraphExecutor — human node pause', () => {
+  it('calls onPause callback when a node sets __paused: true', async () => {
+    const onPause = vi.fn().mockResolvedValue(undefined);
+    const graphExec = new GraphExecutor(createMockServices());
+
+    graphExec.register({
+      type: 'human',
+      execute: async (ctx) => ({
+        stateUpdates: { __paused: true, __resumeToken: 'tok-123' },
+        next: null,
+        trace: { nodeId: ctx.node.id, nodeType: 'human', status: 'paused' as const, startedAt: new Date().toISOString() },
+      }),
+    });
+
+    const graph: GraphDefinition = {
+      nodes: [
+        { id: 'human-1', type: 'human', label: 'Ask name', config: { type: 'human', prompt: 'What is your name?', outputChannel: 'userName' } as any, position: { x: 0, y: 0 } },
+        { id: 'llm-2', type: 'llm', label: 'Continue', config: { type: 'llm', model: 'test' } as any, position: { x: 0, y: 1 } },
+      ],
+      edges: [{ id: 'e1', source: 'human-1', target: 'llm-2' }],
+    };
+
+    await graphExec.execute(
+      graph,
+      { messages: [{ role: 'user', content: 'hi' }] },
+      { executionId: 'exec-1', agentId: 'agent-1', tenantId: 'tenant-1', userId: 'user-1' },
+      { onPause }
+    );
+
+    expect(onPause).toHaveBeenCalledOnce();
+    expect(onPause).toHaveBeenCalledWith({
+      resumeToken: 'tok-123',
+      nextNodeId: 'llm-2',
+      prompt: 'What is your name?',
+      outputChannel: 'userName',
+      state: expect.objectContaining({ channels: expect.objectContaining({ __paused: true }) }),
+    });
+  });
+
+  it('stops graph execution after pause — does not run next node', async () => {
+    const nodesSeen: string[] = [];
+    const graphExec = new GraphExecutor(createMockServices());
+
+    graphExec.register({
+      type: 'human',
+      execute: async (ctx) => {
+        nodesSeen.push(ctx.node.id);
+        return {
+          stateUpdates: { __paused: true, __resumeToken: 'tok-456' },
+          next: null,
+          trace: { nodeId: ctx.node.id, nodeType: 'human', status: 'paused' as const, startedAt: new Date().toISOString() },
+        };
+      },
+    });
+
+    graphExec.register({
+      type: 'llm',
+      execute: async (ctx) => {
+        nodesSeen.push(ctx.node.id);
+        return {
+          stateUpdates: {},
+          next: null,
+          trace: { nodeId: ctx.node.id, nodeType: 'llm', status: 'completed' as const, startedAt: new Date().toISOString() },
+        };
+      },
+    });
+
+    const graph: GraphDefinition = {
+      nodes: [
+        { id: 'human-1', type: 'human', label: 'Ask', config: { type: 'human', prompt: 'q', outputChannel: 'out' } as any, position: { x: 0, y: 0 } },
+        { id: 'llm-2', type: 'llm', label: 'Continue', config: { type: 'llm', model: 'test' } as any, position: { x: 0, y: 1 } },
+      ],
+      edges: [{ id: 'e1', source: 'human-1', target: 'llm-2' }],
+    };
+
+    await graphExec.execute(
+      graph,
+      { messages: [] },
+      { executionId: 'exec-1', agentId: 'agent-1', tenantId: 'tenant-1', userId: 'user-1' },
+      { onPause: vi.fn().mockResolvedValue(undefined) }
+    );
+
+    expect(nodesSeen).toEqual(['human-1']); // llm-2 never ran
+  });
+
+  it('emits execution_paused event when paused', async () => {
+    const events: string[] = [];
+    const graphExec = new GraphExecutor(createMockServices());
+
+    graphExec.register({
+      type: 'human',
+      execute: async (ctx) => {
+        ctx.emit({ type: 'execution_paused', reason: 'test prompt', resumeToken: 'tok-789' });
+        return {
+          stateUpdates: { __paused: true, __resumeToken: 'tok-789' },
+          next: null,
+          trace: { nodeId: ctx.node.id, nodeType: 'human', status: 'paused' as const, startedAt: new Date().toISOString() },
+        };
+      },
+    });
+
+    const graph: GraphDefinition = {
+      nodes: [{ id: 'h1', type: 'human', label: 'Ask', config: { type: 'human', prompt: 'p', outputChannel: 'o' } as any, position: { x: 0, y: 0 } }],
+      edges: [],
+    };
+
+    await graphExec.execute(
+      graph,
+      { messages: [] },
+      { executionId: 'exec-1', agentId: 'agent-1', tenantId: 'tenant-1', userId: 'user-1' },
+      {
+        onEvent: (e) => events.push(e.type),
+        onPause: vi.fn().mockResolvedValue(undefined),
+      }
+    );
+
+    expect(events).toContain('execution_paused');
+  });
+
+  it('executeFromState resumes from injected state without re-running prior nodes', async () => {
+    const nodesSeen: string[] = [];
+    const graphExec = new GraphExecutor(createMockServices());
+
+    graphExec.register({
+      type: 'llm',
+      execute: async (ctx) => {
+        nodesSeen.push(ctx.node.id);
+        return {
+          stateUpdates: { response: 'hello' },
+          next: null,
+          trace: { nodeId: ctx.node.id, nodeType: 'llm', status: 'completed' as const, startedAt: new Date().toISOString() },
+        };
+      },
+    });
+
+    const graph: GraphDefinition = {
+      nodes: [
+        { id: 'human-1', type: 'human', label: 'Ask', config: { type: 'human', prompt: 'q', outputChannel: 'userName' } as any, position: { x: 0, y: 0 } },
+        { id: 'llm-2', type: 'llm', label: 'Continue', config: { type: 'llm', model: 'test' } as any, position: { x: 0, y: 1 } },
+      ],
+      edges: [{ id: 'e1', source: 'human-1', target: 'llm-2' }],
+    };
+
+    const restoredState = {
+      channels: { userName: 'Omar', __paused: false },
+      messages: [],
+      currentNodeId: 'llm-2',
+      metadata: { executionId: 'exec-1', agentId: 'agent-1', tenantId: 'tenant-1', userId: 'user-1', startedAt: new Date() },
+    };
+
+    await graphExec.executeFromState(
+      graph,
+      restoredState,
+      { executionId: 'exec-1', agentId: 'agent-1', tenantId: 'tenant-1', userId: 'user-1' }
+    );
+
+    expect(nodesSeen).toEqual(['llm-2']); // human-1 not re-run
+  });
+});

@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/base';
 import { TAG } from '../../constants/tags';
+import { ensureSimpleAgentWithApiKey } from '../../helpers/agent-fixture';
 
 test.describe('Inference API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke, TAG.critical] }, () => {
   test('should reject request without API key', async ({ request }) => {
@@ -73,5 +74,70 @@ test.describe('Inferences Dashboard API', { tag: [TAG.inferenceApi, TAG.api, TAG
   test('GET /api/inferences/[id] rejects unauthenticated', async ({ request }) => {
     const response = await request.get('/api/inferences/some-id');
     expect([401, 403]).toContain(response.status());
+  });
+});
+
+test.describe('Scores Ingest API', { tag: [TAG.inferenceApi, TAG.api, TAG.smoke] }, () => {
+  test('rejects without API key', async ({ request }) => {
+    const res = await request.post('/api/v1/scores', { data: {} });
+    expect(res.status()).toBe(401);
+  });
+
+  test('rejects an API key missing the scores:write scope', async ({ request }) => {
+    const { apiKey } = await ensureSimpleAgentWithApiKey(request);
+    const res = await request.post('/api/v1/scores', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { configId: 'irrelevant', targetType: 'SESSION', targetId: 'irrelevant', value: 1 },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('ingests a score for a session target (authenticated, scores:write scope)', async ({ request, page }) => {
+    const { apiKey } = await ensureSimpleAgentWithApiKey(request, { scopes: ['inference:read', 'scores:write'] });
+
+    const sessionRes = await request.post('/api/v1/inference/sessions', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { name: 'e2e-score-target', channel: 'API' },
+    });
+    expect(sessionRes.ok()).toBeTruthy();
+    const session = await sessionRes.json();
+
+    const configRes = await page.request.post('/api/evaluation/score-configs', {
+      data: { name: `e2e-score-config-${Date.now()}`, dataType: 'NUMERIC', minValue: 0, maxValue: 1 },
+    });
+    expect(configRes.ok()).toBeTruthy();
+    const { config } = await configRes.json();
+
+    const res = await request.post('/api/v1/scores', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { configId: config.id, targetType: 'SESSION', targetId: session.id, value: 1 },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.score.configId).toBe(config.id);
+  });
+});
+
+// Deliberately not tagged @smoke/@critical — slower (real agent provisioning +
+// a live LLM call via whatever Bedrock credentials are in the local .env), runs
+// as part of `bun run e2e`/`e2e:dev` rather than the fast smoke subset.
+test.describe('Authenticated inference with built-in tools', { tag: [TAG.inferenceApi, TAG.api] }, () => {
+  test('POST /api/v1/inference reaches buildBuiltInTools for a simple agent', async ({ request }) => {
+    const { apiKey } = await ensureSimpleAgentWithApiKey(request);
+    const res = await request.post('/api/v1/inference', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { messages: [{ role: 'user', content: 'Say hi in one word.' }], stream: false },
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(typeof body.content).toBe('string');
+  });
+
+  test('POST /api/agents/[id]/playground reaches buildBuiltInTools', async ({ request }) => {
+    const { agentId } = await ensureSimpleAgentWithApiKey(request);
+    const res = await request.post(`/api/agents/${agentId}/playground`, {
+      data: { messages: [{ role: 'user', content: 'Say hi in one word.' }] },
+    });
+    expect(res.ok()).toBeTruthy();
   });
 });

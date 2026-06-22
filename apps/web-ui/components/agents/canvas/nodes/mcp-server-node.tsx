@@ -16,9 +16,8 @@ export const McpServerNode = memo(function McpServerNode({ data, selected }: Nod
   const nodeData = data as McpServerNodeData;
   const config = nodeData.config as McpServerNodeConfig;
 
-  const serverLabel = config.serverId.length > 12
-    ? `${config.serverId.slice(0, 12)}...`
-    : config.serverId;
+  const rawLabel = config.serverName || config.serverId;
+  const serverLabel = rawLabel.length > 20 ? `${rawLabel.slice(0, 20)}...` : rawLabel;
 
   return (
     <div

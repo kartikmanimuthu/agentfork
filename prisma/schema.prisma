@@ -31,6 +31,7 @@ model Tenant {
   llmProviders      LlmProvider[]
   apiKeys           ApiKey[]
   whatsappAccounts  WhatsAppAccount[]
+  telegramAccounts  TelegramAccount[]
   sdkWidgets        SdkWidget[]
   scoreConfigs      ScoreConfig[]
   scores            Score[]
@@ -257,6 +258,7 @@ model Agent {
   aliases            AgentAlias[]
   apiKeyExecutions   ApiKeyExecution[]
   sdkWidgets         SdkWidget[]
+  telegramAccounts   TelegramAccount[]
   workflows          AgentWorkflow[]
 
   @@index([tenantId])
@@ -314,6 +316,26 @@ model AgentExecution {
   @@index([tenantId, userId])
   @@index([tenantId, status])
   @@map("agent_executions")
+}
+
+model PausedExecution {
+  id            String    @id @default(cuid())
+  resumeToken   String    @unique @default(uuid())
+  tenantId      String
+  agentId       String
+  executionId   String    // references ApiKeyExecution.id (loose coupling — no FK)
+  graphState    Json      // full GraphState at pause point
+  prompt        String    // HumanNodeConfig.prompt — shown to user
+  outputChannel String    // HumanNodeConfig.outputChannel — where to write reply
+  nextNodeId    String?   // first node after human node (null if terminal)
+  expiresAt     DateTime
+  resumedAt     DateTime? // null until claimed; single-use enforcement
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@index([executionId])
+  @@map("paused_executions")
 }
 
 model PlaygroundSession {
@@ -680,6 +702,20 @@ model DocumentChunk {
   @@map("document_chunks")
 }
 
+model LlmResponseCache {
+  id          String   @id @default(cuid())
+  cacheKey    String   @unique
+  response    Json
+  metadata    Json?
+  hitCount    Int      @default(0)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([cacheKey])
+  @@index([expiresAt])
+  @@map("llm_response_cache")
+}
+
 model WhatsAppAccount {
   id             String   @id @default(cuid())
   tenantId       String
@@ -798,60 +834,115 @@ model WhatsAppTemplate {
   @@map("whatsapp_templates")
 }
 
-model LlmResponseCache {
-  id          String   @id @default(cuid())
-  cacheKey    String   @unique
-  response    Json
-  metadata    Json?
-  hitCount    Int      @default(0)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+model TelegramAccount {
+  id            String   @id @default(cuid())
+  tenantId      String
+  botToken      String
+  botName       String?
+  botUsername   String?
+  webhookSecret String
+  status        String   @default("active")
+  agentId       String?
+  triggerNodeId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@index([cacheKey])
-  @@index([expiresAt])
-  @@map("llm_response_cache")
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent    Agent?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  sessions TelegramSession[]
+  messages TelegramMessage[]
+
+  @@index([tenantId])
+  @@index([agentId])
+  @@map("telegram_accounts")
+}
+
+model TelegramSession {
+  id            String   @id @default(cuid())
+  tenantId      String
+  accountId     String
+  chatId        String
+  contactName   String?
+  agentId       String
+  state         String   @default("active")
+  context       Json     @default("{}")
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  account  TelegramAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages TelegramMessage[]
+
+  @@unique([accountId, chatId, state])
+  @@index([accountId, chatId])
+  @@map("telegram_sessions")
+}
+
+model TelegramMessage {
+  id              String   @id @default(cuid())
+  tenantId        String
+  accountId       String
+  sessionId       String?
+  telegramMessageId String @unique
+  direction       String
+  chatId          String
+  fromId          String?
+  type            String
+  content         Json
+  status          String   @default("received")
+  statusTimestamp DateTime?
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  account TelegramAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  session TelegramSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, chatId, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("telegram_messages")
 }
 
 model SdkWidget {
-  id              String   @id @default(cuid())
-  tenantId        String
-  agentId         String
-  apiKeyId        String
-  name            String
-  sdkId           String   @unique
+  id               String   @id @default(cuid())
+  tenantId         String
+  agentId          String
+  apiKeyId         String
+  name             String
+  sdkId            String   @unique
 
-  primaryColor    String   @default("#1a1a2e")
-  secondaryColor  String   @default("#3b82f6")
-  theme           String   @default("auto")
-  position        String   @default("right")
-  headerText      String   @default("Hey there!")
-  headerIcon      String?
-  botName         String   @default("AI Assistant")
-  botAvatar       String?
-  welcomeMessage  String   @default("How can I help you today?")
-  inputPlaceholder String  @default("Write a message...")
-  customCss       String?
+  primaryColor     String   @default("#1a1a2e")
+  secondaryColor   String   @default("#3b82f6")
+  theme            String   @default("auto")
+  position         String   @default("right")
+  headerText       String   @default("Hey there!")
+  headerIcon       String?
+  botName          String   @default("AI Assistant")
+  botAvatar        String?
+  welcomeMessage   String   @default("How can I help you today?")
+  inputPlaceholder String   @default("Write a message...")
+  customCss        String?
 
-  preChatForm     Json?
-  quickReplies    Json?
-  proactiveRules  Json?
-  kbEnabled       Boolean  @default(false)
-  fileUpload      Boolean  @default(false)
-  csatEnabled     Boolean  @default(false)
-  csatType        String   @default("thumbs")
+  preChatForm      Json?
+  quickReplies     Json?
+  proactiveRules   Json?
+  kbEnabled        Boolean  @default(false)
+  fileUpload       Boolean  @default(false)
+  csatEnabled      Boolean  @default(false)
+  csatType         String   @default("thumbs")
 
-  allowedOrigins  String[]
-  rateLimitRpm    Int      @default(60)
+  allowedOrigins   String[]
+  rateLimitRpm     Int      @default(60)
 
-  status          String   @default("active")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status           String   @default("active")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  apiKey          ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  sessions        SdkSession[]
-  csatResponses   CsatResponse[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent         Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  apiKey        ApiKey         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  sessions      SdkSession[]
+  csatResponses CsatResponse[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -860,19 +951,19 @@ model SdkWidget {
 }
 
 model SdkSession {
-  id                  String   @id @default(cuid())
-  sdkWidgetId         String
-  inferenceSessionId  String   @unique
-  visitorId           String
-  visitorName         String?
-  visitorEmail        String?
-  metadata            Json?
-  status              String   @default("active")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  sdkWidgetId        String
+  inferenceSessionId String   @unique
+  visitorId          String
+  visitorName        String?
+  visitorEmail       String?
+  metadata           Json?
+  status             String   @default("active")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  sdkWidget           SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
-  inferenceSession    InferenceSession  @relation(fields: [inferenceSessionId], references: [id], onDelete: Cascade)
+  sdkWidget        SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+  inferenceSession InferenceSession @relation(fields: [inferenceSessionId], references: [id], onDelete: Cascade)
 
   @@index([sdkWidgetId])
   @@index([sdkWidgetId, createdAt])
@@ -881,15 +972,15 @@ model SdkSession {
 }
 
 model MessageFeedback {
-  id         String   @id @default(cuid())
-  messageId  String   @unique
-  sessionId  String
-  rating     String
-  comment    String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  messageId String   @unique
+  sessionId String
+  rating    String
+  comment   String?
+  createdAt DateTime @default(now())
 
-  message    InferenceSessionMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  session    InferenceSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  message InferenceSessionMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  session InferenceSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@map("message_feedbacks")
@@ -903,8 +994,8 @@ model CsatResponse {
   comment     String?
   createdAt   DateTime @default(now())
 
-  session     InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sdkWidget   SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
+  session   InferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sdkWidget SdkWidget        @relation(fields: [sdkWidgetId], references: [id], onDelete: Cascade)
 
   @@index([sdkWidgetId])
   @@index([sdkWidgetId, createdAt])

@@ -19,17 +19,26 @@ import { HumanNodeForm } from './human-node-form';
 import { ParallelNodeForm } from './parallel-node-form';
 import { SubAgentNodeForm } from './sub-agent-node-form';
 import { DelayNodeForm } from './delay-node-form';
+import { WhatsAppTriggerNodeForm } from './whatsapp-trigger-node-form';
+import { WhatsAppSendNodeForm } from './whatsapp-send-node-form';
+import { WhatsAppSendTemplateNodeForm } from './whatsapp-send-template-node-form';
+import { TelegramTriggerNodeForm } from './telegram-trigger-node-form';
+import { TelegramSendNodeForm } from './telegram-send-node-form';
+import { TelegramSendButtonsNodeForm } from './telegram-send-buttons-node-form';
 import type { GraphNode } from '@chatbot/agent-studio';
 import type { NodeConfig } from '@chatbot/agent-studio';
+import type { NodeOption } from './node-picker';
 
 interface ConfigPanelProps {
   node: GraphNode | null;
+  allNodes: NodeOption[];
+  agentId: string;
   onClose: () => void;
   onConfigChange: (nodeId: string, config: NodeConfig) => void;
   onDelete?: (nodeId: string) => void;
 }
 
-export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
+export function ConfigPanel({ node, allNodes, agentId, onClose, onConfigChange, onDelete }: ConfigPanelProps) {
   if (!node) return null;
 
   const handleChange = (config: NodeConfig) => onConfigChange(node.id, config);
@@ -37,9 +46,10 @@ export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigP
   return (
     <aside className="w-72 border-l bg-background flex flex-col shrink-0">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold truncate">{node.label}</p>
           <p className="text-xs text-muted-foreground capitalize">{node.config.type} node</p>
+          <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{node.id}</p>
         </div>
         <div className="flex items-center gap-1">
           {onDelete && (
@@ -62,7 +72,7 @@ export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigP
             <ToolNodeForm config={node.config} onChange={handleChange} />
           )}
           {node.config.type === 'router' && (
-            <RouterNodeForm config={node.config} onChange={handleChange} />
+            <RouterNodeForm config={node.config} onChange={handleChange} allNodes={allNodes} />
           )}
           {node.config.type === 'state_schema' && (
             <StateSchemaNodeForm config={node.config} onChange={handleChange} />
@@ -86,7 +96,7 @@ export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigP
             <CodeNodeForm config={node.config} onChange={handleChange} />
           )}
           {node.config.type === 'condition' && (
-            <ConditionNodeForm config={node.config} onChange={handleChange} />
+            <ConditionNodeForm config={node.config} onChange={handleChange} allNodes={allNodes} />
           )}
           {node.config.type === 'http' && (
             <HttpNodeForm config={node.config} onChange={handleChange} />
@@ -95,13 +105,31 @@ export function ConfigPanel({ node, onClose, onConfigChange, onDelete }: ConfigP
             <HumanNodeForm config={node.config} onChange={handleChange} />
           )}
           {node.config.type === 'parallel' && (
-            <ParallelNodeForm config={node.config} onChange={handleChange} />
+            <ParallelNodeForm config={node.config} onChange={handleChange} allNodes={allNodes} />
           )}
           {node.config.type === 'sub_agent' && (
             <SubAgentNodeForm config={node.config} onChange={handleChange} />
           )}
           {node.config.type === 'delay' && (
             <DelayNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_trigger' && (
+            <WhatsAppTriggerNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send' && (
+            <WhatsAppSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'whatsapp_send_template' && (
+            <WhatsAppSendTemplateNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_trigger' && (
+            <TelegramTriggerNodeForm config={node.config} agentId={agentId} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send' && (
+            <TelegramSendNodeForm config={node.config} onChange={handleChange} />
+          )}
+          {node.config.type === 'telegram_send_buttons' && (
+            <TelegramSendButtonsNodeForm config={node.config} onChange={handleChange} />
           )}
         </div>
       </ScrollArea>

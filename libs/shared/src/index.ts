@@ -43,6 +43,17 @@ export { QuotaService } from './services/quota-service';
 export { ResponseCacheService } from './services/response-cache-service';
 export { InferenceSessionService } from './services/inference-session-service';
 export { WebhookService } from './services/webhook-service';
+export { PausedExecutionService } from './services/paused-execution-service';
+export {
+  TelegramAccountBindingService,
+  TelegramAccountBindingError,
+} from './services/telegram-account-binding-service';
+export type {
+  TelegramAccountBindingDb,
+  TelegramAccountBindingErrorCode,
+  SyncTelegramAccountBindingInput,
+} from './services/telegram-account-binding-service';
+export type { PausedExecutionRow, CreatePausedExecutionInput } from './services/paused-execution-service';
 export { S3Service } from './services/s3-service';
 export { EncryptionService } from './services/encryption-service';
 export { SdkWidgetService } from './services/sdk-widget-service';

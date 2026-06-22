@@ -1,5 +1,14 @@
 {
   "name": "@chatbot/shared",
   "version": "0.0.1",
-  "type": "module"
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./workers": "./src/workers.ts"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.2"
+  }
 }

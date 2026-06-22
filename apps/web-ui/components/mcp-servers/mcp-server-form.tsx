@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const transportSchema = z.discriminatedUnion('transport', [
   z.object({ transport: z.literal('sse'), endpoint: z.string().url(), headers: z.record(z.string(), z.string()).optional() }),
   z.object({ transport: z.literal('stdio'), command: z.string().min(1), args: z.array(z.string()).optional(), env: z.record(z.string(), z.string()).optional() }),
-  z.object({ transport: z.literal('http_bridge'), bridgeUrl: z.string().url(), targetCommand: z.string().min(1) }),
+  z.object({ transport: z.literal('http_bridge'), bridgeUrl: z.string().url(), targetCommand: z.string().optional() }),
 ]);
 
 const schema = z.object({
@@ -57,7 +57,7 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
     switch (value) {
       case 'sse': newConfig = { transport: 'sse', endpoint: '' }; break;
       case 'stdio': newConfig = { transport: 'stdio', command: '' }; break;
-      case 'http_bridge': newConfig = { transport: 'http_bridge', bridgeUrl: '', targetCommand: '' }; break;
+      case 'http_bridge': newConfig = { transport: 'http_bridge', bridgeUrl: '' }; break;
     }
     form.setFieldValue('transport', value);
     form.setFieldValue('transportConfig', newConfig as any);
@@ -137,7 +137,7 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
       {transport === 'http_bridge' && (
         <form.Field name="transportConfig">
           {(field) => {
-            const config = (field.state.value ?? { bridgeUrl: '', targetCommand: '' }) as { bridgeUrl: string; targetCommand: string };
+            const config = (field.state.value ?? { bridgeUrl: '' }) as { bridgeUrl: string; targetCommand?: string };
             return (
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="grid gap-1.5">
