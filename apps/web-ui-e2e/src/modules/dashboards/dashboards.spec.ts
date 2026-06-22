@@ -143,4 +143,52 @@ test.describe('Custom dashboards', { tag: [TAG.dashboards, TAG.regression] }, ()
     await expect(page).toHaveURL(new RegExp(`/dashboards/${dashboardId}`));
     await expect(page.locator('.react-grid-item')).toBeVisible();
   });
+
+  test('Save widget button stays disabled until source and title are set', async ({ page, request }) => {
+    const dashRes = await request.post('/api/dashboards', { data: { name: `Widget Validation ${Date.now()}` } });
+    const { dashboard } = await dashRes.json();
+
+    await page.goto(`/dashboards/${dashboard.id}`);
+    await page.getByRole('button', { name: /edit/i }).click();
+    await page
+      .getByRole('button', { name: /add (your first )?widget/i })
+      .first()
+      .click();
+    await page.getByRole('heading', { name: 'Add widget' }).waitFor();
+
+    await test.step('blank source', async () => {
+      await expect(page.getByRole('button', { name: /save widget/i })).toBeDisabled();
+    });
+
+    await test.step('source set, blank title', async () => {
+      await page.getByText('Select source').click();
+      await page.getByRole('option', { name: 'Sessions & messages' }).click();
+      await page.getByText('Select metric').click();
+      await page.getByRole('option', { name: 'Session count' }).click();
+      // The "Title" <Label> has no htmlFor/id pairing to the <Input> (components/dashboards/widget-builder.tsx),
+      // so getByLabel doesn't resolve it — target the input by its current default value instead.
+      const titleInput = page.getByRole('textbox').and(page.locator('[maxlength="100"]'));
+      await titleInput.fill('   ');
+      await expect(page.getByRole('button', { name: /save widget/i })).toBeDisabled();
+      await titleInput.fill('Now Has Title');
+      await expect(page.getByRole('button', { name: /save widget/i })).toBeEnabled();
+    });
+  });
+
+  test('POST /api/dashboards/[id]/widgets without title returns 4xx and creates no widget', async ({ request }) => {
+    const dashRes = await request.post('/api/dashboards', { data: { name: `Widget API Validation ${Date.now()}` } });
+    const { dashboard } = await dashRes.json();
+
+    const res = await request.post(`/api/dashboards/${dashboard.id}/widgets`, {
+      data: {
+        querySpec: { source: 'sessions', metric: { key: 'count' }, dateRange: { preset: 'last_30d' }, filters: [], vizType: 'kpi' },
+        layout: { x: 0, y: 0, w: 6, h: 6 },
+      },
+    });
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
+
+    const getRes = await request.get(`/api/dashboards/${dashboard.id}`);
+    expect((await getRes.json()).dashboard.widgets.length).toBe(0);
+  });
 });

@@ -44,6 +44,82 @@ test.describe('Evaluation — Experiments (golden path)', { tag: [TAG.evaluation
   });
 });
 
+test.describe('Evaluation — Experiment validation', { tag: [TAG.evaluation, TAG.regression] }, () => {
+  test('blocks submission when a required field is blank', async ({ page, request }) => {
+    const datasetRes = await request.post('/api/evaluation/datasets', { data: { name: `e2e-exp-neg-dataset-${Date.now()}` } });
+    const { dataset } = await datasetRes.json();
+
+    const agentRes = await request.post('/api/agents', { data: { name: `e2e-exp-neg-agent-${Date.now()}`, type: 'simple', config: {} } });
+    const agent = await agentRes.json();
+    const versionRes = await request.post(`/api/agents/${agent.id}/versions`, {
+      data: { config: { systemPrompt: 'You are a helpful assistant.', temperature: 0.7, maxTokens: 256 } },
+    });
+    const version = await versionRes.json();
+    await request.post(`/api/agents/${agent.id}/versions/${version.id}/publish`);
+
+    const scRes = await request.post('/api/evaluation/score-configs', {
+      data: { name: `e2e-exp-neg-sc-${Date.now()}`, dataType: 'NUMERIC', minValue: 1, maxValue: 5 },
+    });
+    const { config } = await scRes.json();
+
+    await page.goto('/evaluation/experiments');
+
+    await test.step('blank name', async () => {
+      await page.getByRole('button', { name: /new experiment/i }).click();
+      await page.getByLabel('Dataset').click();
+      await page.getByRole('option', { name: dataset.name }).click();
+      await page.getByLabel(`${agent.name} v${version.version}`).first().check();
+      await page.getByLabel(new RegExp(`^${config.name} `)).first().check();
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.locator('text=/required|invalid/i')).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('blank datasetId', async () => {
+      await page.getByRole('button', { name: /new experiment/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByLabel(`${agent.name} v${version.version}`).first().check();
+      await page.getByLabel(new RegExp(`^${config.name} `)).first().check();
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('no agent versions checked', async () => {
+      await page.getByRole('button', { name: /new experiment/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByLabel('Dataset').click();
+      await page.getByRole('option', { name: dataset.name }).click();
+      await page.getByLabel(new RegExp(`^${config.name} `)).first().check();
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('no score configs checked', async () => {
+      await page.getByRole('button', { name: /new experiment/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByLabel('Dataset').click();
+      await page.getByRole('option', { name: dataset.name }).click();
+      await page.getByLabel(`${agent.name} v${version.version}`).first().check();
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+    });
+  });
+
+  test('POST /api/evaluation/experiments without name returns 4xx and creates no row', async ({ request }) => {
+    const before = await (await request.get('/api/evaluation/experiments')).json();
+    const res = await request.post('/api/evaluation/experiments', {
+      data: { datasetId: 'x', agentVersionIds: ['x'], scoreConfigIds: ['x'] },
+    });
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
+    const after = await (await request.get('/api/evaluation/experiments')).json();
+    expect(after.experiments.length).toBe(before.experiments.length);
+  });
+});
+
 test.describe('Evaluation — Experiment run trigger', { tag: [TAG.evaluation, TAG.regression, TAG.api] }, () => {
   test('POST /api/evaluation/experiments/[id]/run', async ({ request }) => {
     const datasetRes = await request.post('/api/evaluation/datasets', { data: { name: `e2e-exp-run-dataset-${Date.now()}` } });

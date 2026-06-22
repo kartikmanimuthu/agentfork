@@ -47,3 +47,40 @@ test.describe('Evaluation — Score configs (golden path)', { tag: [TAG.evaluati
     await expect(page.getByText(name)).toBeVisible();
   });
 });
+
+test.describe('Evaluation — Score config validation', { tag: [TAG.evaluation, TAG.regression] }, () => {
+  test('blocks submission when a required field is blank', async ({ page }) => {
+    await page.goto('/evaluation/scores');
+    await page.getByRole('tab', { name: 'Score Configs' }).click();
+
+    await test.step('blank name keeps Create disabled', async () => {
+      await page.getByRole('button', { name: /new config/i }).click();
+      await expect(page.getByRole('button', { name: /^create$/i })).toBeDisabled();
+      await page.getByLabel('Name').fill('Now Has Name');
+      await expect(page.getByRole('button', { name: /^create$/i })).toBeEnabled();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('CATEGORICAL with empty categories textarea is blocked', async () => {
+      await page.getByRole('button', { name: /new config/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByRole('dialog').getByRole('combobox').click();
+      await page.getByRole('option', { name: /categorical/i }).click();
+      await page.getByLabel('Categories').fill('');
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      // ScoreConfigDialog's CATEGORICAL refine error is "CATEGORICAL requires at least one category" —
+      // "requires", not "required", so match the actual schema message rather than the brief's generic pattern.
+      await expect(page.getByText(/requires at least one category/i)).toBeVisible();
+    });
+  });
+
+  test('POST /api/evaluation/score-configs without name returns 4xx and creates no row', async ({ request }) => {
+    const before = await (await request.get('/api/evaluation/score-configs')).json();
+    const res = await request.post('/api/evaluation/score-configs', { data: { dataType: 'NUMERIC', minValue: 1, maxValue: 5 } });
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
+    const after = await (await request.get('/api/evaluation/score-configs')).json();
+    expect(after.configs.length).toBe(before.configs.length);
+  });
+});

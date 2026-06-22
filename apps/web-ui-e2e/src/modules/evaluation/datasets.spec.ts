@@ -34,3 +34,22 @@ test.describe('Evaluation — Datasets (golden path)', { tag: [TAG.evaluation, T
     await expect(page.getByText(name)).not.toBeVisible();
   });
 });
+
+test.describe('Evaluation — Dataset validation', { tag: [TAG.evaluation, TAG.regression] }, () => {
+  test('Create button stays disabled until name is filled', async ({ page }) => {
+    await page.goto('/evaluation/datasets');
+    await page.getByRole('button', { name: /new dataset/i }).click();
+    await expect(page.getByRole('button', { name: /^create$/i })).toBeDisabled();
+    await page.getByLabel('Name').fill('Now Has Name');
+    await expect(page.getByRole('button', { name: /^create$/i })).toBeEnabled();
+  });
+
+  test('POST /api/evaluation/datasets without name returns 4xx and creates no row', async ({ request }) => {
+    const before = await (await request.get('/api/evaluation/datasets')).json();
+    const res = await request.post('/api/evaluation/datasets', { data: { description: 'no name' } });
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
+    const after = await (await request.get('/api/evaluation/datasets')).json();
+    expect(after.datasets.length).toBe(before.datasets.length);
+  });
+});

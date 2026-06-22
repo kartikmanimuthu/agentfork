@@ -35,6 +35,63 @@ test.describe('Evaluation — Evaluators (golden path)', { tag: [TAG.evaluation,
   });
 });
 
+test.describe('Evaluation — Evaluator validation', { tag: [TAG.evaluation, TAG.regression] }, () => {
+  test('blocks submission when a required field is blank', async ({ page, request }) => {
+    const scRes = await request.post('/api/evaluation/score-configs', {
+      data: { name: `e2e-eval-neg-sc-${Date.now()}`, dataType: 'NUMERIC', minValue: 1, maxValue: 5 },
+    });
+    const { config } = await scRes.json();
+
+    await page.goto('/evaluation/evaluators');
+
+    await test.step('blank name', async () => {
+      await page.getByRole('button', { name: /new evaluator/i }).click();
+      await page.getByLabel('Score config').click();
+      // Type-ahead highlights the match; under heavy test-data volume the option can render
+      // genuinely outside Radix's clipped popup viewport, where neither click nor { force: true }
+      // can hit-test it. Enter confirms the highlighted option without needing it on-screen
+      // (see annotation-queues.spec.ts for the failure mode this avoids).
+      await page.keyboard.type(config.name);
+      await expect(page.getByRole('option', { name: new RegExp(config.name) })).toHaveAttribute('data-highlighted');
+      await page.keyboard.press('Enter');
+      await page.getByLabel('Prompt').fill('Rate this.');
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.locator('text=/required|invalid/i')).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('blank scoreConfigId', async () => {
+      await page.getByRole('button', { name: /new evaluator/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByLabel('Prompt').fill('Rate this.');
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.getByRole('button', { name: /cancel/i }).click();
+    });
+
+    await test.step('blank prompt', async () => {
+      await page.getByRole('button', { name: /new evaluator/i }).click();
+      await page.getByLabel('Name').fill('Has Name');
+      await page.getByLabel('Score config').click();
+      await page.keyboard.type(config.name);
+      await expect(page.getByRole('option', { name: new RegExp(config.name) })).toHaveAttribute('data-highlighted');
+      await page.keyboard.press('Enter');
+      await page.getByRole('button', { name: /^create$/i }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+    });
+  });
+
+  test('POST /api/evaluation/evaluators without name returns 4xx and creates no row', async ({ request }) => {
+    const before = await (await request.get('/api/evaluation/evaluators')).json();
+    const res = await request.post('/api/evaluation/evaluators', { data: { scoreConfigId: 'x', prompt: 'p' } });
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
+    const after = await (await request.get('/api/evaluation/evaluators')).json();
+    expect(after.evaluators.length).toBe(before.evaluators.length);
+  });
+});
+
 test.describe('Evaluation — Evaluator run trigger', { tag: [TAG.evaluation, TAG.regression, TAG.api] }, () => {
   test('POST /api/evaluation/evaluators/[id]/run', async ({ request }) => {
     const createRes = await request.post('/api/evaluation/score-configs', {
