@@ -168,6 +168,15 @@ modules/<module>/        # specs grouped by product module (auth, sso, marketing
 - **Imports**: specs import `{ test, expect }` from `../../fixtures/base`, not `@playwright/test`.
 - **Tags** (`src/constants/tags.ts`): two axes — module (`@auth @sso @marketing @docs @navigation @inference-api`) and type/priority (`@smoke @regression @api @critical @anon @auth-required`). Run/skip with `--grep` / `--grep-invert`, or the `e2e:<module>` / `e2e:smoke` / `e2e:regression` Nx targets. New modules add a `modules/<name>/` folder + a module tag.
 
+## Git Workflow
+
+This repo mirrors to **two remotes** — `origin` pushes to both GitHub and Bitbucket, so a single `git push` lands on both. See **`docs/dev/git-workflow.md`** for the full procedure (remote layout, single-target pushes, keeping the remotes in sync). Key rules:
+
+- Default `git push` fans out to GitHub + Bitbucket. Use `git push github <branch>` / `git push bitbucket <branch>` for a single target.
+- Work on a feature branch; open a PR into `main` (`gh pr create --base main`). Don't push to `main` directly; only the user merges.
+- `.env.example` holds placeholders only — never commit real secrets. If GitHub push protection blocks a key, stop and tell the user; don't use the allow-secret bypass yourself.
+- Fetch is GitHub-only: pull Bitbucket-direct changes with `git fetch bitbucket && git merge bitbucket/main`.
+
 ## Code Style
 
 - TypeScript strict mode, ES2022 target, ESNext modules
