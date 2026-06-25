@@ -1,4 +1,4 @@
-# Contributing to Chatbot
+# Contributing to AgentFork
 
 Thank you for your interest in contributing! This document outlines the workflow, standards, and conventions we follow.
 

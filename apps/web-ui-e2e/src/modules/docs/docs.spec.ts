@@ -15,7 +15,7 @@ test.describe('Docs — Root (/docs)', { tag: [TAG.docs, TAG.anon, TAG.smoke] },
 
   test('docs title heading is visible', async ({ anonPage }) => {
     await expect(
-      anonPage.getByRole('heading', { name: /Chatbot Documentation/i })
+      anonPage.getByRole('heading', { name: /AgentFork Documentation/i })
     ).toBeVisible({ timeout: 10000 });
   });
 

@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer role="contentinfo" className="border-t border-[#1f1f23] px-6 py-8">
       <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-[#52525b]">
-        <span>Chatbot · MIT License · Built with Next.js &amp; AWS Bedrock</span>
+        <span>AgentFork · MIT License · Built with Next.js &amp; AWS Bedrock</span>
         <div className="flex gap-4">
           <Link href="/docs" className="hover:text-[#fafafa] transition-colors">
             Docs

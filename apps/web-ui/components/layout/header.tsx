@@ -16,7 +16,7 @@ function getPageTitle(pathname: string) {
     if (pathname === '/settings/roles') return 'Roles & Permissions';
     return 'Settings';
   }
-  return 'Chatbot';
+  return 'AgentFork';
 }
 
 export function Header() {

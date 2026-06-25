@@ -1,4 +1,4 @@
-# Chatbot Platform — Feature Documentation
+# AgentFork Platform — Feature Documentation
 
 > **Last updated:** 2026-06-15  
 > **Version:** Based on main branch (commit `36d5e6f`)
@@ -29,7 +29,7 @@
 
 ## 1. Platform Overview
 
-Chatbot is an open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. It is designed for production self-hosting and supports multiple organizations (tenants) with complete data isolation, role-based access control, persistent conversation history, and retrieval-augmented generation (RAG) via pgvector.
+AgentFork is an open-source, multi-tenant AI agent platform powered by AWS Bedrock. It is designed for production self-hosting and supports multiple organizations (tenants) with complete data isolation, role-based access control, persistent conversation history, and retrieval-augmented generation (RAG) via pgvector.
 
 ### Key Capabilities
 - **Multi-tenant architecture** — each organization operates in complete isolation

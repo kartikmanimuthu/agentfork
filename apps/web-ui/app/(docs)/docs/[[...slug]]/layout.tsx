@@ -11,7 +11,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         title: (
           <span className="flex items-center gap-2 font-bold">
             <MessageSquare className="w-4 h-4 text-primary" />
-            Chatbot
+            AgentFork
           </span>
         ),
         url: "/",

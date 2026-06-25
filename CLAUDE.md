@@ -1,6 +1,6 @@
-# Chatbot
+# AgentFork
 
-Multi-tenant AI chatbot. Bun + Nx monorepo, Next.js frontend, TypeScript workers, Prisma + pgvector on PostgreSQL.
+Multi-tenant AI agent platform. Bun + Nx monorepo, Next.js frontend, TypeScript workers, Prisma + pgvector on PostgreSQL.
 
 ## Commands
 
