@@ -41,7 +41,7 @@ export function Navbar() {
               Docs
             </Link>
             <a
-              href="https://github.com/kartikmanimuthu/chatbot"
+              href="https://github.com/kartikmanimuthu/agentfork"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#a1a1aa] transition-colors hover:text-[#fafafa]"

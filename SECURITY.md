@@ -11,7 +11,7 @@
 If you discover a security vulnerability within this project, please report it
 responsibly via GitHub Security Advisories:
 
-**[Report a Vulnerability](https://github.com/kartikmanimuthu/chatbot/security/advisories/new)**
+**[Report a Vulnerability](https://github.com/kartikmanimuthu/agentfork/security/advisories/new)**
 
 Please do not open public issues for security vulnerabilities.
 

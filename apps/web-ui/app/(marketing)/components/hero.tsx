@@ -67,7 +67,7 @@ export function Hero() {
             Deploy Free →
           </Link>
           <a
-            href="https://github.com/kartikmanimuthu/chatbot"
+            href="https://github.com/kartikmanimuthu/agentfork"
             target="_blank"
             rel="noopener noreferrer"
             className="border border-[#27272a] text-[#d4d4d8] hover:border-[#3f3f46] px-6 py-3 rounded-lg font-medium transition-colors"

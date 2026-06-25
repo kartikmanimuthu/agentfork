@@ -101,4 +101,4 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Questions?
 
-Open a [Discussion](https://github.com/kartikmanimuthu/chatbot/discussions) or reach out in an issue.
+Open a [Discussion](https://github.com/kartikmanimuthu/agentfork/discussions) or reach out in an issue.
