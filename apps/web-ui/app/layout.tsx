@@ -11,8 +11,8 @@ const geistSans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' });
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 export const metadata: Metadata = {
-  title: 'Chatbot',
-  description: 'AI-powered chatbot application',
+  title: 'AgentFork',
+  description: 'Open-source, multi-tenant AI agent platform',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

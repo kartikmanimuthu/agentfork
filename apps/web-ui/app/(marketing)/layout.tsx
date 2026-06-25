@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'Chatbot — Open Source AI Agent Platform',
+  title: 'AgentFork — Open Source AI Agent Platform',
   description: 'Self-hosted, multi-tenant AI platform. Build agents, connect knowledge bases, integrate MCP tools, and deploy a chat widget.',
 };
 

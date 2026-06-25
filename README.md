@@ -1,6 +1,6 @@
-# Chatbot
+# AgentFork
 
-Open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. Self-hosted, MIT licensed.
+Open-source, multi-tenant AI agent platform powered by AWS Bedrock. Self-hosted, MIT licensed.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -8,7 +8,7 @@ Open-source, multi-tenant AI chatbot platform powered by AWS Bedrock. Self-hoste
 
 ## What is this?
 
-Chatbot is a production-ready, self-hosted AI chat platform you can deploy on your own infrastructure. It supports multiple organizations (tenants), role-based access control, persistent conversation history, and RAG (retrieval-augmented generation) via pgvector — all powered by Claude on AWS Bedrock.
+AgentFork is a production-ready, self-hosted AI agent platform you can deploy on your own infrastructure. It supports multiple organizations (tenants), role-based access control, persistent conversation history, and RAG (retrieval-augmented generation) via pgvector — all powered by Claude on AWS Bedrock.
 
 **Live pages once running:**
 - `http://localhost:3001` — marketing landing page

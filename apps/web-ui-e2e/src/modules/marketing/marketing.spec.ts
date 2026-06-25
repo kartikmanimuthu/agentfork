@@ -9,7 +9,7 @@ test.describe('Marketing — Navigation Bar', { tag: [TAG.marketing, TAG.anon, T
   });
 
   test('brand name is visible', async ({ anonPage }) => {
-    await expect(anonPage.getByRole('navigation').getByText('Chatbot')).toBeVisible();
+    await expect(anonPage.getByRole('navigation').getByText('AgentFork')).toBeVisible();
   });
 
   test('nav links Features and Docs are present', async ({ anonPage }) => {
@@ -41,7 +41,7 @@ test.describe('Marketing — Hero Section', { tag: [TAG.marketing, TAG.anon, TAG
   });
 
   test('hero headline is visible', async ({ anonPage }) => {
-    await expect(anonPage.getByRole('heading', { name: /AI Chatbot Platform/i })).toBeVisible();
+    await expect(anonPage.getByRole('heading', { name: /AI Agent Platform/i })).toBeVisible();
   });
 
   test('open source badge is visible', async ({ anonPage }) => {
@@ -128,7 +128,7 @@ test.describe('Marketing — CTA & Footer', { tag: [TAG.marketing, TAG.anon, TAG
 
   test('footer brand and license visible', async ({ anonPage }) => {
     const footer = anonPage.getByRole('contentinfo');
-    await expect(footer.getByText('Chatbot').first()).toBeVisible();
+    await expect(footer.getByText('AgentFork').first()).toBeVisible();
     await expect(footer.getByText(/MIT License/).first()).toBeVisible();
   });
 

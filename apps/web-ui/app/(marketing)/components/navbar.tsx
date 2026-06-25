@@ -18,7 +18,7 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold">
             <span className="bg-gradient-to-r from-[#a5b4fc] to-[#6366f1] bg-clip-text text-transparent">
-              Chatbot
+              AgentFork
             </span>
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
