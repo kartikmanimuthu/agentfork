@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Renamed project from "Chatbot" to "AgentFork"** — product display name across the
+  web UI, documentation, and marketing pages. The GitHub repository slug moved from
+  `chatbot` to `agentfork`; all repository URLs were updated accordingly. The internal
+  `@chatbot/*` package namespace and infrastructure/database identifiers are unchanged.
+
 ### Added
+- `SUPPORT.md` describing where to get help
+- `.github/CODEOWNERS` for automatic review routing
+- README badges (build status, license)
 - GitHub Actions CI workflow for lint, typecheck, test, and build
 - GitHub issue templates (bug report, feature request)
 - GitHub pull request template
@@ -24,5 +33,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AWS infrastructure via Pulumi (ECS Fargate, ALB, CloudFront)
 - AI integration via Amazon Bedrock
 
-[unreleased]: https://github.com/kartikmanimuthu/chatbot/compare/v0.0.0...HEAD
-[0.0.0]: https://github.com/kartikmanimuthu/chatbot/releases/tag/v0.0.0
+[unreleased]: https://github.com/kartikmanimuthu/agentfork/compare/v0.0.0...HEAD
+[0.0.0]: https://github.com/kartikmanimuthu/agentfork/releases/tag/v0.0.0

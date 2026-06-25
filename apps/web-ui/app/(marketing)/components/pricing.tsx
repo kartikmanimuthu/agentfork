@@ -10,7 +10,7 @@ const tiers = [
     sub: 'forever',
     features: ['All features included', 'Unlimited users', 'Unlimited agents', 'Community support'],
     cta: 'Deploy Now',
-    ctaHref: 'https://github.com/kartikmanimuthu/chatbot',
+    ctaHref: 'https://github.com/kartikmanimuthu/agentfork',
     highlighted: true,
   },
   {

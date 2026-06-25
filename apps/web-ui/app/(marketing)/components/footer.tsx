@@ -12,7 +12,7 @@ export function Footer() {
             Docs
           </Link>
           <a
-            href="https://github.com/kartikmanimuthu/chatbot"
+            href="https://github.com/kartikmanimuthu/agentfork"
             className="hover:text-[#fafafa] transition-colors"
             target="_blank"
             rel="noopener noreferrer"

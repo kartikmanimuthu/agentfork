@@ -20,8 +20,8 @@ export function QuickStart() {
 
         <div className="bg-[#111113] border border-[#27272a] rounded-xl p-6 mt-8 text-left font-mono text-sm">
           <div className="text-[#71717a]"># Clone and install</div>
-          <div className="text-[#a5b4fc]">$ git clone github.com/kartikmanimuthu/chatbot</div>
-          <div className="text-[#a5b4fc]">$ cd chatbot && bun install</div>
+          <div className="text-[#a5b4fc]">$ git clone github.com/kartikmanimuthu/agentfork</div>
+          <div className="text-[#a5b4fc]">$ cd agentfork && bun install</div>
           <div className="h-3" />
           <div className="text-[#71717a]"># Start everything</div>
           <div className="text-[#a5b4fc]">$ bun run dev:all</div>

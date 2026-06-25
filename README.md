@@ -2,7 +2,9 @@
 
 Open-source, multi-tenant AI agent platform powered by AWS Bedrock. Self-hosted, MIT licensed.
 
+[![CI](https://github.com/kartikmanimuthu/agentfork/actions/workflows/ci.yml/badge.svg)](https://github.com/kartikmanimuthu/agentfork/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
 
@@ -22,7 +24,7 @@ AgentFork is a production-ready, self-hosted AI agent platform you can deploy on
 This project uses **Nx** as the monorepo build system with **Bun** as the package manager.
 
 ```
-chatbot/                          # Nx workspace root
+agentfork/                        # Nx workspace root
 ├── apps/
 │   ├── web-ui/                   # Next.js 15 — frontend, API routes, docs, marketing
 │   └── workers/                  # pg-boss background job processor
@@ -56,8 +58,8 @@ chatbot/                          # Nx workspace root
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/kartikmanimuthu/chatbot.git
-cd chatbot
+git clone https://github.com/kartikmanimuthu/agentfork.git
+cd agentfork
 bun install
 ```
 
