@@ -18,6 +18,8 @@ export const TAG = {
   inferenceApi: '@inference-api',
   dashboards: '@dashboards',
   evaluation: '@evaluation',
+  agents: '@agents',
+  clawStudio: '@claw-studio',
 
   // type / priority axis
   smoke: '@smoke',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyWebhookSignature, parseWebhookPayload, createMessageProcessor, whatsappEnv } from '@chatbot/whatsapp';
+import { verifyWebhookSignature, parseWebhookPayload, parseNetcoreWebhookPayload, parseNetcoreDeliveryStatus, createMessageProcessor, whatsappEnv } from '@chatbot/whatsapp';
+import type { NetcoreDeliveryStatus } from '@chatbot/whatsapp';
 import { createLogger } from '@chatbot/shared';
 
 const logger = createLogger('whatsapp-webhook');
@@ -15,22 +16,46 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return new NextResponse(challenge, { status: 200 });
   }
 
-  logger.warn({ mode, token }, 'Webhook verification failed');
+  // Temporary: capture full query params + headers to learn the Netcore verification contract (no known shape yet)
+  logger.warn(
+    { mode, token, query: Object.fromEntries(searchParams.entries()), headers: Object.fromEntries(req.headers.entries()) },
+    'Webhook verification failed',
+  );
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  let rawBody: string | undefined;
   try {
-    const rawBody = await req.text();
-    const signature = req.headers.get('x-hub-signature-256') ?? '';
-
-    if (!verifyWebhookSignature(rawBody, signature, whatsappEnv.META_APP_SECRET)) {
-      logger.warn('Invalid webhook signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-
+    rawBody = await req.text();
     const payload = JSON.parse(rawBody);
-    const events = parseWebhookPayload(payload);
+
+    let events;
+
+    if (payload.object === 'whatsapp_business_account') {
+      const signature = req.headers.get('x-hub-signature-256') ?? '';
+
+      if (!verifyWebhookSignature(rawBody, signature, whatsappEnv.META_APP_SECRET)) {
+        logger.warn(
+          { headers: Object.fromEntries(req.headers.entries()), rawBody },
+          'Invalid webhook signature',
+        );
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+
+      events = parseWebhookPayload(payload);
+    } else if (Array.isArray(payload.incoming_message)) {
+      events = parseNetcoreWebhookPayload(payload);
+    } else if (Array.isArray(payload.delivery_status)) {
+      logger.info(
+        { count: payload.delivery_status.length, statuses: payload.delivery_status.map((d: NetcoreDeliveryStatus) => ({ id: d.ncmessage_id, status: d.status })) },
+        'Netcore delivery_status event received',
+      );
+      events = parseNetcoreDeliveryStatus(payload);
+    } else {
+      logger.warn({ rawBody }, 'Unrecognized webhook payload shape');
+      return NextResponse.json({ status: 'ok' });
+    }
 
     if (events.length === 0) {
       return NextResponse.json({ status: 'ok' });
@@ -62,7 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ status: 'ok' });
   } catch (error) {
-    logger.error({ error }, 'Webhook handler error');
+    logger.error({ error, rawBody }, 'Webhook handler error');
     return NextResponse.json({ status: 'ok' });
   }
 }

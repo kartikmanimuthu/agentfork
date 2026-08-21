@@ -21,4 +21,33 @@ export class TenantConfigService {
       update: { data: value, updatedBy },
     });
   }
+
+  /**
+   * Removes a config row. Uses deleteMany so it stays idempotent (no throw when
+   * the key was never set) and so the tenant-scoped client can inject tenantId
+   * into the filter.
+   */
+  async delete(key: string): Promise<void> {
+    await this.db.tenantConfig.deleteMany({ where: { configKey: key } });
+  }
+
+  /**
+   * Lists every row whose key starts with `prefix` — the primitive multi-row
+   * config concepts (e.g. one row per connected external account) are built
+   * on, since `get`/`set`/`delete` only ever address a single exact key.
+   */
+  async listByPrefix<T = any>(
+    prefix: string,
+  ): Promise<Array<{ configKey: string; data: T; updatedAt: Date; updatedBy: string }>> {
+    const rows = await this.db.tenantConfig.findMany({
+      where: { configKey: { startsWith: prefix } },
+      orderBy: { configKey: 'asc' },
+    });
+    return rows.map((r: any) => ({
+      configKey: r.configKey as string,
+      data: r.data as T,
+      updatedAt: r.updatedAt as Date,
+      updatedBy: r.updatedBy as string,
+    }));
+  }
 }

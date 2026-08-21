@@ -42,6 +42,10 @@ export async function POST(
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    if (account.provider === 'netcore') {
+      return NextResponse.json({ error: 'Template sending is not yet supported for Netcore accounts' }, { status: 400 });
+    }
+
     const encryption = new EncryptionService();
     const accessToken = encryption.decrypt(account.accessToken);
 

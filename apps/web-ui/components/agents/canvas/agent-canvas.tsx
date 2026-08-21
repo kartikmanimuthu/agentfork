@@ -17,7 +17,10 @@ import {
   type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { NodeRegistry, GraphValidationService } from '@chatbot/agent-studio';
+// Client entrypoint, not the '@chatbot/agent-studio' barrel — the barrel reaches
+// AgentService -> @chatbot/shared -> S3Service -> node:https, which webpack cannot
+// resolve for the browser target and which fails the build outright.
+import { NodeRegistry, GraphValidationService } from '@chatbot/agent-studio/client';
 import type { GraphNode, GraphEdge, NodeConfig, ValidationError } from '@chatbot/agent-studio';
 import { nodeTypes } from './node-types';
 import { NodePalette } from './node-palette';

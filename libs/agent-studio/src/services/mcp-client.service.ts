@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { jsonSchema, type ToolSet } from 'ai';
 import { createLogger } from '@chatbot/shared';
 import type {
@@ -102,7 +102,9 @@ export class McpClientService {
       }
       case 'http_bridge': {
         const httpConfig = config.transportConfig as HttpBridgeTransportConfig;
-        return new StreamableHTTPClientTransport(new URL(httpConfig.bridgeUrl));
+        return new StreamableHTTPClientTransport(new URL(httpConfig.bridgeUrl), {
+          requestInit: httpConfig.headers ? { headers: httpConfig.headers } : undefined,
+        });
       }
       default:
         throw new Error(`Unsupported MCP transport: ${config.transport}. Only 'sse' and 'http_bridge' are supported at runtime.`);

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mission-control",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["nx", "serve", "mission-control"],
+      "port": 3010
+    }
+  ]
+}

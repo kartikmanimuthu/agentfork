@@ -11,6 +11,7 @@ import { handleInferenceSessionAnalytics } from './jobs/inference-session-analyt
 import { handleInferenceSessionIdleWatcher } from './jobs/inference-session-idle-watcher/handler.js';
 import { handleEvaluatorRun } from './jobs/evaluator-run/handler.js';
 import { handleExperimentRun } from './jobs/experiment-run/handler.js';
+import { handleClawGatewayRun } from './jobs/claw-gateway-run/handler.js';
 
 const log = createLogger('job-runner');
 
@@ -54,8 +55,9 @@ async function main(): Promise<void> {
   executor.registerHandler('inference-session-idle-watcher', () => handleInferenceSessionIdleWatcher(boss));
   executor.registerHandler('evaluator-run', (data) => handleEvaluatorRun(data, boss));
   executor.registerHandler('experiment-run', (data) => handleExperimentRun(data, boss));
+  executor.registerHandler('claw-gateway-run', handleClawGatewayRun);
 
-  const knownJobs = ['document-ingestion', 'web-crawl', 'inference-session-analytics', 'inference-session-idle-watcher', 'evaluator-run', 'experiment-run'];
+  const knownJobs = ['document-ingestion', 'web-crawl', 'inference-session-analytics', 'inference-session-idle-watcher', 'evaluator-run', 'experiment-run', 'claw-gateway-run'];
   if (!knownJobs.includes(job)) {
     log.error('Unknown job name', { job, available: knownJobs });
     await boss.stop({ graceful: false });

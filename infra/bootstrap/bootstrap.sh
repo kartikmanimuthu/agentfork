@@ -7,15 +7,23 @@ set -euo pipefail
 # Usage: ./bootstrap.sh
 # Prerequisites: aws cli configured with PLATFORM-ADMIN profile
 
-BUCKET_NAME="chatbot-pulumi-state"
-REGION="us-east-1"
-PROFILE="PLATFORM-ADMIN"
+BUCKET_NAME="${BUCKET_NAME:-chatbot-pulumi-state}"
+REGION="${REGION:-us-east-1}"
+PROFILE="${PROFILE:-PLATFORM-ADMIN}"
 
 echo "==> Creating S3 state bucket: $BUCKET_NAME"
-aws s3api create-bucket \
-  --bucket "$BUCKET_NAME" \
-  --region "$REGION" \
-  --profile "$PROFILE"
+if [ "$REGION" = "us-east-1" ]; then
+  aws s3api create-bucket \
+    --bucket "$BUCKET_NAME" \
+    --region "$REGION" \
+    --profile "$PROFILE"
+else
+  aws s3api create-bucket \
+    --bucket "$BUCKET_NAME" \
+    --region "$REGION" \
+    --profile "$PROFILE" \
+    --create-bucket-configuration LocationConstraint="$REGION"
+fi
 
 echo "==> Enabling versioning"
 aws s3api put-bucket-versioning \

@@ -37,7 +37,7 @@ export default function DashboardsListPage() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboards</h1>
+        <h2 className="text-2xl font-semibold">Dashboards</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button><Plus className="mr-1 h-4 w-4" /> New dashboard</Button>} />
           <DialogContent>

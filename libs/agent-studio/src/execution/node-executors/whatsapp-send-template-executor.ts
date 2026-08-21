@@ -32,6 +32,10 @@ export class WhatsAppSendTemplateNodeExecutor implements NodeExecutor {
         throw new Error(`WhatsAppAccount not found: ${accountId}`);
       }
 
+      if (account.provider === 'netcore') {
+        throw new Error('WhatsApp Send Template node does not yet support Netcore accounts');
+      }
+
       const accessToken = new EncryptionService().decrypt(account.accessToken);
 
       const client = new MetaWhatsAppClient({

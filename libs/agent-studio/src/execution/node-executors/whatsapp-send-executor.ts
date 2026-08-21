@@ -1,5 +1,5 @@
 import { createLogger, EncryptionService } from '@chatbot/shared';
-import { MetaWhatsAppClient } from '@chatbot/whatsapp';
+import { MetaWhatsAppClient, NetcoreWhatsAppClient } from '@chatbot/whatsapp';
 import type { NodeExecutor, NodeExecutionContext, NodeExecutionResult } from '../types';
 import type { WhatsAppSendNodeConfig } from '../../types/nodes';
 
@@ -39,31 +39,45 @@ export class WhatsAppSendNodeExecutor implements NodeExecutor {
 
       const accessToken = new EncryptionService().decrypt(account.accessToken);
 
-      const client = new MetaWhatsAppClient({
-        accessToken,
-        phoneNumberId: account.phoneNumberId,
-        apiVersion: account.apiVersion ?? 'v22.0',
-      });
-
       const to = String(senderId);
       let sentMessageId: string;
 
-      if (config.messageType === 'text') {
+      if (account.provider === 'netcore') {
+        if (config.messageType !== 'text') {
+          throw new Error(
+            `WhatsApp Send node: messageType "${config.messageType}" is not yet supported for Netcore accounts`,
+          );
+        }
+        const client = new NetcoreWhatsAppClient({
+          accessToken,
+          phoneNumberId: account.phoneNumberId,
+        });
         const response = await client.sendTextMessage(to, String(messageContent));
         sentMessageId = response.messages[0].id;
-      } else if (config.messageType === 'image') {
-        const mediaId = String(channels[config.mediaIdChannel ?? ''] ?? '');
-        const caption = String(messageContent);
-        const response = await client.sendImageMessage(to, mediaId, caption);
-        sentMessageId = response.messages[0].id;
-      } else if (config.messageType === 'document') {
-        const mediaId = String(channels[config.mediaIdChannel ?? ''] ?? '');
-        const filename = config.filenameChannel ? String(channels[config.filenameChannel] ?? '') : undefined;
-        const caption = String(messageContent);
-        const response = await client.sendDocumentMessage(to, mediaId, filename, caption);
-        sentMessageId = response.messages[0].id;
       } else {
-        throw new Error(`Unsupported messageType: ${config.messageType}`);
+        const client = new MetaWhatsAppClient({
+          accessToken,
+          phoneNumberId: account.phoneNumberId,
+          apiVersion: account.apiVersion ?? 'v22.0',
+        });
+
+        if (config.messageType === 'text') {
+          const response = await client.sendTextMessage(to, String(messageContent));
+          sentMessageId = response.messages[0].id;
+        } else if (config.messageType === 'image') {
+          const mediaId = String(channels[config.mediaIdChannel ?? ''] ?? '');
+          const caption = String(messageContent);
+          const response = await client.sendImageMessage(to, mediaId, caption);
+          sentMessageId = response.messages[0].id;
+        } else if (config.messageType === 'document') {
+          const mediaId = String(channels[config.mediaIdChannel ?? ''] ?? '');
+          const filename = config.filenameChannel ? String(channels[config.filenameChannel] ?? '') : undefined;
+          const caption = String(messageContent);
+          const response = await client.sendDocumentMessage(to, mediaId, filename, caption);
+          sentMessageId = response.messages[0].id;
+        } else {
+          throw new Error(`Unsupported messageType: ${config.messageType}`);
+        }
       }
 
       logger.info(

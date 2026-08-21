@@ -1,0 +1,8 @@
+config:
+  aws:region: ap-south-1
+  chatbot-compute:appName: stx-chatflow-prod
+  chatbot-compute:appUrl: https://d29fy6b5poipr4.cloudfront.net
+  chatbot-compute:subscriptionEmails: ""
+  chatbot-compute:bedrockBearerToken:
+    secure: v1:HsCRqaQcnTlQpk2C:ZAq4I6kHDMFlKPNa4LAM1YTlCMejmU/icBnAIzEwpHaW0uDlpgGtEKISRcMok+k8FyIk2v9LnhCuAH5P8T7iYMRTU75YpJpeTzCrCYkTGhmMulQ/ozsrgmzUE6Nb76+Py/vFhdPXfi6aIG8KT+1tDQjoVOSAjtPyGDSXZAxZAFKwK0Ed9fqya1sj4eKmSboK12lMlg==
+encryptionsalt: v1:3ViVj16u6eM=:v1:1hmlZC9hzip9NlCV:HMgH15vfU4cnQvByvCH7ygM158+Bmw==

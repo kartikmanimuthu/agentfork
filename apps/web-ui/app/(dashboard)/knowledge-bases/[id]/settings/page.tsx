@@ -83,19 +83,16 @@ export default function KnowledgeBaseSettingsPage() {
       });
   }, [id]);
 
-  const handleModelChange = (modelId: string) => {
-    if (!providers) return;
-    for (const provider of providers) {
-      const discovered = (provider.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
-      const hasModel = discovered.some((m) => m.id === modelId);
-      if (hasModel || provider.embeddingModel === modelId) {
-        form.setFieldValue('embeddingProvider', provider.id);
-        form.setFieldValue('embeddingModel', modelId);
-        form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);
-        return;
-      }
-    }
+  const handleModelChange = (modelId: string, providerId?: string) => {
     form.setFieldValue('embeddingModel', modelId);
+    // providerId is which entry was actually clicked — two providers can expose the
+    // identical model id, so re-deriving "the" provider by scanning for a match would
+    // silently attribute the KB to whichever provider happens to be first in the list.
+    const provider = providerId ? providers?.find((p) => p.id === providerId) : undefined;
+    if (provider) {
+      form.setFieldValue('embeddingProvider', provider.id);
+      form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);
+    }
   };
 
   if (loading) {
@@ -157,7 +154,11 @@ export default function KnowledgeBaseSettingsPage() {
                     onBlur={field.handleBlur}
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                    <p className="text-xs text-destructive">
+                      {typeof field.state.meta.errors[0] === 'string'
+                        ? field.state.meta.errors[0]
+                        : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                    </p>
                   )}
                 </div>
               )}
@@ -284,7 +285,11 @@ export default function KnowledgeBaseSettingsPage() {
                       onBlur={field.handleBlur}
                     />
                     {field.state.meta.errors.length > 0 && (
-                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      <p className="text-xs text-destructive">
+                      {typeof field.state.meta.errors[0] === 'string'
+                        ? field.state.meta.errors[0]
+                        : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                    </p>
                     )}
                   </div>
                 )}
@@ -303,7 +308,11 @@ export default function KnowledgeBaseSettingsPage() {
                       onBlur={field.handleBlur}
                     />
                     {field.state.meta.errors.length > 0 && (
-                      <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                      <p className="text-xs text-destructive">
+                      {typeof field.state.meta.errors[0] === 'string'
+                        ? field.state.meta.errors[0]
+                        : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                    </p>
                     )}
                   </div>
                 )}

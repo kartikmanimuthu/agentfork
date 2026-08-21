@@ -1,6 +1,7 @@
 'use client';
 
-import { NodeRegistry } from '@chatbot/agent-studio';
+// Client entrypoint, not the barrel — see the note in agent-canvas.tsx.
+import { NodeRegistry } from '@chatbot/agent-studio/client';
 import { Bot, Wrench, GitBranch, Database, ArrowDownToLine, ArrowUpFromLine, Brain, BookOpen, Plug, Code, GitFork, Globe, UserCheck, GitMerge, Users, Timer, Send } from 'lucide-react';
 import type { ElementType } from 'react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';

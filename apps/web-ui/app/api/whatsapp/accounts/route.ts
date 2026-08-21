@@ -15,6 +15,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       where: { tenantId, status: { not: 'disconnected' } },
       select: {
         id: true,
+        agentId: true,
+        provider: true,
         phoneNumberId: true,
         displayPhone: true,
         displayName: true,

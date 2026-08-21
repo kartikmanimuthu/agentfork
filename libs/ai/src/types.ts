@@ -1,4 +1,4 @@
-export type ProviderName = 'bedrock' | 'openai' | 'anthropic' | 'ollama' | 'vllm' | 'openai_compatible';
+export type ProviderName = 'bedrock' | 'openai' | 'anthropic' | 'ollama' | 'vllm' | 'openai_compatible' | 'litellm';
 
 export interface TenantLLMConfig {
   provider: ProviderName;

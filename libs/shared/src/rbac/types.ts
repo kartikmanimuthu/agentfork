@@ -1,4 +1,4 @@
-export type Module = 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders' | 'Evaluation' | 'Dashboards';
+export type Module = 'Settings' | 'Users' | 'Tenants' | 'Agents' | 'KnowledgeBases' | 'McpServers' | 'LlmProviders' | 'Evaluation' | 'Dashboards' | 'TranscriptionStudio';
 
 export type Action = 'create' | 'read' | 'update' | 'delete';
 
@@ -14,6 +14,7 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   Tenant: 'Tenants',
   TenantConfig: 'Settings',
   Settings: 'Settings',
+  ClawStudio: 'Settings',
   KnowledgeBases: 'KnowledgeBases',
   KnowledgeBase: 'KnowledgeBases',
   all: 'Settings',
@@ -38,6 +39,11 @@ export const SUBJECT_TO_MODULE: Record<string, Module> = {
   ExperimentRunItem: 'Evaluation',
   Dashboard: 'Dashboards',
   DashboardWidget: 'Dashboards',
+  TranscriptionModel: 'TranscriptionStudio',
+  TranscriptionApiKey: 'TranscriptionStudio',
+  TranscriptionJob: 'TranscriptionStudio',
+  TranscriptionJobConfig: 'TranscriptionStudio',
+  TranscriptionJobVersion: 'TranscriptionStudio',
 };
 
 export const ACTION_MAP: Record<string, Action | Action[]> = {

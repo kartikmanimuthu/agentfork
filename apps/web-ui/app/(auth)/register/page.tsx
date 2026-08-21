@@ -9,7 +9,8 @@ import { GalleryVerticalEnd } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SecretInput } from '@/components/ui/secret-input';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Field,
@@ -93,7 +94,7 @@ export default function RegisterPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Create your account</CardTitle>
+              <h1 className="text-base leading-snug font-medium text-xl">Create your account</h1>
               <CardDescription>Enter your details to get started</CardDescription>
             </CardHeader>
             <CardContent>
@@ -145,10 +146,9 @@ export default function RegisterPage() {
                           data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}
                         >
                           <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-                          <Input
+                          <SecretInput
                             id={field.name}
                             name={field.name}
-                            type="password"
                             placeholder="••••••••"
                             value={field.state.value}
                             onChange={(e) => field.handleChange(e.target.value)}
@@ -167,10 +167,9 @@ export default function RegisterPage() {
                           data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}
                         >
                           <FieldLabel htmlFor={field.name}>Confirm</FieldLabel>
-                          <Input
+                          <SecretInput
                             id={field.name}
                             name={field.name}
-                            type="password"
                             placeholder="••••••••"
                             value={field.state.value}
                             onChange={(e) => field.handleChange(e.target.value)}
@@ -205,8 +204,7 @@ export default function RegisterPage() {
                       )}
                     </form.Subscribe>
                     <FieldDescription className="text-center">
-                      Already have an account?{' '}
-                      <Link href="/login">Sign in</Link>
+                      Already have an account? <Link href="/login">Sign in</Link>
                     </FieldDescription>
                   </Field>
                 </FieldGroup>
@@ -214,8 +212,8 @@ export default function RegisterPage() {
             </CardContent>
           </Card>
           <FieldDescription className="px-6 text-center">
-            By clicking continue, you agree to our{' '}
-            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+            By clicking continue, you agree to our <a href="#">Terms of Service</a> and{' '}
+            <a href="#">Privacy Policy</a>.
           </FieldDescription>
         </div>
       </div>

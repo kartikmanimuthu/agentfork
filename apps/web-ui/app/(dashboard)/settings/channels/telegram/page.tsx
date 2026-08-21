@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/secret-input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Trash2, MessageSquare, Plus, Loader2, Send } from 'lucide-react';
 
@@ -246,9 +247,9 @@ export default function TelegramChannelsPage() {
           <div className="space-y-4 py-4">
             <div className="grid gap-1.5">
               <Label htmlFor="botToken">Bot Token</Label>
-              <Input
+              <SecretInput
                 id="botToken"
-                type="password"
+               
                 value={botToken}
                 onChange={(e) => setBotToken(e.target.value)}
                 placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"

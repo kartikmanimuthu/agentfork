@@ -208,13 +208,22 @@ export function usePlayground({
       if (!agentId) return;
 
       if (agentType === 'simple') {
-        // Pass attachments via the per-call body option. useChat merges this into the
-        // request body at the top level and correctly parses the AI SDK v6 UI-message
-        // stream response (manual SSE parsing broke because it assumed the v3 protocol).
+        // useChat's internal Chat instance is created once on mount and never recreated
+        // just because the `transport` prop changes (it only swaps on an explicit `chat`
+        // or `id` change) — so the transport's own memoized body permanently keeps
+        // whatever `overrides` were set at mount. Passing overrides via the per-call
+        // body option here is what actually applies them: sendMessage merges this body
+        // on top of the transport's stale one for every individual request.
+        const overrideBody = {
+          systemPrompt: overrides.systemPrompt,
+          model: overrides.model,
+          temperature: overrides.temperature,
+          maxTokens: overrides.maxTokens,
+        };
         if (attachments && attachments.length > 0) {
-          sendMessage({ text: content }, { body: { attachments } });
+          sendMessage({ text: content }, { body: { ...overrideBody, attachments } });
         } else {
-          sendMessage({ text: content });
+          sendMessage({ text: content }, { body: overrideBody });
         }
         return;
       }
@@ -616,7 +625,17 @@ export function usePlayground({
           .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
           .map((p) => p.text)
           .join('');
-        sendMessage({ text });
+        sendMessage(
+          { text },
+          {
+            body: {
+              systemPrompt: overrides.systemPrompt,
+              model: overrides.model,
+              temperature: overrides.temperature,
+              maxTokens: overrides.maxTokens,
+            },
+          }
+        );
       }
     } else {
       const lastUserMessage = graphMessages.filter((m) => m.role === 'user').pop();
@@ -628,7 +647,7 @@ export function usePlayground({
         handleSend(text);
       }
     }
-  }, [agentId, agentType, aiMessages, graphMessages, sendMessage, handleSend]);
+  }, [agentId, agentType, aiMessages, graphMessages, sendMessage, handleSend, overrides]);
 
   const refreshExecutions = useCallback(async () => {
     try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, createLogger, S3Service, ValidationError } from '@chatbot/shared';
+import { getSessionTenantId, authorize, createLogger, ValidationError } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import { DocumentService, IngestionService } from '@chatbot/knowledge-base';
 import { authOptions } from '@/lib/auth';
 import { createBoss } from '@/lib/boss';

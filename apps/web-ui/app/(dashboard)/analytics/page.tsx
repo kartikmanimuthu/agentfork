@@ -112,7 +112,7 @@ export default function AnalyticsDashboardPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+        <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
       </div>
 
       <div className="flex items-end gap-3 flex-wrap">

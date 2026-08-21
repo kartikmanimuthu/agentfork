@@ -7,10 +7,10 @@ import {
   createLogger,
   TenantConfigService,
   LlmProviderService,
-  S3Service,
   PausedExecutionService,
   playgroundRequestSchema,
 } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import { streamChat, createLLMProvider, type TenantLLMConfig, ContentResolver, type MessageAttachment, buildBuiltInTools } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
 

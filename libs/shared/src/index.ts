@@ -4,6 +4,9 @@ export { env } from './env';
 // Logging
 export { createLogger } from './logging/logger';
 
+// Utils
+export { withTimeout, TimeoutError } from './utils/with-timeout';
+
 // Database
 export { getPrismaClient, disconnectPrisma } from './db/prisma-client';
 export { getTenantClient, TENANT_SCOPED_MODELS } from './db/tenant-middleware';
@@ -36,11 +39,47 @@ export type { CustomRoleInput, CustomRoleOutput } from './rbac/custom-role-servi
 export { AuditService } from './services/audit-service';
 export { TenantConfigService } from './services/tenant-config-service';
 export { InvitationService } from './services/invitation-service';
-export { LlmProviderService } from './services/llm-provider-service';
+export { LlmProviderService, firstChatCapableModel } from './services/llm-provider-service';
+export type { LlmProviderResponse, LlmProviderEndpoints } from './services/llm-provider-service';
 export { getEmailService, setEmailService } from './services/email-service';
 export { ApiKeyService } from './services/api-key-service';
+export { StudioService, MAX_STUDIO_ACCOUNTS_PER_USER } from './services/studio-service';
+export type {
+  UserStudioSummary,
+  CreateStudioAccountInput,
+  CreateStudioAccountResult,
+} from './services/studio-service';
+export type { ProvisionResult, StudioSummary, ResetPasswordResult, StudioAuthResult } from './services/studio-service';
 export { QuotaService } from './services/quota-service';
 export { ResponseCacheService } from './services/response-cache-service';
+export {
+  SemanticCacheService,
+  buildScopeKey,
+  sanitiseThreshold,
+  getThresholdBand,
+  getPresetThreshold,
+  presetForThreshold,
+  THRESHOLD_PRESETS,
+  negationMatch,
+  WIDEST_THRESHOLD_MIN,
+  WIDEST_THRESHOLD_MAX,
+} from './services/semantic-cache-service';
+export type {
+  SemanticHit,
+  LookupParams,
+  StoreParams,
+  ThresholdBand,
+  ThresholdPreset,
+} from './services/semantic-cache-service';
+export {
+  resolveCachingConfig,
+  CACHE_OVERRIDE_LABELS,
+  DEFAULT_CACHE_TTL_SECONDS,
+  MAX_CACHE_TTL_SECONDS,
+} from './services/caching-config';
+export type { ResolvedCaching, ExactCacheOverrides, SemanticCacheOverrides } from './services/caching-config';
+export { computeCacheEligibility } from './services/cache-eligibility';
+export type { EligibilityInput, EligibilityResult } from './services/cache-eligibility';
 export { InferenceSessionService } from './services/inference-session-service';
 export { WebhookService } from './services/webhook-service';
 export { PausedExecutionService } from './services/paused-execution-service';
@@ -54,8 +93,40 @@ export type {
   SyncTelegramAccountBindingInput,
 } from './services/telegram-account-binding-service';
 export type { PausedExecutionRow, CreatePausedExecutionInput } from './services/paused-execution-service';
-export { S3Service } from './services/s3-service';
+// S3Service is NOT re-exported here — it pulls in @smithy/node-http-handler, which does
+// static `node:http`/`node:https`/`node:http2` imports that break the browser webpack build.
+// Import it from '@chatbot/shared/server' instead. See src/server.ts for the full story.
+export { resolveTenantFolder } from './services/tenant-folder';
 export { EncryptionService } from './services/encryption-service';
+export { TranscriptionModelService } from './services/transcription-model-service';
+export type {
+  TranscriptionModelResponse,
+  TranscriptionModelConfig,
+  TranscriptionDiscoverFn,
+  DiscoveredTranscriptionModel,
+} from './services/transcription-model-service';
+export { TranscriptionModelVersionService } from './services/transcription-model-version-service';
+export type { TranscriptionModelVersionResponse } from './services/transcription-model-version-service';
+export { TranscriptionJobConfigService } from './services/transcription-job-config-service';
+export type {
+  CreateTranscriptionJobConfigInput,
+  UpdateTranscriptionJobConfigInput,
+} from './services/transcription-job-config-service';
+export { TranscriptionJobVersionService } from './services/transcription-job-version-service';
+export { TranscriptionApiKeyService } from './services/transcription-api-key-service';
+export type {
+  CreateTranscriptionApiKeyInput,
+  QuotaCheckResult as TranscriptionQuotaCheckResult,
+} from './services/transcription-api-key-service';
+export { TranscriptionJobService } from './services/transcription-job-service';
+export type {
+  CreateTranscriptionJobInput,
+  CompleteTranscriptionJobInput,
+} from './services/transcription-job-service';
+// executeTranscription, TranscriptionUploadService, and dispatchUploadedTranscription are NOT
+// re-exported here — each imports S3Service directly (see ../services/s3-service.ts), which
+// pulls in @smithy/node-http-handler the same way S3Service itself used to when it lived in
+// this barrel. Import them from '@chatbot/shared/server' instead. See src/server.ts.
 export { SdkWidgetService } from './services/sdk-widget-service';
 export type { CreateSdkWidgetInput, SdkWidgetDb } from './services/sdk-widget-service';
 export { AgentWorkflowService } from './services/agent-workflow-service';

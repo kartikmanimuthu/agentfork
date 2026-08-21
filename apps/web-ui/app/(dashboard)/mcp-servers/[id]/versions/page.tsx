@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Server, RotateCcw, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 
 interface McpServerVersionItem {
@@ -26,6 +27,10 @@ export default function McpServerVersionsPage() {
 
   const { data: server, isLoading: serverLoading } = useMcpServer(serverId);
   const { data: versions, isLoading: versionsLoading } = useMcpServerVersions(serverId);
+  // Restore is not a delete, so this dialog is deliberately non-destructive in
+  // styling — but it still replaces window.confirm, whose wording several browsers
+  // truncate and whose default button is the one that acts.
+  const [pendingRestore, setPendingRestore] = useState<string | null>(null);
   const restoreMutation = useRestoreMcpServerVersion(serverId);
   const [previewVersion, setPreviewVersion] = useState<McpServerVersionItem | null>(null);
 
@@ -51,10 +56,10 @@ export default function McpServerVersionsPage() {
     );
   }
 
-  const handleRestore = async (versionId: string) => {
-    if (!confirm('Restore this version? A new version snapshot will be created.')) return;
+  const handleRestore = async () => {
+    if (!pendingRestore) return;
     try {
-      await restoreMutation.mutateAsync(versionId);
+      await restoreMutation.mutateAsync(pendingRestore);
       toast.success('Version restored');
     } catch {
       toast.error('Failed to restore version');
@@ -91,7 +96,7 @@ export default function McpServerVersionsPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewVersion(version)}><Eye className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRestore(version.id)} disabled={restoreMutation.isPending}><RotateCcw className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPendingRestore(version.id)} disabled={restoreMutation.isPending} aria-label={`Restore version ${version.version}`}><RotateCcw className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -109,6 +114,15 @@ export default function McpServerVersionsPage() {
           </CardContent>
         </Card>
       )}
+      <ConfirmDialog
+        open={pendingRestore !== null}
+        onOpenChange={(open) => !open && setPendingRestore(null)}
+        title="Restore this version?"
+        description="A new version snapshot is created, so the current configuration is not lost."
+        confirmLabel="Restore version"
+        destructive={false}
+        onConfirm={handleRestore}
+      />
     </div>
   );
 }

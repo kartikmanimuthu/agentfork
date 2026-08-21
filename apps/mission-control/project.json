@@ -1,0 +1,24 @@
+{
+  "name": "mission-control",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/mission-control",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/apps/mission-control/.next"],
+      "options": {
+        "command": "bun run build",
+        "cwd": "apps/mission-control"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "bun run dev",
+        "cwd": "apps/mission-control"
+      }
+    }
+  }
+}

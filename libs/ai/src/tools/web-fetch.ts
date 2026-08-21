@@ -2,8 +2,15 @@ import pino from 'pino';
 import { jsonSchema, tool } from 'ai';
 import type { ToolSet } from 'ai';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { checkUrl } from './url-guard';
+import { env } from '../env';
 
 const logger = pino({ name: 'ai:web-fetch' });
+
+/** Read per call, not once at module load, so a test or a redeploy can flip it. */
+function allowPrivateHosts(): boolean {
+  return env.WEB_GUARD_ALLOW_PRIVATE_HOSTS === 'true';
+}
 
 const DEFAULT_MAX_LENGTH = 8000;
 const NAVIGATION_TIMEOUT_MS = 15000;
@@ -41,6 +48,14 @@ export async function fetchWebPage(options: WebFetchOptions): Promise<WebFetchRe
 
   logger.info({ url, maxLength }, 'Web fetch started');
 
+  // Checked before anything is launched: `url` comes from the model, which may
+  // be repeating a URL it read off an attacker-controlled page.
+  const verdict = await checkUrl(url, { allowPrivateHosts: allowPrivateHosts() });
+  if (!verdict.allowed) {
+    logger.warn({ url, reason: verdict.reason }, 'Web fetch refused by URL guard');
+    throw new Error(`Refused to fetch ${url}: ${verdict.reason}`);
+  }
+
   try {
     browser = await chromium.launch({
       headless: true,
@@ -54,6 +69,22 @@ export async function fetchWebPage(options: WebFetchOptions): Promise<WebFetchRe
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       },
+    });
+
+    // The check above only covers the URL we were handed. Chromium resolves
+    // redirects internally, so a public host that 302s to 169.254.169.254 would
+    // never be seen by a one-shot check — and subresources and in-page fetch()
+    // are never seen by it at all. Re-checking every request the context makes
+    // is the only placement that closes those.
+    await context.route('**/*', async (route) => {
+      const target = route.request().url();
+      const hop = await checkUrl(target, { allowPrivateHosts: allowPrivateHosts() });
+      if (hop.allowed) {
+        await route.continue();
+        return;
+      }
+      logger.warn({ url, target, reason: hop.reason }, 'Aborted request to blocked destination');
+      await route.abort('blockedbyclient');
     });
 
     page = await context.newPage();

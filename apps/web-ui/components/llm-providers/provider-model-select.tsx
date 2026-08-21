@@ -25,7 +25,8 @@ interface DiscoveredModel {
 interface ProviderModelSelectProps {
   capability: ModelCapability;
   value?: string;
-  onChange: (value: string) => void;
+  /** providerId is which provider's entry was actually clicked — undefined for a typed/custom ID. */
+  onChange: (value: string, providerId?: string) => void;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -56,6 +57,10 @@ export function ProviderModelSelect({
   const searchRef = React.useRef<HTMLInputElement>(null);
   // Prevents double-commit when a list item is clicked or Enter already handled
   const skipCommitRef = React.useRef(false);
+  // Two different providers can expose the identical model id — this remembers which
+  // provider's entry was actually clicked, so only that one shows checked (otherwise every
+  // provider offering the same model id would all show as selected).
+  const [explicitProviderId, setExplicitProviderId] = React.useState<string | null>(null);
 
   if (isLoading) return <Skeleton className="h-10 w-full" />;
 
@@ -83,8 +88,14 @@ export function ProviderModelSelect({
     models.map((m) => ({ ...m, providerName: provider.name, providerId: provider.id }))
   );
 
-  const selectedModel = allModels.find((m) => m.id === value);
+  // Prefer the explicitly-clicked provider if it still offers this model id; otherwise
+  // fall back to the first provider that does (e.g. on initial load from a saved value).
+  const matchesForValue = allModels.filter((m) => m.id === value);
+  const selectedModel =
+    (explicitProviderId && matchesForValue.find((m) => m.providerId === explicitProviderId)) ||
+    matchesForValue[0];
   const isCustom = !!value && !selectedModel;
+  const selectedCompoundKey = selectedModel ? `${selectedModel.providerId}::${selectedModel.id}` : '';
 
   const query = searchQuery.toLowerCase();
   const filteredGrouped = grouped
@@ -114,10 +125,19 @@ export function ProviderModelSelect({
     setOpen(nextOpen);
   }
 
-  function handleValueChange(v: string | null) {
+  function handleValueChange(compoundKey: string | null) {
     // A list item was clicked — skip the commit-on-close logic
     skipCommitRef.current = true;
-    onChange(v ?? '');
+    if (!compoundKey) {
+      setExplicitProviderId(null);
+      onChange('');
+      return;
+    }
+    const sep = compoundKey.indexOf('::');
+    const providerId = compoundKey.slice(0, sep);
+    const modelId = compoundKey.slice(sep + 2);
+    setExplicitProviderId(providerId);
+    onChange(modelId, providerId);
   }
 
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -137,7 +157,7 @@ export function ProviderModelSelect({
 
   return (
     <Combobox
-      value={value ?? ''}
+      value={selectedCompoundKey}
       onValueChange={handleValueChange}
       open={open}
       onOpenChange={handleOpenChange}
@@ -179,7 +199,7 @@ export function ProviderModelSelect({
               <ComboboxGroup key={provider.id}>
                 <ComboboxLabel>{provider.name}</ComboboxLabel>
                 {models.map((model) => (
-                  <ComboboxItem key={`${provider.id}::${model.id}`} value={model.id}>
+                  <ComboboxItem key={`${provider.id}::${model.id}`} value={`${provider.id}::${model.id}`}>
                     {model.name}
                   </ComboboxItem>
                 ))}

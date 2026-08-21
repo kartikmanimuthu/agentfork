@@ -46,12 +46,15 @@ export class OpenAIModelDiscovery implements ModelDiscovery {
         continue;
       }
 
+      const lid = id.toLowerCase();
       const capabilities: DiscoveredModel['capabilities'] = [];
 
-      if (id.toLowerCase().includes('embed')) {
+      if (/whisper|asr|transcrib|conformer|speech-to-text|stt/.test(lid)) {
+        capabilities.push('transcription');
+      } else if (lid.includes('embed')) {
         capabilities.push('embedding');
       }
-      // Default non-embedding models to chat for OpenAI-compatible endpoints.
+      // Default remaining models to chat for OpenAI-compatible endpoints.
       if (capabilities.length === 0) {
         capabilities.push('chat');
       }

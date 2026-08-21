@@ -1,8 +1,9 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAgent } from '@/hooks/use-agents';
-import { useAgentVersions, usePublishAgent } from '@/hooks/use-agent-versions';
+import { useAgentVersions, usePublishAgent, versionKeys } from '@/hooks/use-agent-versions';
 import { AgentCanvas } from '@/components/agents/canvas/agent-canvas';
 import { SimpleAgentForm } from '@/components/agents/config/simple-agent-form';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,9 @@ import type { GraphNode, GraphEdge, SimpleAgentConfig } from '@chatbot/agent-stu
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { McpServersTab } from '@/components/agents/tabs/mcp-servers-tab';
 import { ToolsTab } from '@/components/agents/tabs/tools-tab';
+import { CachingTab } from '@/components/agents/tabs/caching-tab';
 import { KnowledgeBasesTab } from '@/components/agents/tabs/knowledge-bases-tab';
+import { ChannelsTab } from '@/components/agents/tabs/channels-tab';
 import { VersionsTab } from '@/components/agents/tabs/versions-tab';
 import { AliasManager } from '@/components/agents/tabs/alias-manager';
 import { useApiKeys } from '@/hooks/use-api-keys';
@@ -33,6 +36,7 @@ export default function AgentDetailPage() {
   const { data: versions } = useAgentVersions(agentId);
   const publishMutation = usePublishAgent(agentId);
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const { keys, loading: keysLoading, fetchKeys, createKey, revokeKey } = useApiKeys(agentId);
   useEffect(() => {
@@ -82,6 +86,7 @@ export default function AgentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config: { nodes, edges } }),
       });
+      queryClient.invalidateQueries({ queryKey: versionKeys.all(agentId) });
       refetch();
     };
 
@@ -168,6 +173,7 @@ export default function AgentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config }),
       });
+      queryClient.invalidateQueries({ queryKey: versionKeys.all(agentId) });
       toast.success('Agent saved');
       refetch();
     } catch {
@@ -178,7 +184,7 @@ export default function AgentDetailPage() {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background max-w-2xl mx-auto">
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 bg-background w-full max-w-4xl mx-auto">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -218,11 +224,13 @@ export default function AgentDetailPage() {
       )}
 
       <Tabs defaultValue="configuration" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto [&>button]:flex-1">
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="knowledge-bases">Knowledge Bases</TabsTrigger>
           <TabsTrigger value="mcp-servers">MCP Servers</TabsTrigger>
           <TabsTrigger value="tools">Tools</TabsTrigger>
+          <TabsTrigger value="caching">Caching</TabsTrigger>
+          <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
         </TabsList>
@@ -253,6 +261,16 @@ export default function AgentDetailPage() {
             onSave={handleSimpleSave}
             saving={saving}
           />
+        </TabsContent>
+        <TabsContent value="caching">
+          <CachingTab
+            config={simpleConfig}
+            onSave={handleSimpleSave}
+            saving={saving}
+          />
+        </TabsContent>
+        <TabsContent value="channels">
+          <ChannelsTab agentId={agentId} />
         </TabsContent>
         <TabsContent value="versions">
           <VersionsTab agentId={agentId} />

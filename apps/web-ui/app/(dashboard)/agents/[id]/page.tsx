@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Bot, ArrowLeft, Play, Pencil, Settings, Key, Clock, Tag, MessageSquare, BookOpen, Server } from 'lucide-react';
 import Link from 'next/link';
 import type { SimpleAgentConfig } from '@chatbot/agent-studio';
+import { resolveCachingConfig, CACHE_OVERRIDE_LABELS } from '@chatbot/shared/client';
 
 export default function AgentViewPage() {
   const params = useParams<{ id: string }>();
@@ -51,6 +52,15 @@ export default function AgentViewPage() {
   }
 
   const simpleConfig = agent.type === 'simple' ? (agent.config as unknown as SimpleAgentConfig) : null;
+  const caching = resolveCachingConfig(simpleConfig ?? {});
+  const exactOverrides = (Object.keys(caching.exact.overrides) as Array<keyof typeof caching.exact.overrides>)
+    .filter((field) => caching.exact.overrides[field])
+    .map((field) => CACHE_OVERRIDE_LABELS[field]);
+  const semanticOverrides = (
+    Object.keys(caching.semantic.overrides) as Array<keyof typeof caching.semantic.overrides>
+  )
+    .filter((field) => caching.semantic.overrides[field])
+    .map((field) => CACHE_OVERRIDE_LABELS[field]);
   const publishedVersion = versions?.find((v) => v.status === 'published');
   const latestVersion = versions?.[0];
   const defaultAlias = aliases?.find((a) => a.isDefault);
@@ -70,7 +80,7 @@ export default function AgentViewPage() {
         </Button>
         <Bot className="h-5 w-5 text-muted-foreground" />
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{agent.name}</h1>
+          <h2 className="text-2xl font-bold tracking-tight">{agent.name}</h2>
           {agent.description && (
             <p className="text-sm text-muted-foreground mt-0.5">{agent.description}</p>
           )}
@@ -138,7 +148,37 @@ export default function AgentViewPage() {
                 <span className="text-muted-foreground text-xs block mb-1">Max Tokens</span>
                 <span>{simpleConfig.maxTokens ?? 'Default'}</span>
               </div>
+              <div>
+                <span className="text-muted-foreground text-xs block mb-1">Prompt cache</span>
+                <span>
+                  {caching.exact.enabled ? `On · ${caching.exact.ttlSeconds}s` : 'Off'}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs block mb-1">Semantic cache</span>
+                <span>
+                  {caching.semantic.enabled
+                    ? `On · ${caching.semantic.embeddingModel} · ${caching.semantic.threshold} · ${caching.semantic.ttlSeconds}s`
+                    : 'Off'}
+                </span>
+              </div>
             </div>
+            {exactOverrides.length > 0 && (
+              <p className="text-xs text-destructive">
+                Prompt cache overrides enabled: {exactOverrides.join(', ')}
+              </p>
+            )}
+            {semanticOverrides.length > 0 && (
+              <p className="text-xs text-destructive">
+                Semantic cache overrides enabled: {semanticOverrides.join(', ')}
+              </p>
+            )}
+            {caching.semantic.enabled && (
+              <p className="text-xs text-muted-foreground">
+                Answers are only reused for one-off questions — never when this agent uses tools, when the request is
+                part of an ongoing conversation, or when the caller asks for a fresh answer, unless overridden above.
+              </p>
+            )}
             {simpleConfig.systemPrompt && (
               <div>
                 <span className="text-muted-foreground text-xs block mb-1">System Prompt</span>

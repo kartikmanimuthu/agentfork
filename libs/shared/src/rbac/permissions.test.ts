@@ -82,6 +82,7 @@ describe('hasCustomPermission', () => {
     LlmProviders: [],
     Evaluation: [],
     Dashboards: [],
+    TranscriptionStudio: [],
   });
 
   it('returns true when custom set includes the action', () => {

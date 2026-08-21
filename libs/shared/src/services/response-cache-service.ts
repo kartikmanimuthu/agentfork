@@ -1,9 +1,14 @@
 import crypto from 'crypto';
+import { DEFAULT_CACHE_TTL_SECONDS } from './caching-config';
 
 export interface CacheDb {
   llmResponseCache: {
     findFirst(args: { where: Record<string, unknown> }): Promise<unknown | null>;
-    create(args: { data: Record<string, unknown> }): Promise<unknown>;
+    upsert(args: {
+      where: Record<string, unknown>;
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    }): Promise<unknown>;
     update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<unknown>;
     deleteMany(args: { where: Record<string, unknown> }): Promise<unknown>;
   };
@@ -22,8 +27,6 @@ export interface CachedResponse {
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
   finishReason?: string;
 }
-
-const DEFAULT_TTL_HOURS = 24;
 
 export class ResponseCacheService {
   constructor(private readonly db: CacheDb) {}
@@ -54,14 +57,25 @@ export class ResponseCacheService {
     return entry.response;
   }
 
-  async set(cacheKey: string, response: CachedResponse, ttlHours = DEFAULT_TTL_HOURS): Promise<void> {
-    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+  async set(cacheKey: string, response: CachedResponse, ttlSeconds = DEFAULT_CACHE_TTL_SECONDS): Promise<void> {
+    if (ttlSeconds <= 0) return;
+    if (!response.text || response.text.trim().length === 0) return;
 
-    await this.db.llmResponseCache.create({
-      data: {
+    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+
+    // Upsert, not create: an expired row still occupies the unique cacheKey, and
+    // get() cannot see it to reuse it.
+    await this.db.llmResponseCache.upsert({
+      where: { cacheKey },
+      create: {
         cacheKey,
         response: response as unknown as Record<string, unknown>,
         expiresAt,
+      },
+      update: {
+        response: response as unknown as Record<string, unknown>,
+        expiresAt,
+        hitCount: 0,
       },
     });
   }

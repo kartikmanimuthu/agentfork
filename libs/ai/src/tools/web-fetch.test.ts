@@ -11,14 +11,28 @@ const mockPage = {
   evaluate: vi.fn(),
   close: vi.fn(),
 };
-const mockContext = { newPage: vi.fn(() => mockPage), close: vi.fn() };
+const mockContext = { newPage: vi.fn(() => mockPage), close: vi.fn(), route: vi.fn() };
 const mockBrowser = { newContext: vi.fn(() => mockContext), close: vi.fn() };
+const mockLaunch = vi.fn(() => mockBrowser);
 
 vi.mock('playwright', () => ({
-  chromium: { launch: vi.fn(() => mockBrowser) },
+  chromium: { launch: (...args: unknown[]) => mockLaunch(...args) },
+}));
+
+const dnsLookup = vi.fn();
+vi.mock('node:dns/promises', () => ({
+  default: { lookup: (...args: unknown[]) => dnsLookup(...args) },
+  lookup: (...args: unknown[]) => dnsLookup(...args),
 }));
 
 import { fetchWebPage, buildWebFetchTool } from './web-fetch';
+
+/** Shapes a dns.lookup(host, { all: true }) result. */
+function resolvesTo(...addresses: string[]) {
+  dnsLookup.mockResolvedValue(
+    addresses.map((address) => ({ address, family: address.includes(':') ? 6 : 4 })),
+  );
+}
 
 function mockResponse(status: number) {
   return { status: () => status };
@@ -27,8 +41,10 @@ function mockResponse(status: number) {
 describe('fetchWebPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLaunch.mockReturnValue(mockBrowser);
     mockContext.newPage.mockReturnValue(mockPage);
     mockBrowser.newContext.mockReturnValue(mockContext);
+    resolvesTo('93.184.216.34');
   });
 
   it('returns title/content/contentLength on a 200 response', async () => {
@@ -87,11 +103,71 @@ describe('fetchWebPage', () => {
   });
 });
 
+describe('fetchWebPage SSRF guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockLaunch.mockReturnValue(mockBrowser);
+    mockContext.newPage.mockReturnValue(mockPage);
+    mockBrowser.newContext.mockReturnValue(mockContext);
+    mockPage.goto.mockResolvedValue(mockResponse(200));
+    mockPage.title.mockResolvedValue('T');
+    mockPage.evaluate.mockResolvedValue('text');
+  });
+
+  it('refuses a blocked destination without launching a browser', async () => {
+    resolvesTo('169.254.169.254');
+
+    await expect(fetchWebPage({ url: 'http://metadata.example.com/' })).rejects.toThrow(/blocked/i);
+    expect(mockLaunch).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-http scheme without launching a browser', async () => {
+    await expect(fetchWebPage({ url: 'file:///etc/passwd' })).rejects.toThrow(/scheme/i);
+    expect(mockLaunch).not.toHaveBeenCalled();
+  });
+
+  it('installs a request interceptor on the context', async () => {
+    resolvesTo('93.184.216.34');
+
+    await fetchWebPage({ url: 'https://example.com' });
+
+    expect(mockContext.route).toHaveBeenCalledWith('**/*', expect.any(Function));
+  });
+
+  it('aborts an intercepted request that redirects to a blocked address', async () => {
+    resolvesTo('93.184.216.34');
+    await fetchWebPage({ url: 'https://example.com' });
+    const handler = mockContext.route.mock.calls[0][1] as (route: unknown) => Promise<void>;
+
+    // Chromium resolves redirects internally, so the hop is only visible here.
+    resolvesTo('169.254.169.254');
+    const route = { abort: vi.fn(), continue: vi.fn(), request: () => ({ url: () => 'http://169.254.169.254/latest/meta-data/' }) };
+    await handler(route);
+
+    expect(route.abort).toHaveBeenCalled();
+    expect(route.continue).not.toHaveBeenCalled();
+  });
+
+  it('continues an intercepted request to an allowed address', async () => {
+    resolvesTo('93.184.216.34');
+    await fetchWebPage({ url: 'https://example.com' });
+    const handler = mockContext.route.mock.calls[0][1] as (route: unknown) => Promise<void>;
+
+    const route = { abort: vi.fn(), continue: vi.fn(), request: () => ({ url: () => 'https://example.com/style.css' }) };
+    await handler(route);
+
+    expect(route.continue).toHaveBeenCalled();
+    expect(route.abort).not.toHaveBeenCalled();
+  });
+});
+
 describe('buildWebFetchTool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLaunch.mockReturnValue(mockBrowser);
     mockContext.newPage.mockReturnValue(mockPage);
     mockBrowser.newContext.mockReturnValue(mockContext);
+    resolvesTo('93.184.216.34');
   });
 
   it('execute() returns title/url/content/truncated/contentLength on success', async () => {

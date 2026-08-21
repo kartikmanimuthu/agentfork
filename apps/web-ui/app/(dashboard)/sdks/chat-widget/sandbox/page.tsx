@@ -186,7 +186,7 @@ export default function SandboxPage() {
     <div className="flex flex-col gap-6 p-6 h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Widget Sandbox</h1>
+          <h2 className="text-2xl font-bold">Widget Sandbox</h2>
           <p className="text-muted-foreground">Live demonstration on a mock website</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => router.push('/sdks/chat-widget/designer?id=' + (widgetId ?? ''))}>

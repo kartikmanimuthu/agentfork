@@ -2,6 +2,8 @@ export { whatsappEnv } from './env';
 
 export { MetaWhatsAppClient } from './client/meta-api';
 export type { MetaClientConfig } from './client/meta-api';
+export { NetcoreWhatsAppClient } from './client/netcore-api';
+export type { NetcoreClientConfig } from './client/netcore-api';
 export type {
   SendMessageRequest,
   SendMessageResponse,
@@ -14,6 +16,8 @@ export type {
 
 export { verifyWebhookSignature } from './webhook/signature';
 export { parseWebhookPayload } from './webhook/parser';
+export { parseNetcoreWebhookPayload, parseNetcoreDeliveryStatus } from './webhook/netcore-parser';
+export type { NetcoreWebhookPayload, NetcoreDeliveryPayload, NetcoreDeliveryStatus } from './webhook/netcore-parser';
 export type { WebhookPayload, ParsedEvent, WebhookInboundMessage } from './webhook/types';
 
 export { createRouter } from './router/factory';

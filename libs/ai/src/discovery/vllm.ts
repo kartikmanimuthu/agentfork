@@ -10,7 +10,8 @@ export class VllmModelDiscovery implements ModelDiscovery {
     const baseUrl = credentials.baseUrl;
     if (!baseUrl) throw new Error('vLLM requires baseUrl');
 
-    const url = `${baseUrl}/v1/models`;
+    const normalized = baseUrl.replace(/\/$/, '');
+    const url = /\/v1$/.test(normalized) ? `${normalized}/models` : `${normalized}/v1/models`;
     const headers: Record<string, string> = {};
     if (credentials.apiKey) {
       headers.Authorization = `Bearer ${credentials.apiKey}`;
@@ -27,11 +28,12 @@ export class VllmModelDiscovery implements ModelDiscovery {
     }
 
     const data: any = await res.json();
-    const models = (data.data ?? []).map((m: any) => ({
-      id: m.id,
-      name: m.id,
-      capabilities: ['chat' as const],
-    }));
+    const models: DiscoveredModel[] = (data.data ?? []).map((m: any) => {
+      const lid = String(m.id).toLowerCase();
+      const capability: DiscoveredModel['capabilities'][number] =
+        /whisper|asr|transcrib|conformer|speech-to-text|stt/.test(lid) ? 'transcription' : 'chat';
+      return { id: m.id, name: m.id, capabilities: [capability] };
+    });
 
     logDiscovery('Parsed models', { count: models.length });
     return models;

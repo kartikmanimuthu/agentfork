@@ -1,4 +1,4 @@
-export type ModelCapability = 'chat' | 'embedding';
+export type ModelCapability = 'chat' | 'embedding' | 'transcription';
 
 export interface DiscoveredModel {
   id: string;

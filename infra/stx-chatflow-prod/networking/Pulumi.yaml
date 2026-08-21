@@ -1,0 +1,5 @@
+name: chatbot-networking
+runtime: nodejs
+description: stx-chatflow-prod — VPC and networking (isolated AWS account 842675988009)
+backend:
+  url: s3://stx-chatflow-prod-pulumi-state?region=ap-south-1&awssdk=v2

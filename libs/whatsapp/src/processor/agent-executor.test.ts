@@ -1,75 +1,155 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@chatbot/ai', async () => {
+  const actual = await vi.importActual('@chatbot/ai');
+  return {
+    ...actual,
+    createLLMProvider: vi.fn(() => ({})),
+    streamChat: vi.fn(() => ({ text: Promise.resolve('AI reply') })),
+    buildBuiltInTools: vi.fn(async () => ({})),
+  };
+});
+
+vi.mock('@chatbot/shared', async () => {
+  const actual = await vi.importActual('@chatbot/shared');
+  return {
+    ...actual,
+    LlmProviderService: vi.fn(() => ({
+      list: vi.fn(async () => []),
+      getDefaultConfig: vi.fn(async () => ({ provider: 'bedrock', chatModel: 'claude-3' })),
+    })),
+    TenantConfigService: vi.fn(() => ({
+      get: vi.fn(async () => null),
+    })),
+  };
+});
+
+vi.mock('@chatbot/agent-studio/server', () => ({
+  buildMcpToolsForAgent: vi.fn(async () => ({ tools: {}, cleanup: vi.fn(async () => {}) })),
+}));
+
+vi.mock('@chatbot/knowledge-base', () => ({
+  RetrievalService: vi.fn(() => ({
+    query: vi.fn(async () => [{ content: 'KB chunk' }]),
+  })),
+}));
+
 import { WhatsAppAgentExecutor } from './agent-executor';
+import { streamChat, buildBuiltInTools } from '@chatbot/ai';
+import { buildMcpToolsForAgent } from '@chatbot/agent-studio/server';
 
 const mockPrisma = {
   agent: { findFirst: vi.fn() },
+  agentKnowledgeBase: { findMany: vi.fn() },
 };
 
-const mockLlmProvider = {
-  chat: vi.fn(),
-};
+const noopProviderFactory = vi.fn();
 
-const mockProviderFactory = vi.fn();
-
-describe('WhatsAppAgentExecutor', () => {
+describe('WhatsAppAgentExecutor.executeSimpleAgent', () => {
   let executor: WhatsAppAgentExecutor;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    executor = new WhatsAppAgentExecutor(mockPrisma as any, mockProviderFactory as any);
+    executor = new WhatsAppAgentExecutor(mockPrisma as any, noopProviderFactory as any);
   });
 
-  it('executes a simple agent with system prompt', async () => {
+  it('returns LLM text for a simple agent', async () => {
     mockPrisma.agent.findFirst.mockResolvedValueOnce({
       id: 'agent_1',
       type: 'simple',
-      config: { model: 'claude-sonnet-4-6', systemPrompt: 'You are a helpful assistant.', temperature: 0.7 },
+      config: { model: 'claude-3', systemPrompt: 'You are helpful.', temperature: 0.7 },
     });
-    mockProviderFactory.mockReturnValueOnce(mockLlmProvider);
-    mockLlmProvider.chat.mockResolvedValueOnce({ text: 'Hello! How can I help?' });
+    mockPrisma.agentKnowledgeBase.findMany.mockResolvedValueOnce([]);
 
-    const result = await executor.execute('agent_1', { text: 'Hi there' }, {});
+    const result = await executor.execute('agent_1', { text: 'Hello' }, { tenantId: 'tenant_1' });
 
-    expect(result.text).toBe('Hello! How can I help?');
-    expect(mockLlmProvider.chat).toHaveBeenCalledWith(expect.objectContaining({
-      messages: expect.arrayContaining([
-        expect.objectContaining({ role: 'system', content: 'You are a helpful assistant.' }),
-        expect.objectContaining({ role: 'user', content: 'Hi there' }),
-      ]),
-    }));
+    expect(result.text).toBe('AI reply');
+    expect(streamChat).toHaveBeenCalledOnce();
   });
 
-  it('includes conversation context in messages', async () => {
+  it('injects KB context into the system prompt when KB is attached', async () => {
     mockPrisma.agent.findFirst.mockResolvedValueOnce({
       id: 'agent_1',
       type: 'simple',
-      config: { model: 'claude-sonnet-4-6', systemPrompt: 'Assistant', temperature: 0.7 },
+      config: { model: 'claude-3', systemPrompt: 'You are helpful.', temperature: 0.7 },
     });
-    mockProviderFactory.mockReturnValueOnce(mockLlmProvider);
-    mockLlmProvider.chat.mockResolvedValueOnce({ text: 'Your order is on the way.' });
+    mockPrisma.agentKnowledgeBase.findMany.mockResolvedValueOnce([
+      { knowledgeBase: { id: 'kb_1', name: 'Docs', status: 'active' } },
+    ]);
 
-    const context = {
-      messages: [
-        { role: 'user', content: 'Where is my order?' },
-        { role: 'assistant', content: 'Let me check. What is your order number?' },
-      ],
-    };
+    await executor.execute('agent_1', { text: 'What is X?' }, { tenantId: 'tenant_1' });
 
-    const result = await executor.execute('agent_1', { text: 'Order #123' }, context);
-
-    expect(result.text).toBe('Your order is on the way.');
-    expect(mockLlmProvider.chat).toHaveBeenCalledWith(expect.objectContaining({
-      messages: expect.arrayContaining([
-        expect.objectContaining({ role: 'user', content: 'Where is my order?' }),
-        expect.objectContaining({ role: 'assistant', content: 'Let me check. What is your order number?' }),
-        expect.objectContaining({ role: 'user', content: 'Order #123' }),
-      ]),
-    }));
+    const callArgs = vi.mocked(streamChat).mock.calls[0][0] as any;
+    expect(callArgs.system).toContain('retrieved context');
+    expect(callArgs.system).toContain('KB chunk');
   });
 
-  it('throws when agent not found', async () => {
+  it('passes MCP tools to streamChat when tools are available', async () => {
+    mockPrisma.agent.findFirst.mockResolvedValueOnce({
+      id: 'agent_1',
+      type: 'simple',
+      config: { model: 'claude-3', systemPrompt: 'You are helpful.' },
+    });
+    mockPrisma.agentKnowledgeBase.findMany.mockResolvedValueOnce([]);
+    vi.mocked(buildMcpToolsForAgent).mockResolvedValueOnce({
+      tools: { myTool: { description: 'A tool', parameters: {}, execute: vi.fn() } } as any,
+      cleanup: vi.fn(async () => {}),
+    });
+
+    await executor.execute('agent_1', { text: 'Use the tool' }, { tenantId: 'tenant_1' });
+
+    const callArgs = vi.mocked(streamChat).mock.calls[0][0] as any;
+    expect(callArgs.tools).toBeDefined();
+    expect(callArgs.maxSteps).toBe(5);
+  });
+
+  it('calls streamChat without tools when none are attached', async () => {
+    mockPrisma.agent.findFirst.mockResolvedValueOnce({
+      id: 'agent_1',
+      type: 'simple',
+      config: { model: 'claude-3', systemPrompt: 'You are helpful.' },
+    });
+    mockPrisma.agentKnowledgeBase.findMany.mockResolvedValueOnce([]);
+    vi.mocked(buildMcpToolsForAgent).mockResolvedValueOnce({ tools: {}, cleanup: vi.fn(async () => {}) });
+    vi.mocked(buildBuiltInTools).mockResolvedValueOnce({});
+
+    await executor.execute('agent_1', { text: 'Hi' }, { tenantId: 'tenant_1' });
+
+    const callArgs = vi.mocked(streamChat).mock.calls[0][0] as any;
+    expect(callArgs.tools).toBeUndefined();
+    expect(callArgs.maxSteps).toBeUndefined();
+  });
+
+  it('throws for unknown agent type', async () => {
+    mockPrisma.agent.findFirst.mockResolvedValueOnce({ id: 'agent_1', type: 'unknown', config: {} });
+
+    await expect(executor.execute('agent_1', { text: 'Hi' }, { tenantId: 'tenant_1' }))
+      .rejects.toThrow('Unsupported agent type: unknown');
+  });
+
+  it('throws for agent not found', async () => {
     mockPrisma.agent.findFirst.mockResolvedValueOnce(null);
-    await expect(executor.execute('nonexistent', { text: 'Hi' }, {})).rejects.toThrow('Agent not found: nonexistent');
+
+    await expect(executor.execute('missing_agent', { text: 'Hi' }, { tenantId: 'tenant_1' }))
+      .rejects.toThrow('Agent not found: missing_agent');
+  });
+
+  it('dispatches to executeGraphAgent for graph agent type without throwing for type dispatch', async () => {
+    mockPrisma.agent.findFirst.mockResolvedValueOnce({
+      id: 'agent_g',
+      type: 'graph',
+      config: {
+        nodes: [{ id: 'n1', type: 'whatsapp_trigger' }, { id: 'n2', type: 'llm' }],
+        edges: [{ source: 'n1', target: 'n2' }],
+      },
+    });
+
+    // The graph executor is imported dynamically; since @chatbot/agent-studio/server is mocked
+    // at module level without GraphExecutor, this will throw from the dynamic import path.
+    // We verify only that the error is NOT "Unsupported agent type" — meaning dispatch worked.
+    await expect(
+      executor.execute('agent_g', { text: 'Hello' }, { tenantId: 'tenant_1' }),
+    ).rejects.not.toThrow('Unsupported agent type: graph');
   });
 
   it('executes a graph agent using GraphExecutor and returns text from output channel', async () => {

@@ -22,6 +22,8 @@ export default function NewLlmProviderPage() {
     chatModel?: string;
     embeddingModel?: string;
     embeddingDimensions?: number;
+    maxBudgetUsd?: number;
+    models?: Array<{ id: string; name: string; capabilities: string[] }>;
     isDefault?: boolean;
   }) => {
     try {

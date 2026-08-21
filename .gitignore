@@ -12,7 +12,18 @@ playwright-report/
 test-results/
 .source/
 coverage/
+*.tsbuildinfo
+
+# Crawler runtime output
+libs/knowledge-base/storage/
 
 # Claude Code
 .claude/settings.local.json
 .claude.local.md
+
+# Playwright MCP session artifacts (screenshots / a11y dumps)
+.playwright-mcp/
+
+# Agent-loop benchmark output
+bench-results/
+.DS_Store

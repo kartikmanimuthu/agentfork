@@ -16,4 +16,10 @@ export {
   buildWebFetchTool,
 } from './web-fetch';
 
-export { buildBuiltInTools, type ConfigResolver } from './built-in-registry';
+export { buildBuiltInTools, resolveSearchConfig, type ConfigResolver } from './built-in-registry';
+
+export {
+  type UrlGuardOptions,
+  type UrlGuardResult,
+  checkUrl,
+} from './url-guard';

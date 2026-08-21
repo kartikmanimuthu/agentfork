@@ -1,5 +1,5 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
-import { S3Service } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import { createLogger } from '@chatbot/shared/workers';
 import {
   createKnowledgeBaseRepository,

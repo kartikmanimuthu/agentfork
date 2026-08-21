@@ -5,6 +5,7 @@ import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/secret-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -20,14 +21,16 @@ import {
 import { toast } from 'sonner';
 import { Shield, KeyRound, Smartphone, LogOut } from 'lucide-react';
 
-const changePasswordFormSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string().min(1, 'Confirm password is required'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const changePasswordFormSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Confirm password is required'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
 
@@ -97,10 +100,9 @@ function ChangePasswordDialog() {
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Current Password</Label>
-                <Input
+                <SecretInput
                   id={field.name}
                   name={field.name}
-                  type="password"
                   placeholder="Enter current password"
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -110,7 +112,7 @@ function ChangePasswordDialog() {
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-sm text-destructive">
                     {field.state.meta.errors
-                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .map((e) => (typeof e === 'string' ? e : ((e as any)?.message ?? String(e))))
                       .join(', ')}
                   </p>
                 )}
@@ -122,10 +124,9 @@ function ChangePasswordDialog() {
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>New Password</Label>
-                <Input
+                <SecretInput
                   id={field.name}
                   name={field.name}
-                  type="password"
                   placeholder="Enter new password"
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -135,7 +136,7 @@ function ChangePasswordDialog() {
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-sm text-destructive">
                     {field.state.meta.errors
-                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .map((e) => (typeof e === 'string' ? e : ((e as any)?.message ?? String(e))))
                       .join(', ')}
                   </p>
                 )}
@@ -147,10 +148,9 @@ function ChangePasswordDialog() {
             children={(field) => (
               <div className="space-y-2">
                 <Label htmlFor={field.name}>Confirm New Password</Label>
-                <Input
+                <SecretInput
                   id={field.name}
                   name={field.name}
-                  type="password"
                   placeholder="Confirm new password"
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -160,7 +160,7 @@ function ChangePasswordDialog() {
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-sm text-destructive">
                     {field.state.meta.errors
-                      .map((e) => (typeof e === 'string' ? e : (e as any)?.message ?? String(e)))
+                      .map((e) => (typeof e === 'string' ? e : ((e as any)?.message ?? String(e))))
                       .join(', ')}
                   </p>
                 )}
@@ -259,7 +259,11 @@ export function SecuritySettings() {
           </div>
 
           <div className="pt-2">
-            <Button variant="destructive" size="sm" onClick={() => toast.info('Sign out all sessions coming soon')}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => toast.info('Sign out all sessions coming soon')}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out All Sessions
             </Button>

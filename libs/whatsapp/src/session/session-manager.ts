@@ -24,10 +24,15 @@ export class SessionManager {
     if (!session) return null;
 
     if (new Date() > session.windowExpiresAt) {
-      await (this.prisma as any).whatsAppSession.update({
-        where: { id: session.id },
-        data: { state: 'expired' },
-      });
+      await this.prisma.$transaction([
+        (this.prisma as any).whatsAppSession.deleteMany({
+          where: { accountId, contactPhone, state: 'expired' },
+        }),
+        (this.prisma as any).whatsAppSession.update({
+          where: { id: session.id },
+          data: { state: 'expired' },
+        }),
+      ]);
       return null;
     }
 
@@ -70,10 +75,21 @@ export class SessionManager {
   }
 
   async closeSession(sessionId: string) {
-    return (this.prisma as any).whatsAppSession.update({
+    const session = await (this.prisma as any).whatsAppSession.findUnique({
       where: { id: sessionId },
-      data: { state: 'closed' },
+      select: { accountId: true, contactPhone: true },
     });
+    if (!session) return null;
+    const [, updated] = await this.prisma.$transaction([
+      (this.prisma as any).whatsAppSession.deleteMany({
+        where: { accountId: session.accountId, contactPhone: session.contactPhone, state: 'closed' },
+      }),
+      (this.prisma as any).whatsAppSession.update({
+        where: { id: sessionId },
+        data: { state: 'closed' },
+      }),
+    ]);
+    return updated;
   }
 
   async switchAgent(sessionId: string, agentId: string) {

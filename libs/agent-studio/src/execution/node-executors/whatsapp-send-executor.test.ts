@@ -3,12 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockSendTextMessage = vi.fn().mockResolvedValue({ messages: [{ id: 'wamid.abc' }] });
 const mockSendImageMessage = vi.fn().mockResolvedValue({ messages: [{ id: 'wamid.img' }] });
 const mockSendDocumentMessage = vi.fn().mockResolvedValue({ messages: [{ id: 'wamid.doc' }] });
+const mockNetcoreSendTextMessage = vi.fn().mockResolvedValue({ messages: [{ id: 'wamid.netcore' }] });
 
 vi.mock('@chatbot/whatsapp', () => ({
   MetaWhatsAppClient: vi.fn().mockImplementation(() => ({
     sendTextMessage: mockSendTextMessage,
     sendImageMessage: mockSendImageMessage,
     sendDocumentMessage: mockSendDocumentMessage,
+  })),
+  NetcoreWhatsAppClient: vi.fn().mockImplementation(() => ({
+    sendTextMessage: mockNetcoreSendTextMessage,
   })),
 }));
 
@@ -22,7 +26,11 @@ vi.mock('@chatbot/shared', () => ({
 import { WhatsAppSendNodeExecutor } from './whatsapp-send-executor';
 import type { NodeExecutionContext } from '../types';
 
-function makeCtx(channels: Record<string, unknown>, config: Record<string, unknown> = {}): NodeExecutionContext {
+function makeCtx(
+  channels: Record<string, unknown>,
+  config: Record<string, unknown> = {},
+  account: Record<string, unknown> = {},
+): NodeExecutionContext {
   const mockPrisma = {
     whatsAppAccount: {
       findUnique: vi.fn().mockResolvedValue({
@@ -30,6 +38,8 @@ function makeCtx(channels: Record<string, unknown>, config: Record<string, unkno
         accessToken: 'encrypted-token',
         phoneNumberId: 'phone_123',
         apiVersion: 'v22.0',
+        provider: 'meta',
+        ...account,
       }),
     },
   };
@@ -83,5 +93,17 @@ describe('WhatsAppSendNodeExecutor', () => {
   it('throws when message channel is empty', async () => {
     const ctx = makeCtx({ llm_output: '' });
     await expect(executor.execute(ctx)).rejects.toThrow('empty');
+  });
+
+  it('sends via Netcore when account.provider is netcore', async () => {
+    const ctx = makeCtx({ llm_output: 'Hello via Netcore' }, {}, { provider: 'netcore' });
+    const result = await executor.execute(ctx);
+    expect(mockNetcoreSendTextMessage).toHaveBeenCalledWith('919876543210', 'Hello via Netcore');
+    expect(result.stateUpdates['wa_last_sent_message_id']).toBe('wamid.netcore');
+  });
+
+  it('throws a clear error for non-text messageType on a Netcore account', async () => {
+    const ctx = makeCtx({ llm_output: 'caption' }, { messageType: 'image' }, { provider: 'netcore' });
+    await expect(executor.execute(ctx)).rejects.toThrow('not yet supported for Netcore');
   });
 });

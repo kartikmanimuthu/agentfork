@@ -31,6 +31,7 @@ interface KnowledgeBase {
   documentCount: number;
   chunkCount: number;
   embeddingProvider: string;
+  embeddingModel: string;
   chunkStrategy: string;
   createdAt: string;
   updatedAt: string;
@@ -126,11 +127,11 @@ export default function KnowledgeBasesPage() {
         ),
       },
       {
-        accessorKey: 'embeddingProvider',
+        accessorKey: 'embeddingModel',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Embedding" />,
         cell: ({ row }) => (
           <Badge variant="outline" className="text-xs">
-            {row.original.embeddingProvider}
+            {row.original.embeddingModel}
           </Badge>
         ),
       },

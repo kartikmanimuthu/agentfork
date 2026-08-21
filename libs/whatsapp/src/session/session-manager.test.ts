@@ -6,7 +6,9 @@ const mockPrisma = {
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    deleteMany: vi.fn(),
   },
+  $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
 };
 
 describe('SessionManager', () => {

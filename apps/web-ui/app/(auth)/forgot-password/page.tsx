@@ -8,7 +8,7 @@ import { GalleryVerticalEnd } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Field,
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Forgot your password?</CardTitle>
+              <h1 className="text-base leading-snug font-medium text-xl">Forgot your password?</h1>
               <CardDescription>
                 Enter your email and we&apos;ll send you a reset link
               </CardDescription>

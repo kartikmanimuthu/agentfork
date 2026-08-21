@@ -9,9 +9,16 @@ export interface LlmProvider {
   region: string | null;
   credentialsConfigured: boolean;
   credentialsHint: string | null;
+  /** Non-secret endpoint values, so the edit form can prefill them. */
+  endpoints?: { baseUrl?: string; gatewayUrl?: string };
+  /** Names of the secrets already stored — never their values. */
+  configuredSecrets?: string[];
+  /** Decrypted secrets, present only when fetched with `withSecrets`. */
+  secrets?: Record<string, string>;
   chatModel: string | null;
   embeddingModel: string | null;
   embeddingDimensions: number | null;
+  maxBudgetUsd: number | null;
   models: unknown;
   isDefault: boolean;
   createdAt: string;
@@ -26,6 +33,8 @@ export interface CreateLlmProviderInput {
   chatModel?: string;
   embeddingModel?: string;
   embeddingDimensions?: number;
+  maxBudgetUsd?: number;
+  models?: Array<{ id: string; name: string; capabilities: string[] }>;
   isDefault?: boolean;
 }
 
@@ -37,6 +46,7 @@ export interface UpdateLlmProviderInput {
   chatModel?: string;
   embeddingModel?: string;
   embeddingDimensions?: number;
+  maxBudgetUsd?: number;
   isDefault?: boolean;
 }
 
@@ -44,6 +54,12 @@ export interface ValidateProviderInput {
   providerType: ProviderType;
   credentials: Record<string, string>;
   region?: string;
+  /**
+   * Validate against an existing provider: the server merges its stored secrets
+   * under whatever was retyped, so re-discovering models after changing only the
+   * base URL does not go out with an empty API key.
+   */
+  providerId?: string;
 }
 
 export interface ValidateProviderResponse {
@@ -58,8 +74,8 @@ async function fetchLlmProviders(): Promise<LlmProvider[]> {
   return res.json();
 }
 
-async function fetchLlmProvider(id: string): Promise<LlmProvider> {
-  const res = await fetch(`/api/llm-providers/${id}`);
+async function fetchLlmProvider(id: string, withSecrets = false): Promise<LlmProvider> {
+  const res = await fetch(`/api/llm-providers/${id}${withSecrets ? '?withSecrets=1' : ''}`);
   if (!res.ok) throw new Error('Failed to fetch LLM provider');
   return res.json();
 }
@@ -137,10 +153,16 @@ export function useLlmProviders() {
   return useQuery({ queryKey: llmProviderKeys.lists(), queryFn: fetchLlmProviders });
 }
 
-export function useLlmProvider(id: string) {
+/**
+ * `withSecrets` asks the server for the decrypted credentials so the edit form can
+ * prefill them. Only the edit page passes it — and it is part of the query key, so
+ * a cached secret-free detail response is never mistaken for a complete one.
+ */
+export function useLlmProvider(id: string, options: { withSecrets?: boolean } = {}) {
+  const withSecrets = options.withSecrets ?? false;
   return useQuery({
-    queryKey: llmProviderKeys.detail(id),
-    queryFn: () => fetchLlmProvider(id),
+    queryKey: [...llmProviderKeys.detail(id), { withSecrets }],
+    queryFn: () => fetchLlmProvider(id, withSecrets),
     enabled: Boolean(id),
   });
 }

@@ -1,23 +1,46 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 
-const appName = "chatbot";
+// Defaults are nonprod throughout: an unset value must never resolve to production.
+// Pulumi.prod.yaml sets every one of these explicitly.
+const config = new pulumi.Config();
+
+// Hard stop before Pulumi computes any diff. Because the defaults above are nonprod,
+// running the prod stack without its config would rename every resource — and a rename
+// is a delete-and-recreate, which would destroy the live prod pipeline. Deliberate prod
+// runs set chatbot-cicd:allowProd=true.
+if (pulumi.getStack() === "prod" && !config.getBoolean("allowProd")) {
+    throw new Error(
+        "Refusing to run the prod cicd stack. Set chatbot-cicd:allowProd=true to proceed.",
+    );
+}
+const appName = config.get("appName") ?? "chatflow-nonprod";
 const pipelineName = `${appName}-pipeline`;
-const repoOwner = "kartikmanimuthu";
-const repoName = "chatbot";
-const branchName = "main";
+const repoOwner = config.get("repoOwner") ?? "rohitahuja1";
+const repoName = config.get("repoName") ?? "chatflow";
+// Which infra stack this pipeline deploys.
+const targetStack = config.get("targetStack") ?? "nonprod";
+const branchName = config.get("branchName") ?? "main";
+const connectionProvider = config.get("connectionProvider") ?? "Bitbucket";
+// Reuse an already-authorized connection instead of creating a PENDING one.
+const existingConnectionArn = config.get("connectionArn");
+const requireApproval = config.getBoolean("requireApproval") ?? false;
+// Three container images build here; 60 is not enough for a cold cache.
+const deployTimeout = config.getNumber("deployTimeout") ?? 90;
 
 const callerIdentity = aws.getCallerIdentityOutput({});
 const accountId = callerIdentity.accountId;
 const region = aws.config.region ?? "us-east-1";
 
 // ---------------------------------------------------------------------------
-// CodeStar Connection (GitHub)
+// CodeStar Connection — created PENDING; authorize it once in the console.
 // ---------------------------------------------------------------------------
-const githubConnection = new aws.codestarconnections.Connection("github-connection", {
-    name: `${appName}-connection`,
-    providerType: "GitHub",
-}, { retainOnDelete: true });
+const githubConnectionArnOutput = existingConnectionArn
+    ? pulumi.output(existingConnectionArn)
+    : new aws.codestarconnections.Connection("github-connection", {
+        name: `${appName}-connection`,
+        providerType: connectionProvider,
+    }, { retainOnDelete: true }).arn;
 
 // ---------------------------------------------------------------------------
 // S3 Artifact Bucket
@@ -114,7 +137,7 @@ new aws.kms.KeyPolicy("pipeline-artifacts-key-policy", {
 // ---------------------------------------------------------------------------
 new aws.iam.RolePolicy("codepipeline-core-policy", {
     role: codePipelineRole.id,
-    policy: pulumi.all([artifactBucket.arn, artifactKmsKey.arn, accountId, region, githubConnection.arn]).apply(
+    policy: pulumi.all([artifactBucket.arn, artifactKmsKey.arn, accountId, region, githubConnectionArnOutput]).apply(
         ([bucketArn, keyArn, accId, reg, connArn]) =>
             JSON.stringify({
                 Version: "2012-10-17",
@@ -261,8 +284,8 @@ phases:
       - cd infra/compute && npm install && pulumi install && cd ../..
   build:
     commands:
-      - cd infra/networking && pulumi preview --stack prod --non-interactive --diff
-      - cd ../compute && pulumi preview --stack prod --non-interactive --diff`;
+      - cd infra/networking && pulumi preview --stack ${targetStack} --non-interactive --diff
+      - cd ../compute && pulumi preview --stack ${targetStack} --non-interactive --diff`;
 
 const buildspecDeploy = `version: 0.2
 env:
@@ -281,12 +304,12 @@ phases:
       - cd infra/compute && npm install && pulumi install && cd ../..
   pre_build:
     commands:
-      - (cd infra/networking && pulumi cancel --stack prod --yes) || true
-      - (cd infra/compute && pulumi cancel --stack prod --yes) || true
+      - (cd infra/networking && pulumi cancel --stack ${targetStack} --yes) || true
+      - (cd infra/compute && pulumi cancel --stack ${targetStack} --yes) || true
   build:
     commands:
-      - cd infra/networking && pulumi up --stack prod --yes --non-interactive
-      - cd ../compute && pulumi up --stack prod --yes --non-interactive`;
+      - cd infra/networking && pulumi up --stack ${targetStack} --yes --non-interactive
+      - cd ../compute && pulumi up --stack ${targetStack} --yes --non-interactive`;
 
 const previewProject = new aws.codebuild.Project("chatbot-preview", {
     name: `${appName}-preview`,
@@ -310,7 +333,7 @@ const deployProject = new aws.codebuild.Project("chatbot-deploy", {
     name: `${appName}-deploy`,
     description: "Run Pulumi up for networking and compute stacks",
     serviceRole: codePipelineRole.arn,
-    buildTimeout: 60,
+    buildTimeout: deployTimeout,
     artifacts: { type: "CODEPIPELINE" },
     environment: {
         type: "LINUX_CONTAINER",
@@ -337,7 +360,7 @@ const pipeline = new aws.codepipeline.Pipeline("chatbot-pipeline", {
             sourceActionName: "GitHubSource",
             pushes: [{
                 branches: {
-                    includes: ["main"],
+                    includes: [branchName],
                 },
             }],
         },
@@ -362,7 +385,7 @@ const pipeline = new aws.codepipeline.Pipeline("chatbot-pipeline", {
                     version: "1",
                     outputArtifacts: ["source_output"],
                     configuration: {
-                        ConnectionArn: githubConnection.arn,
+                        ConnectionArn: githubConnectionArnOutput,
                         FullRepositoryId: `${repoOwner}/${repoName}`,
                         BranchName: branchName,
                     },
@@ -385,7 +408,7 @@ const pipeline = new aws.codepipeline.Pipeline("chatbot-pipeline", {
                 },
             ],
         },
-        {
+        ...(requireApproval ? [{
             name: "Approval",
             actions: [
                 {
@@ -399,7 +422,7 @@ const pipeline = new aws.codepipeline.Pipeline("chatbot-pipeline", {
                     },
                 },
             ],
-        },
+        }] : []),
         {
             name: "Deploy",
             actions: [
@@ -427,4 +450,4 @@ export const artifactKmsKeyArn = artifactKmsKey.arn;
 export const pipelineArn = pipeline.arn;
 export const previewProjectName = previewProject.name;
 export const deployProjectName = deployProject.name;
-export const githubConnectionArn = githubConnection.arn;
+export const githubConnectionArn = githubConnectionArnOutput;

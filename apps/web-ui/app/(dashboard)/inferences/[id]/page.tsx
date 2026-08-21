@@ -46,6 +46,7 @@ interface InferenceDetail {
     error: string | null;
     tokenUsage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
     cacheHit: boolean;
+    cacheType: string | null;
     latencyMs: number | null;
     webhookUrl: string | null;
     webhookStatus: string | null;
@@ -154,9 +155,9 @@ export default function InferenceDetailPage() {
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-sm font-semibold tracking-tight font-mono truncate">
+              <h2 className="text-sm font-semibold tracking-tight font-mono truncate">
                 {ex.id}
-              </h1>
+              </h2>
               <Badge variant={statusVariant} className="text-[10px]">
                 {ex.status}
               </Badge>

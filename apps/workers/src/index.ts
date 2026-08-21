@@ -9,6 +9,15 @@ import { register as registerResumeAgentExecution } from './jobs/resume-agent-ex
 import { register as registerExpirePausedExecutions } from './jobs/expire-paused-executions/register.js';
 import { register as registerEvaluatorRun } from './jobs/evaluator-run/register.js';
 import { register as registerExperimentRun } from './jobs/experiment-run/register.js';
+import { register as registerClawGatewayRun } from './jobs/claw-gateway-run/register.js';
+import {
+  register as registerClawScheduler,
+  stopClawSchedulerSweeper,
+} from './jobs/claw-scheduler/register.js';
+import { register as registerTranscription } from './jobs/transcription/register.js';
+import { register as registerTranscriptionWebhookRetry } from './jobs/transcription-webhook-retry/register.js';
+import { register as registerTranscriptionUploadExpiry } from './jobs/transcription-upload-expiry/register.js';
+import { register as registerCacheCleanup } from './jobs/cache-cleanup/register.js';
 import { registerSchedules } from './jobs/web-crawl/scheduler.js';
 import { env } from './env';
 
@@ -34,13 +43,36 @@ async function main() {
   await registerExpirePausedExecutions(boss);
   await registerEvaluatorRun(boss, executor);
   await registerExperimentRun(boss, executor);
+  await registerClawGatewayRun(boss, executor);
+  await registerClawScheduler(boss, executor);
+  await registerTranscription(boss, executor);
+  await registerTranscriptionWebhookRetry(boss, executor);
+  await registerTranscriptionUploadExpiry(boss);
+  await registerCacheCleanup(boss);
 
   await registerSchedules(boss);
   log.info('Schedules registered. Waiting for work...');
 
+  // Deliberately shorter than ECS's own stopTimeout (30s by default on Fargate unless the
+  // task definition overrides it — currently unset here, so 30s applies). pg-boss's graceful
+  // stop already does the right thing on its own: it waits for in-flight jobs, then
+  // explicitly fails (not abandons) any job still running via its internal failWip() call.
+  // But that only happens if this process is still alive to run it — if our own timeout
+  // matched or exceeded ECS's kill deadline, ECS's SIGKILL could fire first and take the
+  // process down mid-wait, before failWip() ever runs, leaving the job "active" forever
+  // (this is believed to be the actual mechanism behind an August 2026 incident: two jobs
+  // orphaned by a deploy that raced this exact window). Keeping a real margin below the ECS
+  // deadline is what makes failWip() reliably win that race instead of sometimes losing it.
+  // If the ECS task's stopTimeout is ever raised (to give slow-but-legitimate jobs more room
+  // to finish), raise this value too, keeping the same ~5-10s margin below it.
+  const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 20_000;
+
   const shutdown = async (signal: string) => {
-    log.info(`Received ${signal}, shutting down...`);
-    await boss.stop({ graceful: true, timeout: 30000 });
+    log.info(`Received ${signal}, shutting down...`, { gracefulTimeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
+    // Stop the sweeper FIRST: enqueueing a tick against a stopping boss throws
+    // while in-flight handlers are still draining.
+    stopClawSchedulerSweeper();
+    await boss.stop({ graceful: true, timeout: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
     log.info('pg-boss stopped');
     process.exit(0);
   };

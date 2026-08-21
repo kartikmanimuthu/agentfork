@@ -4,6 +4,7 @@ const mockDb = {
   tenantConfig: {
     findFirst: vi.fn(),
     upsert: vi.fn(),
+    findMany: vi.fn(),
   },
 };
 
@@ -58,6 +59,29 @@ describe('TenantConfigService', () => {
           update: expect.objectContaining({ updatedBy: 'user-1' }),
         }),
       );
+    });
+  });
+
+  describe('listByPrefix', () => {
+    it('queries by configKey prefix and maps rows', async () => {
+      const now = new Date('2026-01-01T00:00:00Z');
+      mockDb.tenantConfig.findMany.mockResolvedValue([
+        { configKey: 'claw-integration-hubspot:account:hub-1', data: { token: 'a' }, updatedAt: now, updatedBy: 'user-1' },
+      ]);
+      const result = await service.listByPrefix('claw-integration-hubspot:account:');
+      expect(mockDb.tenantConfig.findMany).toHaveBeenCalledWith({
+        where: { configKey: { startsWith: 'claw-integration-hubspot:account:' } },
+        orderBy: { configKey: 'asc' },
+      });
+      expect(result).toEqual([
+        { configKey: 'claw-integration-hubspot:account:hub-1', data: { token: 'a' }, updatedAt: now, updatedBy: 'user-1' },
+      ]);
+    });
+
+    it('returns an empty array when nothing matches', async () => {
+      mockDb.tenantConfig.findMany.mockResolvedValue([]);
+      const result = await service.listByPrefix('claw-integration-github:account:');
+      expect(result).toEqual([]);
     });
   });
 });

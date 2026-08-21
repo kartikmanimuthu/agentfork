@@ -34,6 +34,15 @@ describe('createLLMProvider', () => {
     expect(provider).toBeInstanceOf(OpenAICompatibleProvider);
   });
 
+  it('returns an OpenAICompatibleProvider when provider is litellm', () => {
+    const provider = createLLMProvider({
+      provider: 'litellm',
+      baseUrl: 'http://gateway:4000',
+      apiKey: 'sk-tenant-key',
+    });
+    expect(provider).toBeInstanceOf(OpenAICompatibleProvider);
+  });
+
   it('throws an error for an unknown provider', () => {
     expect(() => createLLMProvider({ provider: 'unknown' as any })).toThrow(
       'Unknown LLM provider: unknown'

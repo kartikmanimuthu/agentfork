@@ -12,9 +12,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (authError) return authError;
 
     const { id } = await params;
-    logger.info({ tenantId, providerId: id }, 'Fetching LLM provider detail');
+    // Opt-in, and only the edit form asks. The detail VIEW and the provider list
+    // render fine without secrets, and shipping decrypted credentials to every
+    // page that happens to read a provider would widen the exposure for no reason.
+    const includeSecrets = new URL(req.url).searchParams.get('withSecrets') === '1';
+    logger.info({ tenantId, providerId: id, includeSecrets }, 'Fetching LLM provider detail');
     const service = new LlmProviderService(tenantId);
-    const provider = await service.findById(id);
+    const provider = await service.findById(id, { includeSecrets });
     if (!provider) {
       logger.warn({ tenantId, providerId: id }, 'Provider not found');
       return NextResponse.json({ error: 'Provider not found' }, { status: 404 });

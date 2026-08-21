@@ -1,0 +1,32 @@
+{
+  "name": "claw-studio",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/claw-studio/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/claw-studio",
+        "tsConfig": "libs/claw-studio/tsconfig.lib.json",
+        "main": "libs/claw-studio/src/index.ts",
+        "rootDir": "."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vitest run",
+        "cwd": "libs/claw-studio"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx tsc --noEmit -p tsconfig.json",
+        "cwd": "libs/claw-studio"
+      }
+    }
+  }
+}
