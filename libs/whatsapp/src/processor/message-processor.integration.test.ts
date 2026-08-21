@@ -63,7 +63,7 @@ describe('MessageProcessor Integration', () => {
       },
       contactLock,
       circuitBreaker,
-      metaClientFactory: () => ({
+      clientFactory: () => ({
         sendTextMessage: vi.fn().mockImplementation(async (to, text) => {
           sentMessages.push({ to, text });
           return { messages: [{ id: `wamid.out_${Date.now()}` }] };

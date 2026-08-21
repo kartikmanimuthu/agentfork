@@ -26,6 +26,11 @@ COPY apps/sdk/ apps/sdk/
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXTAUTH_SECRET=dummy-build-secret
 
+# Inlined into the client bundle by `next build` — must be a build arg, not a
+# runtime env var. Falls back to the app's own default when not supplied.
+ARG NEXT_PUBLIC_MISSION_CONTROL_URL=http://localhost:3010/mission-control
+ENV NEXT_PUBLIC_MISSION_CONTROL_URL=${NEXT_PUBLIC_MISSION_CONTROL_URL}
+
 RUN ./node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 RUN bun run sdk:build
 RUN cd apps/web-ui && NODE_OPTIONS="--max-old-space-size=3072" bun run build
@@ -60,6 +65,14 @@ COPY apps/web-ui/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 RUN groupadd -r bun && useradd -r -g bun bun
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers
+RUN npm install -g playwright && \
+    playwright install-deps chromium && \
+    mkdir -p $PLAYWRIGHT_BROWSERS_PATH && \
+    playwright install chromium && \
+    chown -R bun:bun $PLAYWRIGHT_BROWSERS_PATH
+
 RUN chown -R bun:bun /app /tmp/cache
 USER bun
 

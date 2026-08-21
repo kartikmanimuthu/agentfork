@@ -18,14 +18,20 @@ vi.mock('@chatbot/shared', () => ({
 import { WhatsAppSendTemplateNodeExecutor } from './whatsapp-send-template-executor';
 import type { NodeExecutionContext } from '../types';
 
-function makeCtx(channels: Record<string, unknown> = {}, config: Record<string, unknown> = {}): NodeExecutionContext {
+function makeCtx(
+  channels: Record<string, unknown> = {},
+  config: Record<string, unknown> = {},
+  account: Record<string, unknown> = {},
+): NodeExecutionContext {
   const mockPrisma = {
     whatsAppAccount: {
       findUnique: vi.fn().mockResolvedValue({
         id: 'acc_1',
+        provider: 'meta',
         accessToken: 'encrypted-token',
         phoneNumberId: 'phone_123',
         apiVersion: 'v22.0',
+        ...account,
       }),
     },
   };
@@ -84,5 +90,10 @@ describe('WhatsAppSendTemplateNodeExecutor', () => {
     const ctx = makeCtx();
     delete (ctx.state.channels as any)['wa_sender_id'];
     await expect(executor.execute(ctx)).rejects.toThrow('wa_sender_id');
+  });
+
+  it('throws a clear error when the account provider is netcore', async () => {
+    const ctx = makeCtx({}, {}, { provider: 'netcore' });
+    await expect(executor.execute(ctx)).rejects.toThrow('does not yet support Netcore');
   });
 });

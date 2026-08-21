@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, getSessionUserId, authorize, S3Service, createLogger } from '@chatbot/shared';
+import { getSessionTenantId, getSessionUserId, authorize, createLogger } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import { authOptions } from '@/lib/auth';
 
 const logger = createLogger('api:playground:files');

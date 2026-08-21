@@ -16,7 +16,8 @@ export default function EditLlmProviderPage() {
   const router = useRouter();
   const providerId = params.id;
 
-  const { data: provider, isLoading } = useLlmProvider(providerId);
+  // withSecrets: the form prefills the saved key so it need not be retyped.
+  const { data: provider, isLoading } = useLlmProvider(providerId, { withSecrets: true });
   const updateMutation = useUpdateLlmProvider(providerId);
 
   const handleSubmit = async (values: {
@@ -27,6 +28,8 @@ export default function EditLlmProviderPage() {
     chatModel?: string;
     embeddingModel?: string;
     embeddingDimensions?: number;
+    maxBudgetUsd?: number;
+    models?: Array<{ id: string; name: string; capabilities: string[] }>;
     isDefault?: boolean;
   }) => {
     try {
@@ -83,8 +86,17 @@ export default function EditLlmProviderPage() {
               chatModel: provider.chatModel ?? undefined,
               embeddingModel: provider.embeddingModel ?? undefined,
               embeddingDimensions: provider.embeddingDimensions ?? undefined,
+              maxBudgetUsd: provider.maxBudgetUsd ?? undefined,
               isDefault: provider.isDefault,
+              // Endpoints only. Secrets are never sent to the browser —
+              // `configuredSecrets` names the ones already stored so the form can
+              // show them as configured and leave them blank.
+              baseUrl: provider.endpoints?.baseUrl,
+              gatewayUrl: provider.endpoints?.gatewayUrl,
+              secrets: provider.secrets,
             }}
+            configuredSecrets={provider.configuredSecrets}
+            providerId={providerId}
             onSubmit={handleSubmit}
             loading={updateMutation.isPending}
             submitLabel="Update Provider"

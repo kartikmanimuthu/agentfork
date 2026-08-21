@@ -3,6 +3,7 @@ import type { TenantLLMConfig } from './types';
 import { getDefaultLLMConfig } from './types';
 import { BedrockLLMProvider } from './providers/bedrock';
 import { OpenAICompatibleProvider } from './providers/openai-compatible';
+import { toOllamaOpenAIBaseUrl } from './ollama-url';
 
 function logFactory(message: string, data?: Record<string, unknown>) {
   // eslint-disable-next-line no-console
@@ -27,11 +28,19 @@ export function createLLMProvider(config?: TenantLLMConfig | null): LLMProvider 
   switch (effectiveConfig.provider) {
     case 'bedrock':
       return new BedrockLLMProvider(effectiveConfig);
+    case 'ollama':
+      // Ollama's OpenAI-compatible routes live under /v1, but the stored base
+      // URL is also used for native /api discovery, so normalize here rather
+      // than forcing one spelling on the operator.
+      return new OpenAICompatibleProvider({
+        ...effectiveConfig,
+        baseUrl: toOllamaOpenAIBaseUrl(effectiveConfig.baseUrl),
+      });
     case 'openai':
     case 'openai_compatible':
     case 'vllm':
-    case 'ollama':
     case 'anthropic':
+    case 'litellm':
       return new OpenAICompatibleProvider(effectiveConfig);
     default:
       throw new Error(`Unknown LLM provider: ${(effectiveConfig as any).provider}`);

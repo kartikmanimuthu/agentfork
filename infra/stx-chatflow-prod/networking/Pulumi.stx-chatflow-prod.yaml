@@ -1,0 +1,9 @@
+config:
+  aws:region: ap-south-1
+  chatbot-networking:vpcCidr: 10.50.0.0/16
+  chatbot-networking:appName: stx-chatflow-prod
+  chatbot-networking:natStrategy: single
+  chatbot-networking:availabilityZoneNames:
+    - ap-south-1a
+    - ap-south-1b
+encryptionsalt: v1:P3119yQncy4=:v1:7aIXpVBB7QEhfpI/:H4wbjS2Ys9Ei6wfp0T1pfv3BsK1Q6A==

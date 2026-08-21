@@ -11,7 +11,7 @@ const querySchema = z.object({
   agentId: z.string().optional(),
   status: z.enum(['completed', 'failed', 'running']).optional(),
   type: z.enum(['stateful', 'stateless']).optional(),
-  cacheHit: z.enum(['true', 'false']).optional(),
+  cacheType: z.enum(['exact', 'semantic', 'miss']).optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),
   search: z.string().optional(),
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid query params', details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { agentId, status, type, cacheHit, fromDate, toDate, search, page, limit } = parsed.data;
+    const { agentId, status, type, cacheType, fromDate, toDate, search, page, limit } = parsed.data;
 
     const where: Record<string, unknown> = { tenantId };
 
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     if (status) where.status = status;
     if (type === 'stateful') where.sessionId = { not: null };
     if (type === 'stateless') where.sessionId = null;
-    if (cacheHit === 'true') where.cacheHit = true;
-    if (cacheHit === 'false') where.cacheHit = false;
+    if (cacheType === 'miss') where.cacheHit = false;
+    else if (cacheType) where.cacheType = cacheType;
     if (fromDate || toDate) {
       const range: Record<string, Date> = {};
       if (fromDate) range.gte = new Date(fromDate);
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
       latencyMs: r.latencyMs,
       tokenUsage: r.tokenUsage,
       cacheHit: r.cacheHit,
+      cacheType: r.cacheType,
       webhookStatus: r.webhookStatus,
       createdAt: r.createdAt,
       completedAt: r.completedAt,

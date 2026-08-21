@@ -49,6 +49,19 @@ const bedrockBearerToken = config.getSecret("bedrockBearerToken");
 // Postgres identifiers (dbName, username) only allow letters, numbers, underscores
 const dbIdentifier = appName.replace(/-/g, "_");
 
+// Claw Studio OAuth connectors. Each provider is unusable until its id/secret pair
+// is set, but the rest of the app runs without them — so all are optional.
+// One Google app covers Gmail, Calendar and Drive; Microsoft covers Outlook.
+const googleOauthClientId = config.get("googleOauthClientId") ?? "";
+const googleOauthClientSecret = config.getSecret("googleOauthClientSecret");
+const microsoftOauthClientId = config.get("microsoftOauthClientId") ?? "";
+const microsoftOauthClientSecret = config.getSecret("microsoftOauthClientSecret");
+const notionOauthClientId = config.get("notionOauthClientId") ?? "";
+const notionOauthClientSecret = config.getSecret("notionOauthClientSecret");
+// Signs the OAuth redirect flow's CSRF state parameter. Deliberately separate from
+// NEXTAUTH_SECRET. Must be at least 32 characters or libs/shared env validation rejects it.
+const oauthStateSecret = config.getSecret("oauthStateSecret");
+
 // Dynamically generated — stored in AWS Secrets Manager, never in Pulumi config
 const nextauthSecretRandom = new random.RandomPassword("nextauth-secret-random", {
     length: 32,
@@ -109,6 +122,106 @@ if (bedrockBearerToken) {
         secretString: bedrockBearerToken,
     });
 }
+
+// OAuth secrets — each only created if its config value is set, mirroring the
+// bedrock-bearer-token pattern above. An unset provider simply gets no env var.
+function optionalSecret(key: string, name: string, description: string, value?: pulumi.Output<string>) {
+    if (!value) return undefined;
+    const secret = new aws.secretsmanager.Secret(key, {
+        name: `${appName}/${name}`,
+        description,
+        recoveryWindowInDays: 0,
+    });
+    new aws.secretsmanager.SecretVersion(`${key}-version`, {
+        secretId: secret.id,
+        secretString: value,
+    });
+    return secret;
+}
+
+const googleOauthClientSecretSm = optionalSecret(
+    "google-oauth-client-secret", "google-oauth-client-secret",
+    "Google OAuth client secret (Gmail, Calendar, Drive connectors)", googleOauthClientSecret);
+const microsoftOauthClientSecretSm = optionalSecret(
+    "microsoft-oauth-client-secret", "microsoft-oauth-client-secret",
+    "Microsoft OAuth client secret (Outlook connector)", microsoftOauthClientSecret);
+const notionOauthClientSecretSm = optionalSecret(
+    "notion-oauth-client-secret", "notion-oauth-client-secret",
+    "Notion OAuth client secret", notionOauthClientSecret);
+const oauthStateSecretSm = optionalSecret(
+    "oauth-state-secret", "oauth-state-secret",
+    "Signs the OAuth redirect flow CSRF state parameter", oauthStateSecret);
+
+// Non-secret tuning knobs for Claw Studio and Transcription Studio. Every one has a
+// default in libs/shared and libs/claw-studio, so an entry is emitted only when the
+// stack actually overrides it — that keeps the defaults in one place instead of two.
+function optionalEnv(configKey: string, envName: string) {
+    const value = config.get(configKey);
+    return value === undefined ? [] : [{ name: envName, value }];
+}
+
+// MISSION_CONTROL_URL is the exception: its code default is http://localhost:3010,
+// which in Fargate resolves to the task's own loopback. Always set it explicitly.
+const missionControlUrl = config.get("missionControlUrl") ?? `${appUrl}/claw-studio/mission-control`;
+
+const sharedAppEnvironment = [
+    { name: "MISSION_CONTROL_URL", value: missionControlUrl },
+    { name: "NEXT_PUBLIC_MISSION_CONTROL_URL", value: missionControlUrl },
+    ...optionalEnv("googleOauthClientId", "GOOGLE_OAUTH_CLIENT_ID"),
+    ...optionalEnv("microsoftOauthClientId", "MICROSOFT_OAUTH_CLIENT_ID"),
+    ...optionalEnv("notionOauthClientId", "NOTION_OAUTH_CLIENT_ID"),
+    ...optionalEnv("transcriptionMaxAudioMb", "TRANSCRIPTION_MAX_AUDIO_MB"),
+    ...optionalEnv("transcriptionDefaultDailyReqLimit", "TRANSCRIPTION_DEFAULT_DAILY_REQ_LIMIT"),
+    ...optionalEnv("transcriptionDefaultDailyMinutesLimit", "TRANSCRIPTION_DEFAULT_DAILY_MINUTES_LIMIT"),
+    ...optionalEnv("transcriptionDefaultMinuteReqLimit", "TRANSCRIPTION_DEFAULT_MINUTE_REQ_LIMIT"),
+    ...optionalEnv("transcriptionUploadUrlTtlSeconds", "TRANSCRIPTION_UPLOAD_URL_TTL_SECONDS"),
+    ...optionalEnv("transcriptionUploadRetentionDays", "TRANSCRIPTION_UPLOAD_RETENTION_DAYS"),
+    ...optionalEnv("transcriptionWorkerBatchSize", "TRANSCRIPTION_WORKER_BATCH_SIZE"),
+    ...optionalEnv("clawMaxIterations", "CLAW_MAX_ITERATIONS"),
+    ...optionalEnv("clawWorkspaceMaxChars", "CLAW_WORKSPACE_MAX_CHARS"),
+    ...optionalEnv("clawSelfAuthoring", "CLAW_SELF_AUTHORING"),
+    ...optionalEnv("clawMinIntervalMinutes", "CLAW_MIN_INTERVAL_MINUTES"),
+    ...optionalEnv("clawMaxActiveTasksPerTenant", "CLAW_MAX_ACTIVE_TASKS_PER_TENANT"),
+    ...optionalEnv("clawSchedulerSweepMs", "CLAW_SCHEDULER_SWEEP_MS"),
+];
+
+function oauthSecretSlots(arns: (string | undefined)[]) {
+    const names = [
+        "GOOGLE_OAUTH_CLIENT_SECRET",
+        "MICROSOFT_OAUTH_CLIENT_SECRET",
+        "NOTION_OAUTH_CLIENT_SECRET",
+        "OAUTH_STATE_SECRET",
+    ];
+    return arns.flatMap((arn, i) => (arn ? [{ name: names[i], valueFrom: arn }] : []));
+}
+
+const oauthSecretArnOutputs = [
+    googleOauthClientSecretSm ? googleOauthClientSecretSm.arn : pulumi.output(undefined),
+    microsoftOauthClientSecretSm ? microsoftOauthClientSecretSm.arn : pulumi.output(undefined),
+    notionOauthClientSecretSm ? notionOauthClientSecretSm.arn : pulumi.output(undefined),
+    oauthStateSecretSm ? oauthStateSecretSm.arn : pulumi.output(undefined),
+];
+
+// Mission Control signs its own sessions. It authenticates a studio (studio id +
+// password) rather than a user and explicitly does not trust web-ui's session, so it
+// gets its own key — a leaked web-ui signing key must not be able to forge a Mission
+// Control session. The cookie names are namespaced app-side for the same reason.
+const missionControlNextauthRandom = new random.RandomPassword("mission-control-nextauth-random", {
+    length: 32,
+    special: false,
+    keepers: { version: "1" },
+});
+
+const missionControlNextauthSm = new aws.secretsmanager.Secret("mission-control-nextauth-secret", {
+    name: `${appName}/mission-control-nextauth-secret`,
+    description: "NextAuth JWT signing secret for Mission Control (separate auth realm from web-ui)",
+    recoveryWindowInDays: 0,
+});
+
+new aws.secretsmanager.SecretVersion("mission-control-nextauth-secret-version", {
+    secretId: missionControlNextauthSm.id,
+    secretString: missionControlNextauthRandom.result,
+});
 
 // database-url-version is created after postgresInstance (needs .address output)
 
@@ -330,7 +443,7 @@ const rdsSecurityGroup = new aws.ec2.SecurityGroup("rds-sg", {
 const postgresInstance = new aws.rds.Instance("postgres", {
     identifier: `${appName}-postgres`,
     engine: "postgres",
-    engineVersion: "16.9",
+    engineVersion: "16.13",
     instanceClass: "db.t4g.micro",
     dbName: dbIdentifier,
     username: `${dbIdentifier}_admin`,
@@ -468,6 +581,10 @@ const webUiImage = new awsx.ecr.Image("web-ui-image", {
     imageTag: webUiSrcHash,
     args: {
         BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
+        // Next.js inlines NEXT_PUBLIC_* into the client bundle at build time, so this
+        // cannot be supplied as a task-definition env var — the Claw Studio page is a
+        // client component and would keep the localhost:3010 default baked in.
+        NEXT_PUBLIC_MISSION_CONTROL_URL: missionControlUrl,
     },
     cacheFrom: [pulumi.interpolate`${ecrRepository.repositoryUrl}:latest`],
 }, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
@@ -509,14 +626,20 @@ new aws.iam.RolePolicy("ecs-execution-role-secrets-policy", {
         databaseUrlSm.arn,
         encryptionKeySm.arn,
         bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
+        missionControlNextauthSm.arn,
+        ...oauthSecretArnOutputs,
     ]).apply(
-        ([nextauthArn, dbArn, encArn, bedrockBearerArn]) =>
+        ([nextauthArn, dbArn, encArn, bedrockBearerArn, mcNextauthArn, ...oauthArns]) =>
             JSON.stringify({
                 Version: "2012-10-17",
                 Statement: [{
                     Effect: "Allow",
                     Action: ["secretsmanager:GetSecretValue"],
-                    Resource: [nextauthArn, dbArn, encArn, ...(bedrockBearerArn ? [bedrockBearerArn] : [])],
+                    Resource: [
+                        nextauthArn, dbArn, encArn, mcNextauthArn,
+                        ...(bedrockBearerArn ? [bedrockBearerArn] : []),
+                        ...oauthArns.filter((arn): arn is string => Boolean(arn)),
+                    ],
                 }],
             })
     ),
@@ -633,12 +756,14 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
         databaseUrlSm.arn,
         encryptionKeySm.arn,
         bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
+        ...oauthSecretArnOutputs,
     ]).apply(([
         cognitoPoolId, cognitoClientId, cognitoClientSecret,
         appBucketN,
         webUiLogGroupN, acctId, imageUri,
         nextauthSecretArn, databaseUrlArn, encryptionKeyArn,
         bedrockBearerTokenArn,
+        ...oauthArns
     ]) => JSON.stringify([{
         name: "WebUIContainer",
         image: imageUri,
@@ -657,8 +782,10 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
             { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
             ...(bedrockBearerTokenArn ? [{ name: "AWS_BEARER_TOKEN_BEDROCK", valueFrom: bedrockBearerTokenArn }] : []),
+            ...oauthSecretSlots(oauthArns),
         ],
         environment: [
+            ...sharedAppEnvironment,
             { name: "NODE_ENV", value: "production" },
             { name: "PORT", value: "3005" },
             { name: "AWS_REGION", value: region },
@@ -671,7 +798,7 @@ const webUiTaskDef = new aws.ecs.TaskDefinition("web-ui-task-def", {
             { name: "APP_BUCKET_NAME", value: appBucketN },
             { name: "S3_BUCKET", value: appBucketN },
             { name: "DATA_DIR", value: "/tmp" },
-            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
+            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "global.anthropic.claude-sonnet-4-6" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LANGFUSE_ENABLED", value: "false" },
             { name: "LANGFUSE_HOST", value: "https://cloud.langfuse.com" },
@@ -796,7 +923,7 @@ const webUiService = new aws.ecs.Service("web-ui-service", {
         containerName: "WebUIContainer",
         containerPort: 3005,
     }],
-}, { dependsOn: [httpListener] });
+}, { dependsOn: [httpListener], ignoreChanges: ["desiredCount"] });
 
 // Auto Scaling Target — min 2, max 10
 const scalingTarget = new aws.appautoscaling.Target("web-ui-scaling-target", {
@@ -838,6 +965,184 @@ new aws.appautoscaling.Policy("web-ui-memory-scaling", {
 });
 
 // ============================================================================
+// MISSION CONTROL — Claw Studio operator console
+// ============================================================================
+// Shares the ALB and CloudFront distribution with web-ui, distinguished by the
+// /claw-studio/mission-control path prefix (next.config.ts basePath). Everything here is
+// additive: a new listener *rule* is added at priority 10, while the listener's
+// default action still forwards to web-ui, so web-ui's routing is untouched.
+
+const missionControlEcrRepo = new aws.ecr.Repository("mission-control-ecr-repo", {
+    name: `${appName}-mission-control`,
+    imageTagMutability: "MUTABLE",
+    forceDelete: false,
+});
+
+const missionControlSrcHash = crypto.createHash("sha256")
+    .update(hashDirectory(path.join(repoRoot, "apps/mission-control")))
+    .update(hashDirectory(path.join(repoRoot, "prisma")))
+    .update(hashDirectory(path.join(repoRoot, "libs")))
+    .digest("hex")
+    .substring(0, 12);
+
+const missionControlImage = new awsx.ecr.Image("mission-control-image", {
+    repositoryUrl: missionControlEcrRepo.repositoryUrl,
+    context: repoRoot,
+    dockerfile: path.join(repoRoot, "apps/mission-control/Dockerfile"),
+    platform: "linux/arm64",
+    imageTag: missionControlSrcHash,
+    args: {
+        BUILDX_NO_DEFAULT_ATTESTATIONS: "1",
+        // Inlined into the client bundle by `next build`; a task-definition value
+        // would arrive too late. Must match the basePath the ALB rule routes on.
+        NEXT_PUBLIC_MISSION_CONTROL_URL: missionControlUrl,
+    },
+    cacheFrom: [pulumi.interpolate`${missionControlEcrRepo.repositoryUrl}:latest`],
+}, { dependsOn: [ecrPublicLogin], retainOnDelete: true });
+
+const missionControlLogGroup = new aws.cloudwatch.LogGroup("mission-control-log-group", {
+    name: `/ecs/${appName}-mission-control`,
+    retentionInDays: 7,
+});
+
+// Own security group rather than widening web-ui's, which is scoped to port 3005.
+const missionControlSecurityGroup = new aws.ec2.SecurityGroup("mission-control-sg", {
+    name: `${appName}-mission-control-sg`,
+    description: "Security group for Mission Control ECS tasks - ALB traffic only",
+    vpcId: vpcId,
+    ingress: [{
+        fromPort: 3010,
+        toPort: 3010,
+        protocol: "tcp",
+        securityGroups: [albSecurityGroup.id],
+        description: "Container port from ALB",
+    }],
+    egress: [{
+        fromPort: 0,
+        toPort: 0,
+        protocol: "-1",
+        cidrBlocks: ["0.0.0.0/0"],
+        description: "Allow all outbound",
+    }],
+});
+
+const missionControlTaskDef = new aws.ecs.TaskDefinition("mission-control-task-def", {
+    family: `${appName}-mission-control-task`,
+    cpu: "1024",
+    memory: "2048",
+    networkMode: "awsvpc",
+    requiresCompatibilities: ["FARGATE"],
+    executionRoleArn: ecsTaskExecutionRole.arn,
+    taskRoleArn: ecsTaskRole.arn,
+    runtimePlatform: {
+        cpuArchitecture: "ARM64",
+        operatingSystemFamily: "LINUX",
+    },
+    containerDefinitions: pulumi.all([
+        appBucket.bucket,
+        missionControlLogGroup.name,
+        missionControlImage.imageUri,
+        databaseUrlSm.arn,
+        encryptionKeySm.arn,
+        missionControlNextauthSm.arn,
+        bedrockBearerTokenSm ? bedrockBearerTokenSm.arn : pulumi.output(undefined),
+        ...oauthSecretArnOutputs,
+    ]).apply(([
+        appBucketN, logGroupN, imageUri,
+        databaseUrlArn, encryptionKeyArn, mcNextauthArn, bedrockBearerArn,
+        ...oauthArns
+    ]) => JSON.stringify([{
+        name: "MissionControlContainer",
+        image: imageUri,
+        essential: true,
+        portMappings: [{ containerPort: 3010, hostPort: 3010, protocol: "tcp" }],
+        logConfiguration: {
+            logDriver: "awslogs",
+            options: {
+                "awslogs-group": logGroupN,
+                "awslogs-region": region,
+                "awslogs-stream-prefix": "mission-control",
+            },
+        },
+        secrets: [
+            { name: "DATABASE_URL", valueFrom: databaseUrlArn },
+            { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
+            { name: "NEXTAUTH_SECRET", valueFrom: mcNextauthArn },
+            ...(bedrockBearerArn ? [{ name: "AWS_BEARER_TOKEN_BEDROCK", valueFrom: bedrockBearerArn }] : []),
+            ...oauthSecretSlots(oauthArns),
+        ],
+        environment: [
+            ...sharedAppEnvironment,
+            { name: "NODE_ENV", value: "production" },
+            { name: "PORT", value: "3010" },
+            // NextAuth v4 reads NEXTAUTH_URL as the URL of its own API route, not the
+            // site root. With a Next basePath it must include the full path, or
+            // signinUrl/callbackUrl come out missing /api/auth and the login POST 404s.
+            { name: "NEXTAUTH_URL", value: `${missionControlUrl}/api/auth` },
+            { name: "AWS_REGION", value: region },
+            { name: "APP_BUCKET_NAME", value: appBucketN },
+            { name: "S3_BUCKET", value: appBucketN },
+            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "global.anthropic.claude-sonnet-4-6" },
+            { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
+            { name: "LOG_LEVEL", value: "info" },
+        ],
+    }])),
+}, { retainOnDelete: true });
+
+const missionControlTargetGroup = new aws.lb.TargetGroup("mission-control-tg", {
+    port: 3010,
+    protocol: "HTTP",
+    targetType: "ip",
+    vpcId: vpcId,
+    deregistrationDelay: 30,
+    healthCheck: {
+        // Under basePath, so the un-prefixed /api/health is a 404 and would never pass.
+        path: "/claw-studio/mission-control/api/health",
+        interval: 60,
+        timeout: 5,
+        healthyThreshold: 2,
+        unhealthyThreshold: 3,
+        matcher: "200",
+    },
+});
+
+// Added alongside the listener's existing default action, which still forwards to
+// web-ui. Both the bare prefix and everything under it must match —
+// "/claw-studio/mission-control" alone is not covered by the
+// "/claw-studio/mission-control/*" pattern.
+const missionControlListenerRule = new aws.lb.ListenerRule("mission-control-rule", {
+    listenerArn: httpListener.arn,
+    priority: 10,
+    actions: [{ type: "forward", targetGroupArn: missionControlTargetGroup.arn }],
+    conditions: [{ pathPattern: { values: ["/claw-studio/mission-control", "/claw-studio/mission-control/*"] } }],
+});
+
+const missionControlService = new aws.ecs.Service("mission-control-service", {
+    name: `${appName}-mission-control-service`,
+    cluster: ecsCluster.arn,
+    taskDefinition: missionControlTaskDef.arn,
+    desiredCount: 1,
+    launchType: "FARGATE",
+    forceNewDeployment: true,
+    deploymentCircuitBreaker: {
+        enable: true,
+        rollback: true,
+    },
+    deploymentMinimumHealthyPercent: 100,
+    deploymentMaximumPercent: 200,
+    networkConfiguration: {
+        subnets: privateSubnetIds,
+        securityGroups: [missionControlSecurityGroup.id],
+        assignPublicIp: false,
+    },
+    loadBalancers: [{
+        targetGroupArn: missionControlTargetGroup.arn,
+        containerName: "MissionControlContainer",
+        containerPort: 3010,
+    }],
+}, { dependsOn: [missionControlListenerRule], ignoreChanges: ["desiredCount"] });
+
+// ============================================================================
 // STACK OUTPUTS
 // ============================================================================
 
@@ -846,6 +1151,10 @@ export const ecsClusterArn = ecsCluster.arn;
 export const ecsClusterName = ecsCluster.name;
 export const ecrRepositoryUri = ecrRepository.repositoryUrl;
 export const webUiTaskDefinitionArn = webUiTaskDef.arn;
+export const missionControlEcrRepositoryUri = missionControlEcrRepo.repositoryUrl;
+export const missionControlTaskDefinitionArn = missionControlTaskDef.arn;
+export const missionControlServiceName = missionControlService.name;
+export const missionControlAppUrl = missionControlUrl;
 
 export const networkingVpcId = vpcId;
 export const networkingVpcCidr = vpcCidr;
@@ -893,7 +1202,7 @@ const originVerifySecret = new random.RandomString("origin-verify-secret", {
 
 const cloudFrontDistribution = new aws.cloudfront.Distribution("web-ui-cloudfront", {
     enabled: true,
-    comment: "Chatbot WebUI",
+    comment: `${appName} - Web UI`,
     defaultRootObject: "",
     httpVersion: "http2",
     isIpv6Enabled: true,
@@ -1094,9 +1403,11 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         workersImage.imageUri,
         databaseUrlSm.arn,
         encryptionKeySm.arn,
+        ...oauthSecretArnOutputs,
     ]).apply(([
         appBucketN,
         ephLogGroupN, snsTopicArn, imageUri, databaseUrlArn, encryptionKeyArn,
+        ...oauthArns
     ]) => JSON.stringify([{
         name: "WorkersContainer",
         image: imageUri,
@@ -1112,12 +1423,14 @@ const ephemeralWorkerTaskDef = new aws.ecs.TaskDefinition("ephemeral-worker-task
         secrets: [
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
             { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
+            ...oauthSecretSlots(oauthArns),
         ],
         environment: [
+            ...sharedAppEnvironment,
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
             { name: "S3_BUCKET", value: appBucketN },
-            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
+            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "global.anthropic.claude-sonnet-4-6" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
             { name: "PLAYWRIGHT_BROWSERS_PATH", value: "/usr/local/share/playwright-browsers" },
@@ -1196,10 +1509,12 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         privateSubnetIds.apply(ids => ids.join(",")),
         databaseUrlSm.arn,
         encryptionKeySm.arn,
+        ...oauthSecretArnOutputs,
     ]).apply(([
         appBucketN,
         workersLogGroupN, snsTopicArn, imageUri,
         clusterArn, ephTaskDefArn, workersSgId, subnetsJoined, databaseUrlArn, encryptionKeyArn,
+        ...oauthArns
     ]) => JSON.stringify([{
         name: "WorkersContainer",
         image: imageUri,
@@ -1215,12 +1530,14 @@ const workersTaskDef = new aws.ecs.TaskDefinition("workers-task-def", {
         secrets: [
             { name: "DATABASE_URL", valueFrom: databaseUrlArn },
             { name: "ENCRYPTION_KEY", valueFrom: encryptionKeyArn },
+            ...oauthSecretSlots(oauthArns),
         ],
         environment: [
+            ...sharedAppEnvironment,
             { name: "AWS_REGION", value: region },
             { name: "APP_BUCKET_NAME", value: appBucketN },
             { name: "S3_BUCKET", value: appBucketN },
-            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "amazon.titan-embed-text-v2:0" },
+            { name: "BEDROCK_CHAT_MODEL", value: process.env.BEDROCK_CHAT_MODEL ?? "global.anthropic.claude-sonnet-4-6" },
             { name: "BEDROCK_EMBEDDING_MODEL", value: process.env.BEDROCK_EMBEDDING_MODEL ?? "amazon.titan-embed-text-v2:0" },
             { name: "LOG_LEVEL", value: "info" },
             { name: "WORKER_ARCH", value: "vertical" },

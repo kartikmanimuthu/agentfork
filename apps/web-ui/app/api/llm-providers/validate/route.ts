@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionTenantId, authorize, LlmProviderService, createLogger } from '@chatbot/shared';
+import { getSessionTenantId, authorize, LlmProviderService, createLogger, env } from '@chatbot/shared';
 import { ValidateInputSchema } from '@chatbot/shared';
 import { createDiscovery } from '@chatbot/ai';
 import { authOptions } from '@/lib/auth';
@@ -28,7 +28,26 @@ export async function POST(req: NextRequest) {
     }
 
     const service = new LlmProviderService(tenantId);
-    const result = await service.validateAndDiscoverModels(parsed.data, (providerType, credentials, region) =>
+    // Editing an existing provider: the form is never given the stored secrets,
+    // so it can only submit the fields the operator retyped. Merge server-side
+    // before discovery — otherwise changing only the base URL re-ran discovery
+    // with no API key and failed, which is what made changing the model look
+    // like it required re-entering every credential.
+    const submitted = (parsed.data.credentials ?? {}) as Record<string, string>;
+    const credentials = parsed.data.providerId
+      ? await service.mergeStoredCredentials(parsed.data.providerId, submitted)
+      : submitted;
+    const discoveryInput =
+      parsed.data.providerType === 'LITELLM'
+        ? {
+            ...parsed.data,
+            credentials: {
+              baseUrl: credentials.gatewayUrl ?? env.LITELLM_GATEWAY_URL,
+              apiKey: credentials.masterKey ?? env.LITELLM_MASTER_KEY,
+            },
+          }
+        : { ...parsed.data, credentials };
+    const result = await service.validateAndDiscoverModels(discoveryInput, (providerType, credentials, region) =>
       createDiscovery(providerType as any).discover(credentials, region)
     );
     logger.info(

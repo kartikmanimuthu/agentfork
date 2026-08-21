@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 
 const orgSchema = z.object({
@@ -148,7 +148,7 @@ export default function CreateOrgPage() {
       >
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>Create your organization</CardTitle>
+            <h1 className="text-base leading-snug font-medium">Create your organization</h1>
             <CardDescription>Set up your workspace to get started</CardDescription>
           </CardHeader>
           <CardContent>

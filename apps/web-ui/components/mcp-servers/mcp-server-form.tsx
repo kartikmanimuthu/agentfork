@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useForm } from '@tanstack/react-form';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/secret-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const transportSchema = z.discriminatedUnion('transport', [
   z.object({ transport: z.literal('sse'), endpoint: z.string().url(), headers: z.record(z.string(), z.string()).optional() }),
   z.object({ transport: z.literal('stdio'), command: z.string().min(1), args: z.array(z.string()).optional(), env: z.record(z.string(), z.string()).optional() }),
-  z.object({ transport: z.literal('http_bridge'), bridgeUrl: z.string().url(), targetCommand: z.string().optional() }),
+  z.object({ transport: z.literal('http_bridge'), bridgeUrl: z.string().url(), headers: z.record(z.string(), z.string()).optional(), targetCommand: z.string().optional() }),
 ]);
 
 const schema = z.object({
@@ -25,6 +26,12 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+// The whole-form Zod validator pushes raw issue objects into field.state.meta.errors
+// rather than plain strings, so a naive String(error) renders "[object Object]".
+function getErrorMessage(error: unknown): string {
+  return typeof error === 'string' ? error : (error as { message?: string })?.message ?? 'Invalid value';
+}
 
 interface McpServerFormProps {
   defaultValues?: Partial<FormValues>;
@@ -71,7 +78,7 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
             <Label htmlFor={field.name}>Name</Label>
             <Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="My MCP Server" />
             {field.state.meta.errors.length > 0 && (
-              <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+              <p className="text-xs text-destructive">{getErrorMessage(field.state.meta.errors[0])}</p>
             )}
           </div>
         )}
@@ -102,11 +109,24 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
         <form.Field name="transportConfig">
           {(field) => {
             const config = (field.state.value ?? { endpoint: '' }) as { endpoint: string; headers?: Record<string, string> };
+            const bearerToken = config.headers?.['Authorization']?.replace(/^Bearer\s+/, '') ?? '';
+            const handleBearerChange = (token: string) => {
+              const headers = token.trim() ? { ...config.headers, Authorization: `Bearer ${token.trim()}` } : (() => { const h = { ...config.headers }; delete h['Authorization']; return Object.keys(h).length ? h : undefined; })();
+              field.handleChange({ ...config, transport: 'sse', headers });
+            };
             return (
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="grid gap-1.5">
                   <Label>Endpoint URL</Label>
                   <Input value={config.endpoint} onChange={(e) => field.handleChange({ ...config, transport: 'sse', endpoint: e.target.value })} placeholder="https://api.example.com/sse" />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{getErrorMessage(field.state.meta.errors[0])}</p>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Bearer Token <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <SecretInput value={bearerToken} onChange={(e) => handleBearerChange(e.target.value)} placeholder="your-api-token" />
+                  <p className="text-xs text-muted-foreground">Sent as <code>Authorization: Bearer &lt;token&gt;</code></p>
                 </div>
               </div>
             );
@@ -123,6 +143,9 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
                 <div className="grid gap-1.5">
                   <Label>Command</Label>
                   <Input value={config.command} onChange={(e) => field.handleChange({ ...config, transport: 'stdio', command: e.target.value })} placeholder="npx" />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{getErrorMessage(field.state.meta.errors[0])}</p>
+                  )}
                 </div>
                 <div className="grid gap-1.5">
                   <Label>Arguments (comma-separated)</Label>
@@ -137,16 +160,29 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
       {transport === 'http_bridge' && (
         <form.Field name="transportConfig">
           {(field) => {
-            const config = (field.state.value ?? { bridgeUrl: '' }) as { bridgeUrl: string; targetCommand?: string };
+            const config = (field.state.value ?? { bridgeUrl: '' }) as { bridgeUrl: string; headers?: Record<string, string>; targetCommand?: string };
+            const bearerToken = config.headers?.['Authorization']?.replace(/^Bearer\s+/, '') ?? '';
+            const handleBearerChange = (token: string) => {
+              const headers = token.trim() ? { ...config.headers, Authorization: `Bearer ${token.trim()}` } : (() => { const h = { ...config.headers }; delete h['Authorization']; return Object.keys(h).length ? h : undefined; })();
+              field.handleChange({ ...config, transport: 'http_bridge', headers });
+            };
             return (
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="grid gap-1.5">
                   <Label>Bridge URL</Label>
                   <Input value={config.bridgeUrl} onChange={(e) => field.handleChange({ ...config, transport: 'http_bridge', bridgeUrl: e.target.value })} placeholder="https://bridge.example.com" />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-destructive">{getErrorMessage(field.state.meta.errors[0])}</p>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Bearer Token <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <SecretInput value={bearerToken} onChange={(e) => handleBearerChange(e.target.value)} placeholder="your-api-token" />
+                  <p className="text-xs text-muted-foreground">Sent as <code>Authorization: Bearer &lt;token&gt;</code></p>
                 </div>
                 <div className="grid gap-1.5">
                   <Label>Target Command</Label>
-                  <Input value={config.targetCommand} onChange={(e) => field.handleChange({ ...config, transport: 'http_bridge', targetCommand: e.target.value })} placeholder="npx @modelcontextprotocol/server-filesystem" />
+                  <Input value={config.targetCommand ?? ''} onChange={(e) => field.handleChange({ ...config, transport: 'http_bridge', targetCommand: e.target.value })} placeholder="npx @modelcontextprotocol/server-filesystem" />
                 </div>
               </div>
             );
@@ -175,7 +211,11 @@ export function McpServerForm({ defaultValues, onSubmit, onTest, loading, testLo
 
       <div className="flex gap-2">
         {onTest && <Button type="button" variant="outline" onClick={onTest} disabled={testLoading}>{testLoading ? 'Testing...' : 'Test Connection'}</Button>}
-        <Button type="submit" disabled={loading}>{loading ? 'Saving...' : submitLabel}</Button>
+        <form.Subscribe selector={(state) => state.canSubmit}>
+          {(canSubmit) => (
+            <Button type="submit" disabled={loading || !canSubmit}>{loading ? 'Saving...' : submitLabel}</Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   );

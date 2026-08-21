@@ -32,9 +32,19 @@ nx graph                             # Visualize dependency graph
 
 ```bash
 bunx prisma generate --schema=./prisma/schema.prisma   # Regenerate client after schema changes
-bunx prisma db push                                     # Push schema to local DB (no migration)
-bunx prisma migrate dev                                 # Create + apply migration
+bunx prisma migrate deploy                              # Apply existing migrations (use this to build a local DB)
+bunx prisma migrate dev --create-only --name <name>     # Author a migration after a schema change — review the SQL, then deploy
+bunx prisma db push                                     # Throwaway DB only — skips the pgvector indexes, never use before merging
+bun run check:db                                        # Verify: schema has a migration, vector indexes present
 ```
+
+**Every generated migration must be reviewed before committing.** `prisma migrate
+dev` emits `DROP INDEX "claw_memories_embedding_hnsw"` and `DROP INDEX
+"idx_document_chunks_embedding"` at the top of every migration, because Prisma
+cannot model HNSW indexes on `Unsupported("vector(...)")` columns and reports them
+as drift. Delete those lines. Shipping them silently degrades memory recall and
+knowledge-base search — `20260715055000_restore_document_chunks_embedding_index`
+exists because this has already happened.
 
 ## Project Structure
 
@@ -76,9 +86,15 @@ prisma/              Schema + migrations (PostgreSQL 16 with pgvector)
 1. `docker compose up -d` — PostgreSQL 16 with pgvector (port 5432, user: chatbot_admin, db: chatbot)
 2. `cp .env.example .env` — root env vars
 3. `bun install` — deps + Prisma client generation
-4. `bunx prisma db push` — apply schema to local DB
+4. `bunx prisma migrate deploy --schema=./prisma/schema.prisma` — apply schema to local DB
 
 Or run `bun run setup` to do steps 2–4 in one command.
+
+Use `migrate deploy`, not `db push`, to build a local database. The HNSW pgvector
+indexes live in raw SQL inside migrations because Prisma cannot model indexes on
+`Unsupported("vector(...)")` columns — `db push` creates the tables but silently
+skips those indexes, and semantic search degrades to sequential scans with no
+error. Verify with `bun run check:indexes`.
 
 ### Required Environment Variables
 

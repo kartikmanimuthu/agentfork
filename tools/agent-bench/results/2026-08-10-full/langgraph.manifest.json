@@ -1,0 +1,16 @@
+{
+  "arm": "langgraph",
+  "startedAt": "2026-08-10T12:07:33.007Z",
+  "gitRef": "e78271de84ab71e7db78ba91d68df59da9c2703a",
+  "gitDirty": true,
+  "treePath": "/Users/H2952/Documents/chatflow-langgraph",
+  "controls": {
+    "maxIterations": 12,
+    "temperature": null,
+    "promptSurface": "acting",
+    "autoApprove": true,
+    "model": "global.anthropic.claude-sonnet-5",
+    "repetitions": 1
+  },
+  "systemPrompt": ""
+}

@@ -70,7 +70,9 @@ export default function LlmProviderDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Region</p>
-              <p className="font-medium">{provider.region ?? '—'}</p>
+              <p className={provider.region ? 'font-medium' : 'font-medium text-muted-foreground italic'}>
+                {provider.region ?? 'Host AWS region (default)'}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Chat Model</p>
@@ -82,7 +84,9 @@ export default function LlmProviderDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Embedding Dimensions</p>
-              <p className="font-medium">{provider.embeddingDimensions ?? '—'}</p>
+              <p className={provider.embeddingDimensions ? 'font-medium' : 'font-medium text-muted-foreground italic'}>
+                {provider.embeddingDimensions ?? '1024 (default)'}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Credentials</p>

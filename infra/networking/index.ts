@@ -10,20 +10,44 @@ const config = new pulumi.Config();
 // Use vpcCidrConfig to avoid duplicate identifier with the vpcCidr export below.
 const vpcCidrConfig = config.get("vpcCidr") ?? "10.0.0.0/16";
 const appName = config.get("appName") ?? "chatbot";
+const availabilityZoneNames = config.getObject<string[]>("availabilityZoneNames") ?? ["us-east-1a", "us-east-1b"];
 
 // ============================================================================
 // VPC — 4-tier subnets with explicit CIDRs matching CDK allocation
 // CDK allocates largest subnets first: Private /22 -> Public /24 -> Database /24 -> Intra /26
-// Subnet CIDRs (calculated from CDK deterministic allocation, 10.0.0.0/16, 2 AZs):
-//   Private:  10.0.0.0/22 (us-east-1a), 10.0.4.0/22 (us-east-1b)
-//   Public:   10.0.8.0/24 (us-east-1a), 10.0.9.0/24 (us-east-1b)
-//   Database: 10.0.10.0/24 (us-east-1a), 10.0.11.0/24 (us-east-1b)
-//   Intra:    10.0.12.0/26 (us-east-1a), 10.0.12.64/26 (us-east-1b)
+// Subnet CIDRs are derived from the configured vpcCidr (must be a /16), keeping
+// the same relative layout CDK used for the original 10.0.0.0/16 deployment:
+//   Private:  <net>.0.0/22, <net>.4.0/22
+//   Public:   <net>.8.0/24, <net>.9.0/24
+//   Database: <net>.10.0/24, <net>.11.0/24
+//   Intra:    <net>.12.0/26, <net>.12.64/26
+// For the default 10.0.0.0/16 this reproduces the original hardcoded values
+// byte-for-byte (verified by hand).
 // ============================================================================
+
+function subnetCidrsFromVpcCidr(vpcCidr: string) {
+    const match = vpcCidr.match(/^(\d+)\.(\d+)\.0\.0\/16$/);
+    if (!match) {
+        throw new Error(`vpcCidr must be a /16 in the form X.Y.0.0/16, got: ${vpcCidr}`);
+    }
+    const [firstOctet, secondOctet] = [Number(match[1]), Number(match[2])];
+    if (firstOctet > 255 || secondOctet > 255) {
+        throw new Error(`vpcCidr octets must be 0-255, got: ${vpcCidr}`);
+    }
+    const net = `${match[1]}.${match[2]}`;
+    return {
+        private: [`${net}.0.0/22`, `${net}.4.0/22`],
+        public: [`${net}.8.0/24`, `${net}.9.0/24`],
+        database: [`${net}.10.0/24`, `${net}.11.0/24`],
+        intra: [`${net}.12.0/26`, `${net}.12.64/26`],
+    };
+}
+
+const subnetCidrs = subnetCidrsFromVpcCidr(vpcCidrConfig);
 
 const vpc = new awsx.ec2.Vpc(`${appName}-vpc`, {
     cidrBlock: vpcCidrConfig,
-    availabilityZoneNames: ["us-east-1a", "us-east-1b"],
+    availabilityZoneNames: availabilityZoneNames,
     enableDnsHostnames: true,
     enableDnsSupport: true,
     natGateways: { strategy: config.get("natStrategy") === "single" ? "Single" : "OnePerAz" },
@@ -31,22 +55,22 @@ const vpc = new awsx.ec2.Vpc(`${appName}-vpc`, {
         {
             type: "Private",
             name: "private",
-            cidrBlocks: ["10.0.0.0/22", "10.0.4.0/22"],
+            cidrBlocks: subnetCidrs.private,
         },
         {
             type: "Public",
             name: "public",
-            cidrBlocks: ["10.0.8.0/24", "10.0.9.0/24"],
+            cidrBlocks: subnetCidrs.public,
         },
         {
             type: "Isolated",
             name: "database",
-            cidrBlocks: ["10.0.10.0/24", "10.0.11.0/24"],
+            cidrBlocks: subnetCidrs.database,
         },
         {
             type: "Isolated",
             name: "intra",
-            cidrBlocks: ["10.0.12.0/26", "10.0.12.64/26"],
+            cidrBlocks: subnetCidrs.intra,
         },
     ],
     tags: { Name: `${appName}-vpc` },
@@ -140,5 +164,5 @@ export const publicSubnetIds = vpc.publicSubnetIds;
 export const privateSubnetIds = vpc.privateSubnetIds;
 export { databaseSubnetIds };
 export { intraSubnetIds };
-export const availabilityZones = pulumi.output(["us-east-1a", "us-east-1b"]);
+export const availabilityZones = pulumi.output(availabilityZoneNames);
 export const dbSubnetGroupName = dbSubnetGroup.name;

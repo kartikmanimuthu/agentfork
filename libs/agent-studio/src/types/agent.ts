@@ -42,6 +42,41 @@ export interface SimpleAgentConfig {
   systemPrompt: string;
   temperature?: number;
   maxTokens?: number;
+  /** @deprecated Read via resolveCachingConfig(). Superseded by `caching`. */
+  cacheTtlMinutes?: number;
+  /** @deprecated Read via resolveCachingConfig(). Superseded by `caching`. */
+  semanticCache?: {
+    enabled: boolean;
+    embeddingModel: string;
+    threshold: number;
+  };
+  caching?: {
+    exact?: {
+      enabled: boolean;
+      ttlSeconds: number;
+      overrides?: { withTools?: boolean; inSessions?: boolean };
+    };
+    semantic?: {
+      enabled: boolean;
+      ttlSeconds: number;
+      embeddingModel: string;
+      threshold: number;
+      overrides?: {
+        withTools?: boolean;
+        inSessions?: boolean;
+        withAttachments?: boolean;
+        withKnowledgeBase?: boolean;
+      };
+    };
+    /** @deprecated Shared overrides, superseded by the per-tier `overrides`. */
+    overrides?: {
+      withMcpTools?: boolean;
+      withBuiltInTools?: boolean;
+      inSessions?: boolean;
+      withAttachments?: boolean;
+      withKnowledgeBase?: boolean;
+    };
+  };
   /** Names of tools available to this agent */
   tools?: string[];
 }

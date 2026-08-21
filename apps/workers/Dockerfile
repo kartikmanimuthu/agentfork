@@ -36,12 +36,16 @@ COPY apps/workers/ apps/workers/
 RUN rm -f prisma/.env
 RUN ./node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 
-# Build workspace packages and link into node_modules for runtime resolution
+# Build workspace packages and link into node_modules for runtime resolution.
+# The synthetic package.json below must mirror every subpath in libs/shared/package.json's
+# own "exports" map. apps/workers/tsconfig.build.json sets "paths": {}, so unlike every other
+# project here, the workers compile resolves @chatbot/shared purely through this map — a
+# subpath missing from it fails only inside Docker, never in `bun run typecheck`.
 COPY libs/shared/ libs/shared/
 RUN cd libs/shared && bunx tsc --project tsconfig.lib.json && \
     mkdir -p /app/node_modules/@chatbot/shared && \
     cp -rL /app/dist/libs/shared/libs/shared/src /app/node_modules/@chatbot/shared/src && \
-    printf '{"name":"@chatbot/shared","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./workers":"./src/workers.js"}}\n' > /app/node_modules/@chatbot/shared/package.json
+    printf '{"name":"@chatbot/shared","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./workers":"./src/workers.js","./server":"./src/server.js"}}\n' > /app/node_modules/@chatbot/shared/package.json
 
 COPY libs/ai/ libs/ai/
 RUN cd libs/ai && bunx tsc --project tsconfig.lib.json && \
@@ -64,7 +68,15 @@ COPY libs/agent-studio/ libs/agent-studio/
 RUN cd libs/agent-studio && bunx tsc --project tsconfig.lib.json && \
     mkdir -p /app/node_modules/@chatbot/agent-studio && \
     cp -rL /app/dist/out-tsc/libs/agent-studio/src /app/node_modules/@chatbot/agent-studio/src && \
-    printf '{"name":"@chatbot/agent-studio","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./server":"./src/server.js"}}\n' > /app/node_modules/@chatbot/agent-studio/package.json
+    printf '{"name":"@chatbot/agent-studio","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./server":"./src/server.js","./*":"./src/*.js"}}\n' > /app/node_modules/@chatbot/agent-studio/package.json
+
+# claw-studio: the claw-scheduler and claw-gateway-run jobs reach it through
+# `await import()`, so the "./*" subpath export has to survive the link too.
+COPY libs/claw-studio/ libs/claw-studio/
+RUN cd libs/claw-studio && bunx tsc --project tsconfig.lib.json && \
+    mkdir -p /app/node_modules/@chatbot/claw-studio && \
+    cp -rL /app/dist/out-tsc/libs/claw-studio/src /app/node_modules/@chatbot/claw-studio/src && \
+    printf '{"name":"@chatbot/claw-studio","version":"0.0.1","type":"module","main":"src/index.js","types":"src/index.d.ts","exports":{".":"./src/index.js","./*":"./src/*.js"}}\n' > /app/node_modules/@chatbot/claw-studio/package.json
 
 # Compile workers
 RUN cd apps/workers && bunx tsc --project tsconfig.build.json

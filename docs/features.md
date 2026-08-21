@@ -287,6 +287,10 @@ The Agent Studio is a node-based visual workflow engine for building complex age
 - **Session management** — 24-hour conversation window tracking
 - **Quality rating** — monitor account health and messaging limits
 - **Media support** — download and process images/documents/voice
+- **Direct agent binding** — connect a WhatsApp account to a simple agent from Agent Studio (Channels tab), bypassing routing entirely; agent replies with full KB + MCP + tools support
+- **Conversation history** — last 30 messages (15 user + 15 assistant) persisted per session and sent to the LLM each turn
+
+> **Known limitation:** Conversation history is currently capped at 30 messages per session. Future work: store the full message history in a dedicated table, then use the existing `conversation-summary` worker job to generate rolling summaries — pass the summary + recent messages to the LLM instead of the raw sliding window. This mirrors how the playground handles long conversations and removes the hard cap.
 
 ### 9.3 Telegram Integration (Coming Soon)
 - UI placeholder for Telegram bot connector

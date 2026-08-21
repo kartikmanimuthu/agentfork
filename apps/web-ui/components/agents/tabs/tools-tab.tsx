@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/secret-input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -172,9 +173,9 @@ export function ToolsTab({ config, onSave, saving }: ToolsTabProps) {
                     ) : (
                       <div className="grid gap-1.5">
                         <Label htmlFor="provider-api-key">API Key</Label>
-                        <Input
+                        <SecretInput
                           id="provider-api-key"
-                          type="password"
+                         
                           placeholder={providerForm.provider === 'tavily' ? 'tvly-...' : 'BSA...'}
                           value={providerForm.apiKey ?? ''}
                           onChange={(e) =>

@@ -6,9 +6,18 @@
       "@chatbot/shared": ["libs/shared/src/index.ts"],
       "@chatbot/shared/client": ["libs/shared/src/client.ts"],
       "@chatbot/shared/workers": ["libs/shared/src/workers.ts"],
+      "@chatbot/shared/server": ["libs/shared/src/server.ts"],
       "@chatbot/ai": ["libs/ai/src/index.ts"],
+      // claw-studio's web tools import @chatbot/ai/tools/* directly. This paths block
+      // overrides tsconfig.base.json wholesale, so the wildcard has to be repeated here.
+      "@chatbot/ai/*": ["libs/ai/src/*"],
       "@chatbot/agent-studio": ["libs/agent-studio/src/index.ts"],
       "@chatbot/agent-studio/server": ["libs/agent-studio/src/server.ts"],
+      // claw-studio's MCP layer reaches into agent-studio's subpaths, so the
+      // wildcard has to be here too for the gateway job to typecheck.
+      "@chatbot/agent-studio/*": ["libs/agent-studio/src/*"],
+      "@chatbot/claw-studio": ["libs/claw-studio/src/index.ts"],
+      "@chatbot/claw-studio/*": ["libs/claw-studio/src/*"],
       "@chatbot/knowledge-base": ["libs/knowledge-base/src/index.ts"],
       "@chatbot/whatsapp": ["libs/whatsapp/src/index.ts"],
       "@chatbot/telegram": ["libs/telegram/src/index.ts"]

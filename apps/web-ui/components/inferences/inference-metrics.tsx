@@ -9,6 +9,7 @@ interface InferenceMetricsProps {
     latencyMs: number | null;
     tokenUsage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
     cacheHit: boolean;
+    cacheType: string | null;
     startedAt: string | null;
     completedAt: string | null;
   };
@@ -127,6 +128,13 @@ export function InferenceMetrics({ execution, agent }: InferenceMetricsProps) {
               : latencyMs < 1000
                 ? `${Math.round(latencyMs)}ms`
                 : `${(latencyMs / 1000).toFixed(2)}s`
+          }
+          subValue={
+            execution.cacheType === 'exact'
+              ? 'prompt hit'
+              : execution.cacheType === 'semantic'
+                ? 'semantic hit'
+                : undefined
           }
         />
         {throughput !== null && (

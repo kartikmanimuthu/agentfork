@@ -9,3 +9,5 @@ export * from './llm-provider';
 export * from './agents';
 export * from './evaluation';
 export * from './dashboards';
+export * from './claw-studio';
+export * from './transcription';

@@ -64,20 +64,16 @@ export default function NewKnowledgeBasePage() {
     },
   });
 
-  const handleModelChange = (modelId: string) => {
-    if (!providers) return;
-    for (const provider of providers) {
-      const discovered =
-        (provider.models as { models?: Array<{ id: string; name: string; capabilities: string[] }> } | null)?.models ?? [];
-      const match = discovered.find((m) => m.id === modelId && m.capabilities.includes('embedding'));
-      if (match || provider.embeddingModel === modelId) {
-        form.setFieldValue('embeddingProvider', provider.id);
-        form.setFieldValue('embeddingModel', modelId);
-        form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);
-        return;
-      }
-    }
+  const handleModelChange = (modelId: string, providerId?: string) => {
     form.setFieldValue('embeddingModel', modelId);
+    // providerId is which entry was actually clicked — two providers can expose the
+    // identical model id, so re-deriving "the" provider by scanning for a match would
+    // silently attribute the KB to whichever provider happens to be first in the list.
+    const provider = providerId ? providers?.find((p) => p.id === providerId) : undefined;
+    if (provider) {
+      form.setFieldValue('embeddingProvider', provider.id);
+      form.setFieldValue('embeddingDimensions', provider.embeddingDimensions ?? 1024);
+    }
   };
 
   return (
@@ -144,7 +140,11 @@ export default function NewKnowledgeBasePage() {
                         autoFocus
                       />
                       {field.state.meta.errors.length > 0 && (
-                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                        <p className="text-xs text-destructive">
+                          {typeof field.state.meta.errors[0] === 'string'
+                            ? field.state.meta.errors[0]
+                            : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                        </p>
                       )}
                     </div>
                   )}
@@ -180,7 +180,11 @@ export default function NewKnowledgeBasePage() {
                         placeholder="Select an embedding model"
                       />
                       {field.state.meta.errors.length > 0 && (
-                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                        <p className="text-xs text-destructive">
+                          {typeof field.state.meta.errors[0] === 'string'
+                            ? field.state.meta.errors[0]
+                            : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                        </p>
                       )}
                     </div>
                   )}
@@ -199,7 +203,11 @@ export default function NewKnowledgeBasePage() {
                         onBlur={field.handleBlur}
                       />
                       {field.state.meta.errors.length > 0 && (
-                        <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                        <p className="text-xs text-destructive">
+                          {typeof field.state.meta.errors[0] === 'string'
+                            ? field.state.meta.errors[0]
+                            : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                        </p>
                       )}
                     </div>
                   )}
@@ -243,7 +251,11 @@ export default function NewKnowledgeBasePage() {
                           onBlur={field.handleBlur}
                         />
                         {field.state.meta.errors.length > 0 && (
-                          <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                          <p className="text-xs text-destructive">
+                          {typeof field.state.meta.errors[0] === 'string'
+                            ? field.state.meta.errors[0]
+                            : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                        </p>
                         )}
                       </div>
                     )}
@@ -262,7 +274,11 @@ export default function NewKnowledgeBasePage() {
                           onBlur={field.handleBlur}
                         />
                         {field.state.meta.errors.length > 0 && (
-                          <p className="text-xs text-destructive">{String(field.state.meta.errors[0])}</p>
+                          <p className="text-xs text-destructive">
+                          {typeof field.state.meta.errors[0] === 'string'
+                            ? field.state.meta.errors[0]
+                            : (field.state.meta.errors[0] as { message?: string })?.message ?? 'Invalid value'}
+                        </p>
                         )}
                       </div>
                     )}
@@ -308,16 +324,32 @@ export default function NewKnowledgeBasePage() {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
-                {step < STEPS.length - 1 ? (
-                  <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={!advanceable}>
-                    Next
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button type="submit" disabled={form.state.isSubmitting}>
-                    {form.state.isSubmitting ? 'Creating...' : 'Create Knowledge Base'}
-                  </Button>
-                )}
+                {/* A single persistent button — swapping between a type="button" Next and a
+                    type="submit" Create in the same spot let one click register on both the
+                    old and new element (advance the step AND submit), skipping the Review
+                    step's confirmation. onClick now decides the action at click-time instead. */}
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (step < STEPS.length - 1) {
+                      setStep((s) => s + 1);
+                    } else {
+                      form.handleSubmit();
+                    }
+                  }}
+                  disabled={step < STEPS.length - 1 ? !advanceable : form.state.isSubmitting}
+                >
+                  {step < STEPS.length - 1 ? (
+                    <>
+                      Next
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  ) : form.state.isSubmitting ? (
+                    'Creating...'
+                  ) : (
+                    'Create Knowledge Base'
+                  )}
+                </Button>
               </div>
             );
           }}

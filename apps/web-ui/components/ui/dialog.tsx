@@ -4,11 +4,28 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
+import { isForeignPopupDismissal } from "@/lib/popup-dismissal"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+function Dialog({ onOpenChange, ...props }: DialogPrimitive.Root.Props) {
+  // A tap on a Radix-portaled dropdown reads to Base UI as an outside press and
+  // used to dismiss the whole form — brutal on mobile, where it happened every
+  // time someone picked an option. See lib/popup-dismissal.ts. The X button,
+  // Escape and a genuine outside tap are untouched.
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      onOpenChange={(open, details) => {
+        if (!open && isForeignPopupDismissal(details)) {
+          details.cancel()
+          return
+        }
+        onOpenChange?.(open, details)
+      }}
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

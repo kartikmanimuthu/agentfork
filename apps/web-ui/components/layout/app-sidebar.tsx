@@ -64,22 +64,27 @@ import {
   ClipboardCheck,
   ListChecks,
   FlaskConical,
+  Cat,
+  AudioLines,
+  Briefcase,
+  KeyRound,
+  PlayCircle,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
-const mainNav = [
+export const mainNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Audit Logs', href: '/audit', icon: Activity },
 ];
 
-const analyticsNav = [
+export const analyticsNav = [
   { name: 'Dashboard', href: '/analytics', icon: BarChart3 },
   { name: 'Custom Dashboards', href: '/dashboards', icon: LayoutGrid },
   { name: 'Sessions', href: '/sessions', icon: History },
   { name: 'Inferences', href: '/inferences', icon: Zap },
 ];
 
-const evaluationNav = [
+export const evaluationNav = [
   { name: 'Scores', href: '/evaluation/scores', icon: ClipboardCheck },
   { name: 'Datasets', href: '/evaluation/datasets', icon: ListChecks },
   { name: 'Evaluators', href: '/evaluation/evaluators', icon: Bot },
@@ -87,25 +92,35 @@ const evaluationNav = [
   { name: 'Experiments', href: '/evaluation/experiments', icon: FlaskConical },
 ];
 
-const agentStudioNav = [
+export const clawStudioNav = [
+  { name: 'Claw', href: '/claw-studio', icon: Cat },
+];
+
+export const agentStudioNav = [
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'MCP Servers', href: '/mcp-servers', icon: Server },
   { name: 'LLM Providers', href: '/agents/llm-providers', icon: Sparkles },
   { name: 'Playground', href: '/agents/playground', icon: MessageSquare },
 ];
 
-const knowledgeBaseNav = [
+export const transcriptionNav = [
+  { name: 'Jobs', href: '/transcription/jobs', icon: Briefcase },
+  { name: 'Transcripts', href: '/transcription/transcripts', icon: AudioLines },
+  { name: 'LLM Providers', href: '/transcription/llm-providers', icon: Sparkles },
+];
+
+export const knowledgeBaseNav = [
   { name: 'All Bases', href: '/knowledge-bases', icon: FolderOpen },
   { name: 'Create New', href: '/knowledge-bases/new', icon: Plus },
 ];
 
-const settingsNav = [
+export const settingsNav = [
   { name: 'Overview', href: '/settings', icon: Settings },
   { name: 'Members', href: '/settings/members', icon: Users },
   { name: 'Roles & Permissions', href: '/settings/roles', icon: Shield },
 ];
 
-const sdksNav = [
+export const sdksNav = [
   { name: 'Chat Widget', href: '/sdks/chat-widget', icon: MessageSquare, children: [
     { name: 'Designer', href: '/sdks/chat-widget/designer', icon: Palette },
     { name: 'Sandbox', href: '/sdks/chat-widget/sandbox', icon: Play },
@@ -143,8 +158,14 @@ export function AppSidebar() {
   const isAgentStudioActive = pathname === '/agents' || pathname.startsWith('/agents/') || pathname === '/mcp-servers' || pathname.startsWith('/mcp-servers/');
   const [agentStudioOpen, setAgentStudioOpen] = useState(isAgentStudioActive);
 
+  const isClawStudioActive = pathname === '/claw-studio' || pathname.startsWith('/claw-studio/');
+  const [clawStudioOpen, setClawStudioOpen] = useState(isClawStudioActive);
+
   const isSdksActive = pathname === '/sdks' || pathname.startsWith('/sdks/');
   const [sdksOpen, setSdksOpen] = useState(isSdksActive);
+
+  const isTranscriptionActive = pathname === '/transcription' || pathname.startsWith('/transcription/');
+  const [transcriptionOpen, setTranscriptionOpen] = useState(isTranscriptionActive);
 
   const isConnectorsActive = pathname === '/connectors' || pathname.startsWith('/connectors/') || pathname.startsWith('/settings/channels/');
 
@@ -264,6 +285,48 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
+        {/* Its own group directly above Agent Studio, rather than a row inside
+            the Dashboard group. Claw Studio is a separate product surface — it
+            hands off to Mission Control, a different app with its own login —
+            so sitting under "Dashboard" understated it and buried the entry
+            point. Collapsible, matching Agent Studio below. */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Claw Studio</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={clawStudioOpen} onOpenChange={setClawStudioOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton tooltip="Claw Studio">
+                      <Cat className="size-4" />
+                      <span>Claw Studio</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {clawStudioNav.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton
+                            isActive={isActive}
+                            onClick={() => router.push(item.href)}
+                          >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Agent Studio</SidebarGroupLabel>
           <SidebarMenu>
@@ -290,6 +353,40 @@ export function AppSidebar() {
                             isActive={isActive}
                             onClick={() => router.push(item.href)}
                           >
+                            <item.icon className="size-3.5" />
+                            <span>{item.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Transcription Studio</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible open={transcriptionOpen} onOpenChange={setTranscriptionOpen} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton tooltip="Transcription Studio">
+                      <AudioLines className="size-4" />
+                      <span>Transcription Studio</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {transcriptionNav.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton isActive={isActive} onClick={() => router.push(item.href)}>
                             <item.icon className="size-3.5" />
                             <span>{item.name}</span>
                           </SidebarMenuSubButton>

@@ -52,6 +52,7 @@ export async function GET(
         error: execution.error,
         tokenUsage: execution.tokenUsage,
         cacheHit: execution.cacheHit,
+        cacheType: execution.cacheType,
         latencyMs: execution.latencyMs,
         webhookUrl: execution.webhookUrl,
         webhookStatus: execution.webhookStatus,

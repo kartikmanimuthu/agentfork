@@ -4,17 +4,25 @@ import {
   createLogger,
   QuotaService,
   ResponseCacheService,
+  SemanticCacheService,
+  buildScopeKey,
+  sanitiseThreshold,
+  getThresholdBand,
+  type SemanticHit,
+  resolveCachingConfig,
+  computeCacheEligibility,
+  MAX_CACHE_TTL_SECONDS,
   InferenceSessionService,
   LlmProviderService,
   TenantConfigService,
   WebhookService,
-  S3Service,
   PausedExecutionService,
   WorkflowEngine,
   type WorkflowDefinition,
   type WorkflowCursor,
   type ResolveResult,
 } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import {
   streamChat,
   createLLMProvider,
@@ -30,10 +38,12 @@ import {
   type StreamEvent,
   type MessagePart,
   buildBuiltInTools,
+  generateEmbedding,
 } from '@chatbot/ai';
 import type { ToolSet } from 'ai';
 import { jsonSchema } from 'ai';
 import { validateInferenceApiKey } from './lib/auth';
+import { env } from '@/lib/env';
 import { z } from 'zod';
 
 const logger = createLogger('api:inference');
@@ -61,9 +71,37 @@ const inferenceRequestSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   stream: z.boolean().optional(),
   noCache: z.boolean().optional(),
+  exactCacheTtlSeconds: z.number().int().min(0).max(MAX_CACHE_TTL_SECONDS).optional(),
+  semanticCacheTtlSeconds: z.number().int().min(0).max(MAX_CACHE_TTL_SECONDS).optional(),
   alias: z.string().optional(),
   versionId: z.string().optional(),
 });
+
+// The platform is bring-your-own-provider, so the tenant's configured embedding
+// model must be embedded by the provider that offers it — never by the platform
+// default, which a tenant may have no credentials for.
+async function resolveEmbeddingProvider(
+  tenantId: string,
+  embeddingModel: string
+): Promise<ReturnType<typeof createLLMProvider> | null> {
+  const llmProviderService = new LlmProviderService(tenantId);
+  const providers = await llmProviderService.list();
+  const owning = providers.find((provider) => {
+    const discovered = (provider.models as { models?: Array<{ id: string }> } | null)?.models ?? [];
+    return (
+      discovered.some((model) => model.id === embeddingModel) ||
+      provider.embeddingModel === embeddingModel
+    );
+  });
+  if (!owning) return null;
+
+  const config = await llmProviderService.getConfigById(owning.id);
+  if (!config) return null;
+
+  // Spread, not bare config: passing config alone would probe the provider's
+  // default embedding model rather than the one the tenant selected.
+  return createLLMProvider({ ...config, embeddingModel });
+}
 
 async function resolveProviderForModel(
   tenantId: string,
@@ -141,6 +179,8 @@ export async function POST(req: NextRequest) {
       maxTokens,
       stream = true,
       noCache = false,
+      exactCacheTtlSeconds,
+      semanticCacheTtlSeconds,
       alias,
       versionId: requestedVersionId,
     } = parsed.data;
@@ -409,7 +449,12 @@ export async function POST(req: NextRequest) {
 
     // ─── Simple Agent Execution ───────────────────────────────────────────
     if (agent.type === 'simple') {
-      const simpleConfig = config as { model?: string; systemPrompt?: string; temperature?: number; maxTokens?: number };
+      const simpleConfig = config as {
+        model?: string;
+        systemPrompt?: string;
+        temperature?: number;
+        maxTokens?: number;
+      };
       const effectiveModel = simpleConfig.model ?? undefined;
       const effectiveTemperature = temperature ?? simpleConfig.temperature ?? 0.7;
       const effectiveMaxTokens = maxTokens ?? simpleConfig.maxTokens ?? 4096;
@@ -454,7 +499,8 @@ export async function POST(req: NextRequest) {
         'Tools discovered for inference',
       );
 
-      let effectiveSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
+      const baseSystem = systemPrompt ?? simpleConfig.systemPrompt ?? 'You are a helpful assistant.';
+      let effectiveSystem = baseSystem;
       if (kbContext) {
         effectiveSystem = `${effectiveSystem}\n\nUse the following retrieved context to answer questions. If the context does not contain the answer, say so.\n\n${kbContext}`;
       }
@@ -468,21 +514,88 @@ export async function POST(req: NextRequest) {
         temperature: effectiveTemperature,
       });
 
-      // Cache is only consulted for stateless, non-MCP, non-built-in-tool, non-noCache calls.
-      // Stateful calls (sessionId present) always bypass — each turn is unique by definition.
       const hasBuiltInTools = Object.keys(builtInTools).length > 0;
-      const cacheEligible = !noCache && !hasMcpTools && !hasBuiltInTools && !sessionId;
 
-      logger.debug(
-        { tenantId, agentId, cacheEligible, noCache, hasMcpTools, hasBuiltInTools, hasSession: !!sessionId },
-        'Cache eligibility determined',
+      // Tier 1 hashes the whole message array, so attachments differentiate its key.
+      // Tier 2 embeds text only, so two requests with identical text and different
+      // attachments would match at similarity 1.0 — hence the semantic-only guard.
+      const hasNonTextContent = coreMessages.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          (m.content as Array<{ type: string }>).some((part) => part.type !== 'text'),
       );
 
-      if (cacheEligible) {
+      // Retrieved KB context differs per query. It is excluded from the scope key
+      // (which must stay stable), which in turn means a cached answer was grounded
+      // in different context than the current question.
+      const hasKbContext = !!kbContext;
+
+      const caching = resolveCachingConfig(config);
+
+      const exactTtl = exactCacheTtlSeconds ?? caching.exact.ttlSeconds;
+      const semanticTtl = semanticCacheTtlSeconds ?? caching.semantic.ttlSeconds;
+
+      const { exactBlockers, semanticBlockers, exactEnabled, semanticEnabled } = computeCacheEligibility(
+        caching,
+        {
+          noCache,
+          hasMcpTools,
+          hasBuiltInTools,
+          hasSession: !!sessionId,
+          hasAttachments: hasNonTextContent,
+          hasKbContext,
+          semanticKillSwitch: env.SEMANTIC_CACHE_ENABLED,
+        },
+        exactTtl,
+        semanticTtl,
+      );
+
+      const eligibilityLog = {
+        tenantId,
+        agentId,
+        noCache,
+        exactBlockers,
+        semanticBlockers,
+        exactEnabled,
+        semanticEnabled,
+        exactTtl,
+        semanticTtl,
+        hasNonTextContent,
+        hasKbContext,
+        exactOverrides: caching.exact.overrides,
+        semanticOverrides: caching.semantic.overrides,
+      };
+
+      // A tier that is configured on but blocked at request time is the one case worth
+      // an info line: nonprod runs at info level and this is the only record of why a
+      // cache that the tenant switched on never fired.
+      const configuredButBlocked =
+        (caching.exact.enabled && !exactEnabled) || (caching.semantic.enabled && !semanticEnabled);
+      if (configuredButBlocked) {
+        logger.info(eligibilityLog, 'Cache tier configured but blocked for this request');
+      } else {
+        logger.debug(eligibilityLog, 'Cache eligibility determined');
+      }
+
+      if (exactEnabled) {
         const cached = await cacheService.get(cacheKey);
         if (cached) {
           await mcpCleanup();
           await quotaService.incrementUsage(cached.usage.totalTokens);
+          const hitLatencyMs = Date.now() - startedAt.getTime();
+
+          // The inbound user turn was already appended above, so the assistant turn
+          // must be stored here too — otherwise the session keeps two consecutive
+          // user turns and the next request builds an invalid message sequence.
+          // No setWorkflowState: the workflow did not run, so its cursor must not move.
+          if (sessionId) {
+            await sessionService.appendMessage(sessionId, {
+              role: 'assistant',
+              content: cached.text,
+              tokenCount: cached.usage.outputTokens,
+            });
+          }
+
           await db.apiKeyExecution.update({
             where: { id: executionId },
             data: {
@@ -490,11 +603,13 @@ export async function POST(req: NextRequest) {
               output: { text: cached.text },
               tokenUsage: cached.usage as any,
               cacheHit: true,
+              cacheType: 'exact',
+              latencyMs: hitLatencyMs,
               completedAt: new Date(),
             },
           });
 
-          await deliverWebhook('completed', { text: cached.text }, undefined, cached.usage, 0);
+          await deliverWebhook('completed', { text: cached.text }, undefined, cached.usage, hitLatencyMs);
 
           return new Response(
             JSON.stringify({
@@ -502,6 +617,7 @@ export async function POST(req: NextRequest) {
               content: cached.text,
               usage: cached.usage,
               cacheHit: true,
+              cacheType: 'exact',
             }),
             {
               headers: {
@@ -512,10 +628,152 @@ export async function POST(req: NextRequest) {
                 'X-TokenLimit-Remaining': String(
                   (quotaCheck.remainingTokens ?? cached.usage.totalTokens) - cached.usage.totalTokens
                 ),
+                ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
               },
             }
           );
         }
+      }
+
+      // Semantic tier — consulted only after the exact tier misses.
+      const semanticService = new SemanticCacheService(db as never);
+      const lastSemanticContent =
+        [...coreMessages].reverse().find((m) => m.role === 'user')?.content ?? '';
+      const semanticPromptText =
+        typeof lastSemanticContent === 'string'
+          ? lastSemanticContent
+          : (lastSemanticContent as Array<{ type: string; text?: string }>)
+              .filter((part) => part.type === 'text')
+              .map((part) => part.text ?? '')
+              .join(' ');
+
+      let semanticScopeKey: string | null = null;
+      let semanticEmbedding: number[] | null = null;
+      let semanticHit: SemanticHit | null = null;
+      const semanticEmbeddingModel = caching.semantic.embeddingModel;
+      const semanticBand = getThresholdBand(semanticEmbeddingModel);
+      const semanticThreshold = semanticEnabled
+        ? sanitiseThreshold(caching.semantic.threshold, semanticEmbeddingModel)
+        : semanticBand.default;
+
+      if (semanticEnabled && semanticPromptText.trim().length > 0) {
+        // Scoped to the embedding call and the lookup only — post-hit side effects
+        // must not fall through to the model and bill the caller twice.
+        try {
+          const embeddingProvider = await resolveEmbeddingProvider(
+            tenantId,
+            semanticEmbeddingModel,
+          );
+
+          if (!embeddingProvider) {
+            logger.warn(
+              { tenantId, agentId, embeddingModel: semanticEmbeddingModel },
+              'No configured provider offers the semantic cache embedding model — skipping the semantic tier',
+            );
+          } else {
+            semanticScopeKey = buildScopeKey({
+              agentVersionId: version.id,
+              // Base prompt, not effectiveSystem: per-query KB context would make
+              // every scope key unique and guarantee a 0% hit rate.
+              systemPrompt: baseSystem,
+              model: effectiveModel ?? 'default',
+              temperature: effectiveTemperature,
+              embeddingModel: semanticEmbeddingModel,
+            });
+
+            semanticEmbedding = await generateEmbedding(semanticPromptText, embeddingProvider);
+
+            semanticHit = await semanticService.lookup({
+              scopeKey: semanticScopeKey,
+              embedding: semanticEmbedding,
+              promptText: semanticPromptText,
+              threshold: semanticThreshold,
+              embeddingModel: semanticEmbeddingModel,
+            });
+          }
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          logger.warn(
+            { tenantId, agentId, errorMessage: error.message },
+            'Semantic cache unavailable — falling through to the model',
+          );
+          semanticEmbedding = null;
+          semanticHit = null;
+        }
+      }
+
+      if (semanticHit) {
+        logger.info(
+          {
+            tenantId,
+            agentId,
+            cacheEntryId: semanticHit.id,
+            similarity: semanticHit.similarity,
+            threshold: semanticThreshold,
+            promptText: semanticPromptText,
+            cachedPromptText: semanticHit.promptText,
+          },
+          'Semantic cache hit',
+        );
+
+        await mcpCleanup();
+        await quotaService.incrementUsage(semanticHit.response.usage.totalTokens);
+        const hitLatencyMs = Date.now() - startedAt.getTime();
+
+        // Same reason as the exact tier: the user turn is already stored, so the
+        // assistant turn has to be stored with it or the session history is corrupt.
+        // No setWorkflowState: the workflow did not run, so its cursor must not move.
+        if (sessionId) {
+          await sessionService.appendMessage(sessionId, {
+            role: 'assistant',
+            content: semanticHit.response.text,
+            tokenCount: semanticHit.response.usage.outputTokens,
+          });
+        }
+
+        await db.apiKeyExecution.update({
+          where: { id: executionId },
+          data: {
+            status: 'completed',
+            output: { text: semanticHit.response.text },
+            tokenUsage: semanticHit.response.usage as never,
+            cacheHit: true,
+            cacheType: 'semantic',
+            latencyMs: hitLatencyMs,
+            completedAt: new Date(),
+          },
+        });
+
+        await deliverWebhook(
+          'completed',
+          { text: semanticHit.response.text },
+          undefined,
+          semanticHit.response.usage,
+          hitLatencyMs,
+        );
+
+        return new Response(
+          JSON.stringify({
+            id: executionId,
+            content: semanticHit.response.text,
+            usage: semanticHit.response.usage,
+            cacheHit: true,
+            cacheType: 'semantic',
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-RateLimit-Limit': String(keyLimits.dailyReqLimit),
+              'X-RateLimit-Remaining': String((quotaCheck.remainingRequests ?? 1) - 1),
+              'X-TokenLimit-Limit': String(keyLimits.dailyTokenLimit),
+              'X-TokenLimit-Remaining': String(
+                (quotaCheck.remainingTokens ?? semanticHit.response.usage.totalTokens) -
+                  semanticHit.response.usage.totalTokens
+              ),
+              ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
+            },
+          },
+        );
       }
 
       // Plain SSE format for SDK widget / custom clients
@@ -729,7 +987,25 @@ export async function POST(req: NextRequest) {
                 .join('');
 
               if (sseTokenUsage) await quotaService.incrementUsage(sseTokenUsage.totalTokens);
-              if (cacheEligible) await cacheService.set(cacheKey, { text: fullText, usage: sseTokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } });
+              if (exactEnabled) await cacheService.set(cacheKey, { text: fullText, usage: sseTokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } }, exactTtl);
+
+              if (semanticEnabled && semanticScopeKey && semanticEmbedding) {
+                try {
+                  await semanticService.store({
+                    scopeKey: semanticScopeKey,
+                    tenantId,
+                    agentVersionId: version.id,
+                    promptText: semanticPromptText,
+                    embedding: semanticEmbedding,
+                    embeddingModel: semanticEmbeddingModel,
+                    response: { text: fullText, usage: sseTokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+                    ttlSeconds: semanticTtl,
+                  });
+                } catch (err) {
+                  const error = err instanceof Error ? err : new Error(String(err));
+                  logger.warn({ tenantId, agentId, errorMessage: error.message }, 'Semantic cache write failed');
+                }
+              }
 
               if (sessionId) {
                 await sessionService.appendMessage(sessionId, {
@@ -796,8 +1072,26 @@ export async function POST(req: NextRequest) {
 
             await quotaService.incrementUsage(tokenUsage.totalTokens);
 
-            if (cacheEligible) {
-              await cacheService.set(cacheKey, { text, usage: tokenUsage });
+            if (exactEnabled) {
+              await cacheService.set(cacheKey, { text, usage: tokenUsage }, exactTtl);
+            }
+
+            if (semanticEnabled && semanticScopeKey && semanticEmbedding) {
+              try {
+                await semanticService.store({
+                  scopeKey: semanticScopeKey,
+                  tenantId,
+                  agentVersionId: version.id,
+                  promptText: semanticPromptText,
+                  embedding: semanticEmbedding,
+                  embeddingModel: semanticEmbeddingModel,
+                  response: { text, usage: tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+                  ttlSeconds: semanticTtl,
+                });
+              } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                logger.warn({ tenantId, agentId, errorMessage: error.message }, 'Semantic cache write failed');
+              }
             }
 
             if (sessionId) {
@@ -865,8 +1159,26 @@ export async function POST(req: NextRequest) {
           await quotaService.incrementUsage(tokenUsage.totalTokens);
         }
 
-        if (cacheEligible) {
-          await cacheService.set(cacheKey, { text, usage: tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } });
+        if (exactEnabled) {
+          await cacheService.set(cacheKey, { text, usage: tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } }, exactTtl);
+        }
+
+        if (semanticEnabled && semanticScopeKey && semanticEmbedding) {
+          try {
+            await semanticService.store({
+              scopeKey: semanticScopeKey,
+              tenantId,
+              agentVersionId: version.id,
+              promptText: semanticPromptText,
+              embedding: semanticEmbedding,
+              embeddingModel: semanticEmbeddingModel,
+              response: { text, usage: tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+              ttlSeconds: semanticTtl,
+            });
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            logger.warn({ tenantId, agentId, errorMessage: error.message }, 'Semantic cache write failed');
+          }
         }
 
         if (sessionId) {

@@ -21,6 +21,29 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   experimental: { workerThreads: false, cpus: 1 },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        dns: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
+  async redirects() {
+    return [
+      { source: '/transcription', destination: '/transcription/jobs', permanent: true },
+      { source: '/transcription/playground', destination: '/transcription/jobs', permanent: true },
+      { source: '/transcription/api-keys', destination: '/transcription/jobs', permanent: true },
+      { source: '/transcription/models', destination: '/transcription/llm-providers', permanent: true },
+      { source: '/transcription/models/:id/versions', destination: '/transcription/jobs', permanent: true },
+      { source: '/transcription/models/:id', destination: '/transcription/llm-providers/:id', permanent: true },
+      { source: '/transcription/s3-access', destination: '/transcription/llm-providers', permanent: true },
+      { source: '/transcription/webhooks', destination: '/transcription/jobs', permanent: true },
+    ];
+  },
   async rewrites() {
     if (process.env.SDK_DEV) {
       return [

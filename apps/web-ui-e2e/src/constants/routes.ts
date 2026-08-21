@@ -10,6 +10,8 @@ export const ROUTES = {
   sessions: '/sessions',
   settings: '/settings',
   agents: '/agents',
+  agentLlmProviders: '/agents/llm-providers',
+  agentLlmProviderNew: '/agents/llm-providers/new',
   inferences: '/inferences',
   chat: '/chat',
   docs: {

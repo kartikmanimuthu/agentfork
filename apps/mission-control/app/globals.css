@@ -1,0 +1,193 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Blue accent, replacing the previous neutral zinc default. Hue 224 was
+ * chosen deliberately (close to the classic Tailwind blue-600 family, ~221)
+ * after an earlier pass at hue 245 read as purple/violet rather than blue —
+ * same structure (saturation/lightness per role unchanged), hue rotated only.
+ * Values here are kept IDENTICAL to the "indigo" entry in
+ * components/settings/theme-registry.ts (the default preset in
+ * theme-config-provider.tsx) so there is no flash-of-different-color between
+ * first paint and the theme-config provider's post-hydration effect.
+ */
+@layer base {
+  :root {
+    --background: 224 35% 98%;
+    --foreground: 224 20% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 20% 12%;
+    --primary: 224 76% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 224 30% 95%;
+    --secondary-foreground: 224 40% 22%;
+    --muted: 224 20% 95%;
+    --muted-foreground: 224 10% 46%;
+    --accent: 224 60% 95%;
+    --accent-foreground: 224 60% 28%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 20% 90%;
+    --input: 224 20% 90%;
+    --ring: 224 76% 56%;
+    --radius: 0.5rem;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar: 226 40% 97%;
+    --sidebar-foreground: 224 20% 15%;
+    --sidebar-primary: 224 76% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 50% 93%;
+    --sidebar-accent-foreground: 224 60% 28%;
+    --sidebar-border: 224 20% 88%;
+    --sidebar-ring: 224 76% 56%;
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+  }
+
+  .dark {
+    --background: 224 35% 7%;
+    --foreground: 224 20% 96%;
+    --card: 224 30% 10%;
+    --card-foreground: 224 20% 96%;
+    --popover: 224 30% 10%;
+    --popover-foreground: 224 20% 96%;
+    --primary: 224 85% 66%;
+    --primary-foreground: 224 45% 10%;
+    --secondary: 224 25% 16%;
+    --secondary-foreground: 224 20% 92%;
+    --muted: 224 25% 15%;
+    --muted-foreground: 224 12% 65%;
+    --accent: 224 35% 19%;
+    --accent-foreground: 224 75% 84%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 25% 18%;
+    --input: 224 25% 18%;
+    --ring: 224 85% 66%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 144.9 80.4% 10%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 38 92% 50%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar: 226 40% 6%;
+    --sidebar-foreground: 224 20% 92%;
+    --sidebar-primary: 224 85% 66%;
+    --sidebar-primary-foreground: 224 45% 10%;
+    --sidebar-accent: 224 30% 17%;
+    --sidebar-accent-foreground: 224 75% 84%;
+    --sidebar-border: 224 25% 16%;
+    --sidebar-ring: 224 85% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/*
+ * Soft, fixed radial glow in the corners — deliberately subtle (low alpha,
+ * "minimalistic and professional" per the brief, not a loud saturated
+ * gradient) so it reads as ambient depth rather than a background image. Its
+ * only real job is to give the glass utilities below something to blur
+ * against — flat single-color backgrounds make backdrop-blur invisible.
+ */
+@layer base {
+  body {
+    background-image:
+      radial-gradient(1100px circle at 8% -10%, hsl(var(--primary) / 0.10), transparent 55%),
+      radial-gradient(900px circle at 100% 0%, hsl(var(--primary) / 0.07), transparent 50%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  .dark body,
+  html.dark body {
+    background-image:
+      radial-gradient(1100px circle at 8% -10%, hsl(var(--primary) / 0.16), transparent 55%),
+      radial-gradient(900px circle at 100% 0%, hsl(var(--primary) / 0.10), transparent 50%);
+  }
+}
+
+/*
+ * Glassmorphism utilities. Deliberately opt-in via className (`.glass` /
+ * `.glass-card`) rather than baked into the Card/Sidebar primitives — those
+ * are used in contexts (dialogs, popovers, dense tables) where translucency
+ * would hurt legibility, so this stays a surface-level choice per component.
+ */
+@layer utilities {
+  .glass {
+    background-color: hsl(var(--card) / 0.65);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+  .glass-card {
+    background-color: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid hsl(var(--border) / 0.5);
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.03), 0 8px 24px -8px hsl(var(--primary) / 0.12);
+  }
+
+  /* A translucent, blurred "active" indicator — light-tinted glass, not a
+   * flat solid fill. Used by the theme-toggle pill (and anywhere else that
+   * needs a soft glowing selection state): bold accent-colored icon/border on
+   * top of a very light frosted interior, matching OpenClaw's reference look
+   * rather than a saturated solid circle. */
+  .glass-active {
+    background-color: hsl(var(--primary) / 0.14);
+    border: 1px solid hsl(var(--primary) / 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 0 12px -2px hsl(var(--primary) / 0.45);
+  }
+
+  /* Soft chart-color icon tints (e.g. dashboard KPI tiles) — explicit classes
+   * rather than `bg-[hsl(var(--chart-2))]/10`-style arbitrary values, since
+   * that combination (bracketed CSS-var color + a Tailwind opacity modifier)
+   * isn't proven elsewhere in this codebase and couldn't be visually
+   * verified here; a plain class is guaranteed to compile correctly. */
+  .tint-chart-2 { background-color: hsl(var(--chart-2) / 0.12); color: hsl(var(--chart-2)); }
+  .tint-chart-3 { background-color: hsl(var(--chart-3) / 0.12); color: hsl(var(--chart-3)); }
+  .tint-chart-4 { background-color: hsl(var(--chart-4) / 0.12); color: hsl(var(--chart-4)); }
+}
+
+/*
+ * Sidebar glass — targets the shadcn Sidebar primitive's own data attribute
+ * rather than a className override, so components/ui/sidebar.tsx (a vendored
+ * primitive) never needs editing. `data-slot="sidebar-inner"` is the actual
+ * `bg-sidebar` div; the wrapping container the primitive's `className` prop
+ * reaches is one level further out and sits BEHIND this one, so styling it
+ * instead would be invisible.
+ */
+@layer utilities {
+  [data-slot="sidebar-inner"] {
+    background-color: hsl(var(--sidebar) / 0.7);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+}

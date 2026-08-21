@@ -15,6 +15,7 @@ export interface StdioTransportConfig {
 
 export interface HttpBridgeTransportConfig {
   bridgeUrl: string;
+  headers?: Record<string, string>;
   targetCommand?: string;
 }
 

@@ -3,12 +3,17 @@ import type { ParsedEvent } from '../webhook/types';
 import type { SessionManager } from '../session/session-manager';
 import type { ContactLock } from '../concurrency/contact-lock';
 import type { CircuitBreaker } from '../concurrency/circuit-breaker';
-import type { MetaWhatsAppClient } from '../client/meta-api';
+import type { InteractiveMessage } from '../client/types';
 import { CommandHandler } from '../session/command-handler';
 import { createRouter } from '../router/factory';
 
 export interface AgentExecutor {
   execute(agentId: string, message: { text?: string; mediaUrl?: string; mediaType?: string; mediaId?: string }, context: Record<string, unknown>): Promise<{ text: string }>;
+}
+
+export interface WhatsAppSendClient {
+  sendTextMessage(to: string, text: string): Promise<{ messages: Array<{ id: string }> }>;
+  sendInteractiveMessage(to: string, interactive: InteractiveMessage): Promise<{ messages: Array<{ id: string }> }>;
 }
 
 export interface MessageProcessorDeps {
@@ -17,7 +22,7 @@ export interface MessageProcessorDeps {
   agentExecutor: AgentExecutor;
   contactLock: ContactLock;
   circuitBreaker: CircuitBreaker;
-  metaClientFactory: (accessToken: string, phoneNumberId: string) => MetaWhatsAppClient;
+  clientFactory: (account: { accessToken: string; phoneNumberId: string; provider: string }) => WhatsAppSendClient;
 }
 
 export class MessageProcessor {
@@ -60,6 +65,13 @@ export class MessageProcessor {
         },
       });
 
+      if (account.restrictToAllowlist) {
+        const allowed = await (this.deps.prisma as any).whatsAppAllowedContact.findUnique({
+          where: { accountId_phoneNumber: { accountId: account.id, phoneNumber: contact.wa_id } },
+        });
+        if (!allowed) return;
+      }
+
       const messageText = message.text?.body ?? '';
       const command = this.commandHandler.parse(messageText);
       if (command) {
@@ -70,40 +82,49 @@ export class MessageProcessor {
       let session = await this.deps.sessionManager.findActiveSession(account.id, contact.wa_id);
 
       if (!session) {
-        const routing = await (this.deps.prisma as any).whatsAppRouting.findUnique({
-          where: { accountId: account.id },
-        });
+        if (account.agentId) {
+          session = await this.deps.sessionManager.createSession({
+            accountId: account.id,
+            contactPhone: contact.wa_id,
+            contactName: contact.profile.name,
+            agentId: account.agentId,
+          });
+        } else {
+          const routing = await (this.deps.prisma as any).whatsAppRouting.findUnique({
+            where: { accountId: account.id },
+          });
 
-        if (!routing) return;
+          if (!routing) return;
 
-        const rules = await (this.deps.prisma as any).whatsAppRoutingRule.findMany({
-          where: { routingId: routing.id, isActive: true },
-          orderBy: { priority: 'asc' },
-        });
+          const rules = await (this.deps.prisma as any).whatsAppRoutingRule.findMany({
+            where: { routingId: routing.id, isActive: true },
+            orderBy: { priority: 'asc' },
+          });
 
-        const router = createRouter(routing.strategy);
-        const routingResult = await router.route({
-          message,
-          contactPhone: contact.wa_id,
-          contactName: contact.profile.name,
-          accountId: account.id,
-          routing: { strategy: routing.strategy, config: routing.config, fallbackAgentId: routing.fallbackAgentId },
-          rules,
-        });
+          const router = createRouter(routing.strategy);
+          const routingResult = await router.route({
+            message,
+            contactPhone: contact.wa_id,
+            contactName: contact.profile.name,
+            accountId: account.id,
+            routing: { strategy: routing.strategy, config: routing.config, fallbackAgentId: routing.fallbackAgentId },
+            rules,
+          });
 
-        if (routingResult.type === 'prompt') {
-          const metaClient = this.deps.metaClientFactory(account.accessToken, account.phoneNumberId);
-          await metaClient.sendInteractiveMessage(contact.wa_id, routingResult.interactiveMessage);
-          return;
+          if (routingResult.type === 'prompt') {
+            const metaClient = this.deps.clientFactory(account);
+            await metaClient.sendInteractiveMessage(contact.wa_id, routingResult.interactiveMessage);
+            return;
+          }
+
+          const agentId = routingResult.agentId;
+          session = await this.deps.sessionManager.createSession({
+            accountId: account.id,
+            contactPhone: contact.wa_id,
+            contactName: contact.profile.name,
+            agentId,
+          });
         }
-
-        const agentId = routingResult.agentId;
-        session = await this.deps.sessionManager.createSession({
-          accountId: account.id,
-          contactPhone: contact.wa_id,
-          contactName: contact.profile.name,
-          agentId,
-        });
       }
 
       const withinWindow = session.lastMessageAt
@@ -130,7 +151,7 @@ export class MessageProcessor {
 
       // When agentResponse.text is empty, graph handled sending via whatsapp_send node
       if (agentResponse.text) {
-        const metaClient = this.deps.metaClientFactory(account.accessToken, account.phoneNumberId);
+        const metaClient = this.deps.clientFactory(account);
         const sendResult = await metaClient.sendTextMessage(contact.wa_id, agentResponse.text);
         this.deps.circuitBreaker.recordSuccess();
 
@@ -150,10 +171,30 @@ export class MessageProcessor {
         this.deps.circuitBreaker.recordSuccess();
       }
 
+      // TODO: store full history in a separate table and only trim what's sent to the LLM
+      const MAX_HISTORY = 30;
+      const existingMessages = (session.context?.messages as Array<{ role: string; content: string }>) ?? [];
+      const updatedMessages = [
+        ...existingMessages,
+        { role: 'user', content: messageText },
+        ...(agentResponse.text ? [{ role: 'assistant', content: agentResponse.text }] : []),
+      ].slice(-MAX_HISTORY);
+      await this.deps.sessionManager.updateContext(session.id, {
+        ...session.context,
+        messages: updatedMessages,
+      });
+
       await this.deps.sessionManager.refreshWindow(session.id);
 
     } catch (error) {
       this.deps.circuitBreaker.recordFailure();
+      const logger = (await import('@chatbot/shared')).createLogger('whatsapp:message-processor');
+      logger.error({
+        err: error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        accountId: account?.id,
+        contactPhone: contact?.wa_id,
+      }, 'Message processing failed');
     } finally {
       await this.deps.contactLock.release(account.id, contact.wa_id);
     }
@@ -175,10 +216,10 @@ export class MessageProcessor {
 
   private async handleCommand(
     command: { type: string; agentName?: string },
-    account: { id: string; accessToken: string; phoneNumberId: string },
+    account: { id: string; accessToken: string; phoneNumberId: string; provider: string },
     contactPhone: string,
   ): Promise<void> {
-    const metaClient = this.deps.metaClientFactory(account.accessToken, account.phoneNumberId);
+    const metaClient = this.deps.clientFactory(account);
 
     switch (command.type) {
       case 'reset': {

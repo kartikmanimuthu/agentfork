@@ -8,15 +8,10 @@ import { GalleryVerticalEnd } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/secret-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 
 const resetPasswordSchema = z
   .object({
@@ -90,10 +85,8 @@ export default function ResetPasswordPage() {
           </span>
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Invalid link</CardTitle>
-              <CardDescription>
-                This password reset link is invalid or has expired.
-              </CardDescription>
+              <h1 className="text-base leading-snug font-medium text-xl">Invalid link</h1>
+              <CardDescription>This password reset link is invalid or has expired.</CardDescription>
             </CardHeader>
             <CardContent className="text-center">
               <Button
@@ -138,10 +131,9 @@ export default function ResetPasswordPage() {
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
                         <FieldLabel htmlFor={field.name}>New password</FieldLabel>
-                        <Input
+                        <SecretInput
                           id={field.name}
                           name={field.name}
-                          type="password"
                           placeholder="••••••••"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
@@ -158,10 +150,9 @@ export default function ResetPasswordPage() {
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0 ? 'true' : undefined}>
                         <FieldLabel htmlFor={field.name}>Confirm password</FieldLabel>
-                        <Input
+                        <SecretInput
                           id={field.name}
                           name={field.name}
-                          type="password"
                           placeholder="••••••••"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
@@ -194,8 +185,7 @@ export default function ResetPasswordPage() {
                       )}
                     </form.Subscribe>
                     <FieldDescription className="text-center">
-                      Remember your password?{' '}
-                      <Link href="/login">Sign in</Link>
+                      Remember your password? <Link href="/login">Sign in</Link>
                     </FieldDescription>
                   </Field>
                 </FieldGroup>

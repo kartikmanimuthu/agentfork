@@ -45,7 +45,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{dashboard.name}</h1>
+        <h2 className="text-xl font-semibold">{dashboard.name}</h2>
         <div className="flex gap-2">
           {editing && <Button variant="outline" onClick={() => setBuilderOpen(true)}><Plus className="mr-1 h-4 w-4" /> Add widget</Button>}
           <Button variant={editing ? 'default' : 'outline'} onClick={() => setEditing((e) => !e)}>

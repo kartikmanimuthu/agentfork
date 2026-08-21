@@ -151,7 +151,7 @@ export default function SessionDetailPage() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
+              <h2 className="text-lg font-semibold tracking-tight truncate">{title}</h2>
               <p className="text-xs text-muted-foreground font-mono">{s.id}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

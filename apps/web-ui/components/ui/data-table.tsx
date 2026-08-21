@@ -1,6 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { SearchX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   ColumnDef,
   SortingState,
@@ -36,6 +39,15 @@ interface DataTableProps<TData, TValue> {
   defaultPageSize?: number;
   pageSizeOptions?: number[];
   emptyMessage?: string;
+  /**
+   * Shown when filters are active but match nothing — a different situation from
+   * having no data, and previously indistinguishable: both rendered the same
+   * "No results." line, so a user who had filtered could not tell whether their
+   * data was gone or merely hidden.
+   */
+  emptyFilteredMessage?: string;
+  /** The way out of a genuinely empty table — usually the create button. */
+  emptyAction?: React.ReactNode;
   header?: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -50,11 +62,16 @@ export function DataTable<TData, TValue>({
   defaultPageSize = 10,
   pageSizeOptions,
   emptyMessage = 'No results.',
+  emptyFilteredMessage = 'No rows match the current filters.',
+  emptyAction,
   header,
   footer,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  // Whether the emptiness is the user's own doing. Read from state rather than from
+  // row counts, so it stays correct when a filter legitimately matches zero rows.
+  const isFiltered = enableFiltering && columnFilters.length > 0;
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -131,9 +148,24 @@ export function DataTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {emptyMessage}
+              <TableRow className="hover:bg-transparent">
+                {/* One cell spanning the table, so the empty state is centred on the
+                    table rather than crammed into the first column. */}
+                <TableCell colSpan={columns.length} className="h-48 p-0 align-middle">
+                  {isFiltered ? (
+                    <EmptyState
+                      icon={SearchX}
+                      title={emptyFilteredMessage}
+                      description="Filters are hiding the remaining rows."
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => table.resetColumnFilters()}>
+                          Clear filters
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <EmptyState title={emptyMessage} action={emptyAction} />
+                  )}
                 </TableCell>
               </TableRow>
             )}

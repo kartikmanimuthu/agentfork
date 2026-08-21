@@ -1,5 +1,6 @@
 import { getPrismaClient } from '@chatbot/shared/workers';
-import { S3Service, LlmProviderService } from '@chatbot/shared';
+import { LlmProviderService } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import {
   createDocumentRepository,
   createDocumentChunkRepository,

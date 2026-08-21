@@ -26,8 +26,21 @@ export const env = createEnv({
     TAVILY_API_KEY: z.string().optional(),
     BRAVE_API_KEY: z.string().optional(),
     SEARXNG_API_BASE: z.string().url().optional(),
+
+    MISSION_CONTROL_URL: z.string().url().optional(),
+
+    // Kill switch: only the literal string "false" disables it. Any other value
+    // (including typos) leaves the feature on, so a bad value is never an outage.
+    SEMANTIC_CACHE_ENABLED: z
+      .string()
+      .optional()
+      .transform((value) => value !== 'false'),
   },
-  client: {},
-  experimental__runtimeEnv: {},
+  client: {
+    NEXT_PUBLIC_MISSION_CONTROL_URL: z.string().url().default("http://localhost:3010/claw-studio/mission-control"),
+  },
+  experimental__runtimeEnv: {
+    NEXT_PUBLIC_MISSION_CONTROL_URL: process.env.NEXT_PUBLIC_MISSION_CONTROL_URL,
+  },
   emptyStringAsUndefined: true,
 });

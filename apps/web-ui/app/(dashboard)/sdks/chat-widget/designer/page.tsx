@@ -674,7 +674,7 @@ export default function DesignerPage() {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-3">
-                      <h1 className="text-xl font-semibold truncate">{config.name}</h1>
+                      <h2 className="text-xl font-semibold truncate">{config.name}</h2>
                       <Badge variant="outline" className="font-mono text-xs hidden sm:inline-flex">
                         {sdkId}
                       </Badge>

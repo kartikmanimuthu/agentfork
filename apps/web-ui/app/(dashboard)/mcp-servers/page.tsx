@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { Plus, Search, Server, Settings, Trash2, History } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Plus, Search, SearchX, Server, Settings, Trash2, History } from 'lucide-react';
 
 export default function McpServersPage() {
   const [search, setSearch] = useState('');
@@ -18,10 +20,16 @@ export default function McpServersPage() {
 
   const servers = useMemo(() => data?.items ?? [], [data]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this MCP server? It will be detached from all agents.')) return;
+  // Held in state rather than gated on window.confirm: that dialog is unstyled,
+  // gives the destructive choice the same weight as Cancel with OK as the default,
+  // and closes before the mutation runs — leaving the delete button live underneath
+  // for a second click.
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(pendingDelete.id);
       toast.success('MCP server deleted');
     } catch {
       toast.error('Failed to delete MCP server');
@@ -78,7 +86,32 @@ export default function McpServersPage() {
           {isLoading ? (
             <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
           ) : servers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No MCP servers yet. Create one to get started.</div>
+            // Distinguishes "you have none" from "your search matched none". The
+            // single muted line this replaces said the same thing either way, and
+            // offered no way to act on it.
+            search ? (
+              <EmptyState
+                icon={SearchX}
+                title={`No servers match "${search}"`}
+                description="Try a shorter term, or clear the search to see everything."
+                action={
+                  <Button variant="outline" size="sm" onClick={() => setSearch('')}>
+                    Clear search
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Server}
+                title="No MCP servers yet"
+                description="Connect an MCP server to give your agents extra tools."
+                action={
+                  <Link href="/mcp-servers/new" className={buttonVariants()}>
+                    <Plus className="h-4 w-4 mr-2" />New Server
+                  </Link>
+                }
+              />
+            )
           ) : (
             <div className="space-y-2">
               {servers.map((server) => (
@@ -98,7 +131,7 @@ export default function McpServersPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     <Link href={`/mcp-servers/${server.id}/versions`} className={buttonVariants({ variant: 'ghost', size: 'icon', className: 'h-8 w-8' })} aria-label="Versions"><History className="h-4 w-4" /></Link>
                     <Link href={`/mcp-servers/${server.id}`} className={buttonVariants({ variant: 'ghost', size: 'icon', className: 'h-8 w-8' })} aria-label="Settings"><Settings className="h-4 w-4" /></Link>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(server.id)} aria-label="Delete"><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setPendingDelete({ id: server.id, name: server.name })} aria-label={`Delete ${server.name}`}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -106,6 +139,14 @@ export default function McpServersPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={`Delete ${pendingDelete?.name ?? 'this server'}?`}
+        description="It will be detached from every agent that uses it. This cannot be undone."
+        confirmLabel="Delete server"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

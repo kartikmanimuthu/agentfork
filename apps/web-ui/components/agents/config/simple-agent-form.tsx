@@ -34,8 +34,12 @@ export function SimpleAgentForm({ config, onSave, saving }: SimpleAgentFormProps
       maxTokens: config.maxTokens,
     } as SimpleAgentFormValues,
     validators: { onChange: schema },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
+      // Spread first: the config column is replaced wholesale on save, so every key
+      // this form does not own (caching, the legacy cacheTtlMinutes/semanticCache,
+      // anything added later) has to survive untouched.
       onSave({
+        ...config,
         model: value.model,
         systemPrompt: value.systemPrompt ?? '',
         temperature: value.temperature,

@@ -29,6 +29,7 @@ model Tenant {
   knowledgeBases    KnowledgeBase[]
   mcpServers        McpServer[]
   llmProviders      LlmProvider[]
+  clawStudios       ClawStudio[]
   apiKeys           ApiKey[]
   whatsappAccounts  WhatsAppAccount[]
   telegramAccounts  TelegramAccount[]
@@ -42,6 +43,12 @@ model Tenant {
   experiments       Experiment[]
   experimentRunItems ExperimentRunItem[]
   dashboards        Dashboard[]
+  transcriptionModels   TranscriptionModel[]
+  transcriptionJobConfigs TranscriptionJobConfig[]
+  transcriptionApiKeys  TranscriptionApiKey[]
+  transcriptionJobs     TranscriptionJob[]
+  transcriptionUploads  TranscriptionUpload[]
+  transcriptionAwsCredential TranscriptionAwsCredential?
 
   @@index([status])
   @@map("tenants")
@@ -57,6 +64,8 @@ model LlmProvider {
   chatModel           String?
   embeddingModel      String?
   embeddingDimensions Int?
+  maxBudgetUsd        Float?   // passed as max_budget to LiteLLM's /key/generate; null = unlimited
+  externalKeyAlias    String?  // key_alias used when generating the LiteLLM virtual key; needed to revoke it
   models              Json?    // { models: [{ id, name, capabilities: [] }] }
   isDefault           Boolean  @default(false)
   createdAt           DateTime @default(now())
@@ -259,6 +268,7 @@ model Agent {
   apiKeyExecutions   ApiKeyExecution[]
   sdkWidgets         SdkWidget[]
   telegramAccounts   TelegramAccount[]
+  whatsAppAccounts   WhatsAppAccount[]    @relation("WhatsAppAccountAgent")
   workflows          AgentWorkflow[]
 
   @@index([tenantId])
@@ -509,6 +519,7 @@ model ApiKeyExecution {
   error          String?
   tokenUsage     Json?
   cacheHit       Boolean   @default(false)
+  cacheType      String?
   latencyMs      Int?
   webhookUrl     String?
   webhookStatus  String?
@@ -716,30 +727,68 @@ model LlmResponseCache {
   @@map("llm_response_cache")
 }
 
-model WhatsAppAccount {
+model LlmSemanticCache {
   id             String   @id @default(cuid())
+  scopeKey       String
   tenantId       String
-  wabaId         String
-  phoneNumberId  String   @unique
-  displayPhone   String
-  displayName    String
-  accessToken    String
-  webhookSecret  String
-  status         String   @default("active")
-  qualityRating  String?
-  messagingLimit String?
+  agentVersionId String
+  promptText     String
+  embedding      Unsupported("vector")?
+  embeddingModel String
+  embeddingDims  Int
+  response       Json
+  hitCount       Int      @default(0)
+  expiresAt      DateTime
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  @@index([scopeKey, expiresAt])
+  @@map("llm_semantic_cache")
+}
+
+model WhatsAppAccount {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  provider            String   @default("meta")
+  wabaId              String
+  phoneNumberId       String   @unique
+  displayPhone        String
+  displayName         String
+  accessToken         String
+  webhookSecret       String
+  status              String   @default("active")
+  qualityRating       String?
+  messagingLimit      String?
+  restrictToAllowlist Boolean  @default(true)
+  agentId             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent         Agent?               @relation("WhatsAppAccountAgent", fields: [agentId], references: [id], onDelete: SetNull)
   routingConfig WhatsAppRouting?
   sessions      WhatsAppSession[]
   messages      WhatsAppMessage[]
   templates     WhatsAppTemplate[]
+  allowedContacts WhatsAppAllowedContact[]
 
   @@unique([tenantId, wabaId])
   @@index([tenantId])
+  @@index([agentId])
   @@map("whatsapp_accounts")
+}
+
+model WhatsAppAllowedContact {
+  id          String   @id @default(cuid())
+  accountId   String
+  phoneNumber String
+  label       String?
+  createdAt   DateTime @default(now())
+
+  account WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, phoneNumber])
+  @@index([accountId])
+  @@map("whatsapp_allowed_contacts")
 }
 
 model WhatsAppRouting {
@@ -1285,4 +1334,625 @@ model DashboardWidget {
   @@index([dashboardId])
   @@index([tenantId])
   @@map("dashboard_widgets")
+}
+
+model ClawStudio {
+  id           String    @id @default(cuid())
+  tenantId     String
+  studioId     String    @unique // public login identifier shown to the user
+  passwordHash String
+  status       String    @default("active")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  claws  Claw[]
+
+  @@index([tenantId])
+  @@map("claw_studios")
+}
+
+model Claw {
+  id              String   @id @default(cuid())
+  clawStudioId    String
+  name            String   @default("Claw")
+  systemPrompt    String?
+  providerModelId String? // FK-by-value to LlmProvider.id (tenant's LLM provider); wired in Plan C
+  autoApprove     Boolean  @default(false)
+  settings        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  studio         ClawStudio          @relation(fields: [clawStudioId], references: [id], onDelete: Cascade)
+  conversations  ClawConversation[]
+  files          ClawFile[]
+  scheduledTasks ClawScheduledTask[]
+
+  @@index([clawStudioId])
+  @@map("claws")
+}
+
+model ClawConversation {
+  id        String   @id @default(cuid())
+  clawId    String
+  threadId  String   @unique // LangGraph checkpoint thread id (used in Plan C)
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  claw Claw @relation(fields: [clawId], references: [id], onDelete: Cascade)
+
+  @@index([clawId])
+  @@map("claw_conversations")
+}
+
+enum MemoryKind {
+  SEMANTIC
+  EPISODIC
+  PROCEDURAL
+}
+
+// ClawMemory — long-term semantic memory for Claw Studio agents.
+// Uses pgvector for similarity search with Bedrock Titan v2 embeddings (1024-dim).
+// embedding column uses Unsupported() — raw SQL for vector queries (Prisma has no native pgvector support).
+// expiresAt: 90-day TTL (same cleanup pattern as other tables)
+model ClawMemory {
+  id             String                       @id @default(cuid())
+  tenantId       String
+  userId         String
+  namespace      String
+  key            String
+  value          Json
+  kind           MemoryKind                   @default(SEMANTIC)
+  embedding      Unsupported("vector(1024)")?
+  sourceThreadId String?
+  supersededById String?
+  supersededAt   DateTime?
+  lastAccessedAt DateTime?
+  accessCount    Int                          @default(0)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+  expiresAt      DateTime // 90-day TTL
+
+  @@index([tenantId, namespace, key])
+  @@index([tenantId, userId])
+  @@index([tenantId, kind])
+  @@index([expiresAt])
+  @@map("claw_memories")
+}
+
+// ClawWorkingMemory — per-thread in-session scratchpad + rolling summary.
+// Live source of truth is the LangGraph checkpoint; this table is a durable mirror
+// written on each compaction. No embedding (this is live context, not searched).
+model ClawWorkingMemory {
+  id             String   @id @default(cuid())
+  tenantId       String
+  threadId       String
+  runningSummary String   @db.Text
+  scratchpad     Json
+  tokenCount     Int      @default(0)
+  turnCount      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  expiresAt      DateTime
+
+  @@unique([tenantId, threadId])
+  @@index([expiresAt])
+  @@map("claw_working_memory")
+}
+
+// ClawSkill — reusable, tenant-scoped skill documents Claw's executor graph
+// loads into its system prompt. `source: system` rows are autonomously
+// synthesized from matured procedural memory (see skill-synthesis.ts) and
+// are inviolable to overwrite by user-owned slugs; `tier`/`source` are plain
+// strings (not enums) — validity is enforced in application code, matching
+// the reference this was ported from.
+model ClawSkill {
+  id          String   @id @default(cuid())
+  tenantId    String
+  slug        String
+  name        String
+  description String
+  tier        String // 'read-only' | 'mutation' | 'approval-gated'
+  content     String   @db.Text
+  source      String   @default("user") // 'user' | 'system'
+  isEnabled   Boolean  @default(true)
+  createdBy   String?
+  sourceRunId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("claw_skills")
+}
+
+// ClawRun — one channel-triggered Claw execution. Created synchronously by the
+// gateway route before the ack, then driven to completion by the
+// `claw-gateway-run` worker job. `threadId` is per-run (`claw_run_<runId>`), NOT
+// the tenant's shared chat thread — two concurrent gateway runs on one
+// checkpoint would overwrite each other's state.
+//
+// `runId` is a globally unique random token rather than the design reference's
+// composite (tenantId, runId): it travels in Slack/Telegram button payloads and
+// dashboard URLs, so it has to be unguessable and self-contained anyway, and a
+// single-column unique key lets ClawRunEvent hang off it with a real FK.
+model ClawRun {
+  id              String    @id @default(cuid())
+  tenantId        String
+  runId           String    @unique
+  source          String // ChannelType — 'slack' | 'telegram' | 'dashboard'
+  status          String    @default("queued") // queued|in_progress|awaiting_input|awaiting_approval|completed|failed|cancelled
+  taskDescription String    @db.Text
+  threadId        String
+  trigger         Json // GatewayMessage.channelMeta, persisted verbatim
+  result          Json?
+  clarification   Json?
+  approvalRequest Json?
+  error           String?   @db.Text
+  /// Platform-native actor id (Slack user id, Telegram user id) — not an AuthUser.
+  userId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+  expiresAt       DateTime // 30-day TTL
+
+  events ClawRunEvent[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([threadId])
+  @@index([expiresAt])
+  @@map("claw_runs")
+}
+
+// ClawRunEvent — append-only execution timeline for a run. Written by the
+// worker as the graph advances; read back by the notification router to build
+// the final channel message and by the runs UI to render the timeline.
+model ClawRunEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  runId      String
+  eventType  String // node_start|node_complete|tool_call|tool_result|status|error
+  node       String?
+  content    String?  @db.Text
+  toolName   String?
+  toolArgs   Json?
+  toolOutput String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime // 30-day TTL
+
+  run ClawRun @relation(fields: [runId], references: [runId], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("claw_run_events")
+}
+
+// ClawPlaygroundSession — a disposable, named test session for Mission
+// Control's Playground. Each session owns its own LangGraph checkpoint thread
+// (threadId), completely separate from the tenant's real ClawConversation, so
+// experimenting here never touches production chat history or its thread
+// state. `configOverrides` holds per-run overrides (system prompt, model,
+// temperature, max tokens, auto-approve) applied on top of the Claw's saved
+// config without ever writing back to the Claw row.
+model ClawPlaygroundSession {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  threadId        String   @unique
+  messages        Json
+  configOverrides Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("claw_playground_sessions")
+}
+
+// ClawChatSession — a named, saved conversation thread for Mission Control's
+// "Chat with Claw" page. Unlike ClawPlaygroundSession there are no config
+// overrides here: Chat always runs Claw with its real saved system prompt,
+// model, and autoApprove — it's the actual production surface, just with
+// multiple independent threads instead of the old single-thread-per-Claw
+// design. Each session owns its own LangGraph checkpoint thread (threadId).
+model ClawChatSession {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  threadId  String   @unique
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("claw_chat_sessions")
+}
+
+// ClawChannelLink — reverse lookup from a platform-native identifier to a
+// tenant. Inbound webhooks never carry our tenant id, and the tenant must be
+// resolved from something the platform itself sends, never from a header the
+// caller controls. Upserted when connector credentials are saved:
+//   slack    → externalId = team_id (from auth.test)
+//   telegram → externalId = sha256(secretToken), the only tenant-identifying
+//              value in a Telegram webhook request
+model ClawChannelLink {
+  id         String   @id @default(cuid())
+  channel    String
+  externalId String
+  tenantId   String
+  /// Human-readable origin (workspace name, bot username) for the settings UI.
+  label      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([channel, externalId])
+  @@index([tenantId])
+  @@index([tenantId, channel])
+  @@map("claw_channel_links")
+}
+
+// ClawFile — Claw's DB-backed workspace files, the equivalent of OpenClaw's
+// SOUL.md / AGENTS.md / IDENTITY.md / USER.md / TOOLS.md / HEARTBEAT.md. Stored
+// as rows rather than files because this is a hosted multi-tenant app with no
+// per-tenant volume. `updatedBy` distinguishes a human edit from Claw's own
+// self-authoring write.
+model ClawFile {
+  id        String   @id @default(cuid())
+  tenantId  String
+  clawId    String
+  slug      String // identity|soul|agents|user|tools|heartbeat
+  content   String   @db.Text
+  version   Int      @default(1)
+  updatedBy String   @default("user") // user|claw
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  claw      Claw               @relation(fields: [clawId], references: [id], onDelete: Cascade)
+  revisions ClawFileRevision[]
+
+  @@unique([clawId, slug])
+  @@index([tenantId])
+  @@map("claw_files")
+}
+
+// ClawScheduledTask — a recurring or one-off autonomous Claw run. Ported from
+// nucleus ScheduledTask (libs/prisma/schema.prisma:492).
+//
+// taskId is a globally unique random token rather than a composite
+// (tenantId, taskId): it travels in Slack/Telegram button payloads and console
+// URLs, so it has to be unguessable and self-contained anyway — the same
+// reasoning already documented on ClawRun.runId.
+//
+// approvalMode/allowedTools are least-privilege for unattended runs: a 10am
+// report grants gmail_send_message and nothing else. Blanket auto-approve is
+// still reachable as approvalMode='all'.
+model ClawScheduledTask {
+  id              String    @id @default(cuid())
+  tenantId        String
+  clawId          String
+  taskId          String    @unique
+  name            String
+  prompt          String    @db.Text
+  scheduleType    String    @default("cron") // cron|interval|once
+  cronExpression  String    @default("") // empty unless scheduleType=cron
+  intervalMinutes Int?
+  runAt           DateTime? // scheduleType=once
+  timezone        String    @default("UTC")
+  status          String    @default("active") // active|paused|completed|deleted
+  approvalMode    String    @default("ask") // ask|allowlist|all
+  allowedTools    String[]  @default([])
+  sessionMode     String    @default("isolated") // isolated|main
+  maxIterations   Int?
+  providerModelId String?
+  delivery        Json      @default("{}") // { type, target }
+  lastRunId       String?
+  lastRunAt       DateTime?
+  lastRunStatus   String?
+  nextRunAt       DateTime?
+  runCount        Int       @default(0)
+  failureStreak   Int       @default(0)
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  claw Claw @relation(fields: [clawId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([tenantId, status])
+  @@map("claw_scheduled_tasks")
+}
+
+// ClawScheduledTaskLock — ON CONFLICT on (taskId, scheduledAt) gives atomic lock
+// acquisition, so two worker replicas sweeping the same due minute cannot both
+// launch the run. 1h TTL cleans itself up.
+model ClawScheduledTaskLock {
+  id          String   @id @default(cuid())
+  taskId      String
+  scheduledAt String
+  acquiredAt  DateTime @default(now())
+  expiresAt   DateTime
+
+  @@unique([taskId, scheduledAt])
+  @@index([expiresAt])
+  @@map("claw_scheduled_task_locks")
+}
+
+// ClawFileRevision — append-only history for ClawFile, so a self-authored soul
+// rewrite is always diffable and revertible. `reason` is Claw's own stated
+// justification, required by the write tool.
+model ClawFileRevision {
+  id          String   @id @default(cuid())
+  tenantId    String
+  fileId      String
+  version     Int
+  content     String   @db.Text
+  updatedBy   String
+  reason      String?  @db.Text
+  sourceRunId String?
+  createdAt   DateTime @default(now())
+
+  file ClawFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, version])
+  @@index([tenantId])
+  @@map("claw_file_revisions")
+}
+
+// ─── Transcription Studio ──────────────────────────────────────────────────
+// A registered speech-to-text engine endpoint (mirrors LlmProvider). The tenant
+// points this at their own self-hosted model; credentials are AES-256-GCM
+// encrypted JSON (e.g. an auth header/token), resolved via TranscriptionModelService.
+model TranscriptionModel {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  providerType String   @default("CUSTOM") // VLLM | OPENAI_COMPATIBLE | LITELLM | CUSTOM
+  contract     String   @default("custom") // 'custom' (multipart file->{text}) | 'openai-audio' (/v1/audio/transcriptions)
+  endpointUrl  String
+  credentials  String?  // AES-256-GCM encrypted JSON
+  region       String?
+  modelId      String?  // selected ASR model id (e.g. whisper-large-v3); null for single-model custom endpoints
+  models       Json?    // discovered model cache: { models: [{ id, name, capabilities: [] }] }
+  config       Json?    // engine-specific options (decoding, sample rate, etc.)
+  activeVersionId String? // TranscriptionModelVersion currently used to run jobs
+  status       String   @default("active")
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  apiKeys     TranscriptionApiKey[]
+  jobs        TranscriptionJob[]
+  jobConfigs  TranscriptionJobConfig[]
+  versions    TranscriptionModelVersion[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isDefault])
+  @@map("transcription_models")
+}
+
+// Immutable numbered config snapshot for a transcription model (mirrors AgentVersion).
+// The model's activeVersionId points at the version used to run jobs.
+model TranscriptionModelVersion {
+  id          String   @id @default(cuid())
+  modelId     String
+  version     Int
+  status      String   @default("draft") // draft | published | archived
+  config      Json     // snapshot: { providerType, contract, endpointUrl, region, modelId, config }
+  changeNotes String?
+  createdBy   String   @default("system")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  model      TranscriptionModel     @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  jobs       TranscriptionJob[]
+  jobConfigs TranscriptionJobConfig[]
+
+  @@unique([modelId, version])
+  @@index([modelId])
+  @@index([modelId, status])
+  @@map("transcription_model_versions")
+}
+
+// Configuration entity for a reusable transcription job (mirrors Agent).
+// Each job selects a model/version and owns API keys, webhook secrets, versions, and playground sessions.
+model TranscriptionJobConfig {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  status      String   @default("draft") // draft | active | archived
+  modelId     String?  // selected TranscriptionModel
+  versionId   String?  // selected TranscriptionModelVersion
+  config      Json?    // job-level overrides: language, diarize, prompt, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  model     TranscriptionModel?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  version   TranscriptionModelVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  versions  TranscriptionJobVersion[]
+  apiKeys   TranscriptionApiKey[]
+  inferences TranscriptionJob[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("transcription_job_configs")
+}
+
+// Immutable numbered config snapshot for a transcription job (mirrors AgentVersion).
+model TranscriptionJobVersion {
+  id          String   @id @default(cuid())
+  jobConfigId String
+  version     Int
+  status      String   @default("draft") // draft | published | archived
+  config      Json     // snapshot: { modelId, versionId, language, diarize, prompt, ... }
+  changeNotes String?
+  createdBy   String   @default("system")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobConfig TranscriptionJobConfig @relation(fields: [jobConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([jobConfigId, version])
+  @@index([jobConfigId])
+  @@index([jobConfigId, status])
+  @@map("transcription_job_versions")
+}
+
+// Bearer API key for the external transcription API (mirrors ApiKey).
+model TranscriptionApiKey {
+  id                String    @id @default(cuid())
+  tenantId          String
+  jobConfigId       String?   // which TranscriptionJobConfig this key belongs to; null = tenant default / legacy
+  modelId           String?   // which TranscriptionModel to use; null = tenant default
+  name              String
+  keyHash           String    @unique
+  keyPrefix         String
+  status            String    @default("active")
+  scopes            String[]  @default(["transcription:write"])
+  dailyReqLimit     Int       @default(1000)
+  dailyMinutesLimit Int       @default(600)
+  minuteReqLimit    Int       @default(100)
+  webhookUrl        String?
+  webhookSecret     String?
+  expiresAt         DateTime?
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant    Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  model     TranscriptionModel?          @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  jobConfig TranscriptionJobConfig?      @relation(fields: [jobConfigId], references: [id], onDelete: Cascade)
+  jobs      TranscriptionJob[]
+  usages    TranscriptionApiKeyUsage[]
+  uploads   TranscriptionUpload[]
+
+  @@index([keyHash])
+  @@index([tenantId, status])
+  @@index([jobConfigId, status])
+  @@map("transcription_api_keys")
+}
+
+// An upload intent: created when we hand out a presigned POST, consumed when a
+// transcription job claims it. `id` is the caller-facing uploadId — the single stable
+// identifier a caller holds from presign through webhook to transcript retrieval.
+// `s3Key` here is IMMUTABLE (unlike TranscriptionJob.s3Key, which is rewritten when the
+// object is moved into the job folder), so the identifier can never be destroyed by processing.
+model TranscriptionUpload {
+  id                String    @id @default(cuid())
+  tenantId          String
+  apiKeyId          String
+  s3Key             String    @unique // staging location the presigned POST writes to
+  fileName          String?
+  mimeType          String
+  declaredSizeBytes Int? // optional client hint at presign time
+  actualSizeBytes   Int? // from HeadObject when the upload is consumed
+  clientReference   String? // caller's own id, echoed back in webhook + retrieval
+  status            String    @default("pending") // pending | consumed | expired
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  apiKey TranscriptionApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  jobs   TranscriptionJob[]
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, clientReference])
+  @@index([status, expiresAt])
+  @@map("transcription_uploads")
+}
+
+// One transcription inference/run (mirrors ApiKeyExecution).
+model TranscriptionJob {
+  id                 String    @id @default(cuid())
+  apiKeyId           String
+  jobConfigId        String?   // which TranscriptionJobConfig generated this run
+  tenantId           String
+  modelId            String?
+  providerVersionId  String?   // TranscriptionModelVersion used to run this job
+  source             String    // 'upload' | 'payload' | 's3'
+  uploadId           String?   // TranscriptionUpload this job claimed; null for inline 'payload' jobs
+  fileName           String?
+  mimeType           String?
+  sizeBytes          Int?
+  durationSec        Float?
+  s3Bucket           String?
+  s3Key              String?
+  inputS3Key         String?   // persisted input audio (our bucket)
+  outputS3Key        String?   // persisted transcript JSON (our bucket)
+  status             String    @default("pending")
+  transcript         String?   @db.Text
+  language           String?
+  output             Json?     // { segments, confidence, ... }
+  error              String?
+  latencyMs          Int?
+  webhookUrl         String?
+  webhookStatus      String?
+  webhookDeliveredAt DateTime?
+  webhookAttempts    Int       @default(0)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+
+  apiKey    TranscriptionApiKey        @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  jobConfig TranscriptionJobConfig?    @relation(fields: [jobConfigId], references: [id], onDelete: SetNull)
+  model     TranscriptionModel?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  version   TranscriptionModelVersion? @relation(fields: [providerVersionId], references: [id], onDelete: SetNull)
+  tenant    Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  upload    TranscriptionUpload?       @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([apiKeyId, createdAt])
+  @@index([jobConfigId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([status])
+  // One job per upload: prevents two concurrent transcribe calls from both claiming the
+  // same upload. Postgres permits multiple NULLs, so inline 'payload' jobs are unaffected.
+  @@unique([uploadId])
+  @@index([tenantId, uploadId])
+  @@map("transcription_jobs")
+}
+
+// Per-key daily/minute usage counters for quota enforcement (mirrors ApiKeyUsage).
+model TranscriptionApiKeyUsage {
+  id             String   @id @default(cuid())
+  apiKeyId       String
+  date           DateTime @db.Date
+  requestCount   Int      @default(0)
+  minutesCount   Float    @default(0)
+  minuteReqCount Int      @default(0)
+  minuteResetAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  apiKey TranscriptionApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, date])
+  @@index([apiKeyId, date])
+  @@map("transcription_api_key_usage")
+}
+
+// Per-tenant AWS credentials the platform uses to read audio from a caller's S3
+// bucket (S3 use-case). Entered in Transcription Studio → S3 Access; the secret is
+// held as AES-256-GCM encrypted JSON { accessKeyId, secretAccessKey, sessionToken? }.
+model TranscriptionAwsCredential {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  credentials String   // AES-256-GCM encrypted JSON
+  region      String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("transcription_aws_credentials")
 }

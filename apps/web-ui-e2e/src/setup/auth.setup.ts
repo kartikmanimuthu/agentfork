@@ -1,12 +1,14 @@
 import { test as setup, expect } from '@playwright/test';
 import path from 'node:path';
 import { mintSessionToken } from '../helpers/auth-token';
+import { seedTestTenant } from '../helpers/seed';
 
 export const STORAGE_STATE = path.resolve(__dirname, '../.auth/session.json');
 
 setup.setTimeout(90000);
 
 setup('create authenticated session', async ({ page }) => {
+  seedTestTenant();
   const token = mintSessionToken();
 
   await page.context().addCookies([

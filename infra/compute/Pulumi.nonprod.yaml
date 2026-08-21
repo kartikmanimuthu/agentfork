@@ -3,6 +3,25 @@ config:
   chatbot-compute:appName: chatflow-nonprod
   chatbot-compute:appUrl: https://d28eqq2bj0c0yk.cloudfront.net
   chatbot-compute:subscriptionEmails: ""
+  chatbot-compute:transcriptionWorkerBatchSize: "2"
   chatbot-compute:bedrockBearerToken:
     secure: v1:nVmeqBsjIFXeoi74:/mfYEwV7UMg35K2ISIIaqBakh2faeTyU63ztBwLi1DuSsowP/MAvqB5Mh177mk3RSgz+2/UVGUYHvLK/3+oy/GqOFoUy0lZzbxsF4adNxCzBSWoq3+9lefj5u7DQvftDQfqbJffYrVOoC8oy6x3U1GBVI69P9iaLi8cdCBt9Lo/Coc+dnVzjbWAz438Zqf9qBEDOdw==
+  chatbot-compute:oauthStateSecret:
+    secure: v1:oVaFq0q993BjQgbJ:6wAL5QVdCZSLmVfrvHJYGhqv/MdaNmlJmvs0/jL33I2k7PGZnuiTOj4fqwWU+WOCKdyAbx3KfyqseKQO5taffo3vmZjLhDPQ/ZTkXPErZRY=
+  chatbot-compute:googleOauthClientId: 644919487000-4ietr3fh1nv9k95qqdemmr63jnii148n.apps.googleusercontent.com
+  chatbot-compute:googleOauthClientSecret:
+    secure: v1:flmfgj7edg+vfRg1:/wg/OvkIReJmmNS8Aav51qOBWYB6G4RZRn7Hh+UktUsl3qmcri6CzXQi3RLAHBRCS2Da
+  chatbot-compute:microsoftOauthClientId: cdf1575f-a55c-4eaa-aa98-2741d299f3c6
+  chatbot-compute:microsoftOauthClientSecret:
+    secure: v1:S6fc1r349lnVPNRP:4pSuSp5STmFaIvgvi/4FNTEizTQPa2UiQ4Y4j2mjzKaS3rAvweiolOKu9vFGl0fQ5YuKltjQ4mc=
+  chatbot-compute:notionOauthClientId: 3add872b-594c-8140-b8b2-003717ebd703
+  chatbot-compute:notionOauthClientSecret:
+    secure: v1:GiUTKlnONzmYMw9c:TdyijIfgYgaOEmW3GyH2cebd9fGSlXCnL7i4C8YEgQPFk7QjIcVghW/wagoOwryrRBeLGTg1ggXsc+Ihx3KdZZNJ
+  # 'all' lets Claw maintain its own persona files (identity/soul/agents), which is
+  # required for it to change how it behaves when asked. Under 'user' those three are
+  # denied outright at the backend and Claw answered "you are not permitted to edit
+  # soul". Under 'all' they are also pre-granted (file-tools.ts), so an asked-for
+  # persona edit lands without an approval modal; churn is bounded by
+  # MAX_WRITES_PER_RUN and every write is a revertible ClawFileRevision.
+  chatbot-compute:clawSelfAuthoring: all
 encryptionsalt: v1:pXRwNrkJJkA=:v1:vMxn7HXnrtwjJDos:YnYpD6kwJYXYuyHQLtc513Sr8gN2YA==

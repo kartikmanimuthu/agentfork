@@ -10,7 +10,7 @@ function logDiscovery(message: string, data?: Record<string, unknown>) {
   console.log(`[discovery:factory] ${message}`, data ?? '');
 }
 
-type ProviderType = 'BEDROCK' | 'OPENAI' | 'ANTHROPIC' | 'OLLAMA' | 'VLLM' | 'OPENAI_COMPATIBLE';
+type ProviderType = 'BEDROCK' | 'OPENAI' | 'ANTHROPIC' | 'OLLAMA' | 'VLLM' | 'OPENAI_COMPATIBLE' | 'LITELLM';
 
 export function createDiscovery(providerType: ProviderType): ModelDiscovery {
   logDiscovery('Selecting discovery implementation', { providerType });
@@ -26,6 +26,8 @@ export function createDiscovery(providerType: ProviderType): ModelDiscovery {
     case 'VLLM':
       return new VllmModelDiscovery();
     case 'OPENAI_COMPATIBLE':
+      return new OpenAIModelDiscovery();
+    case 'LITELLM':
       return new OpenAIModelDiscovery();
     default:
       throw new Error(`Unsupported provider type for discovery: ${providerType}`);

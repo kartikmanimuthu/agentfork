@@ -1,0 +1,16 @@
+{
+  "arm": "deepagents",
+  "startedAt": "2026-08-10T12:17:40.842Z",
+  "gitRef": "db8d2ba3d107925ac299be8b940b39d244ffa617",
+  "gitDirty": true,
+  "treePath": "/Users/H2952/Documents/chatflow",
+  "controls": {
+    "maxIterations": 12,
+    "temperature": null,
+    "promptSurface": "acting",
+    "autoApprove": true,
+    "model": "global.anthropic.claude-sonnet-5",
+    "repetitions": 1
+  },
+  "systemPrompt": ""
+}

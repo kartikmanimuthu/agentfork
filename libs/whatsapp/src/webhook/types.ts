@@ -31,12 +31,16 @@ export interface WebhookInboundMessage {
   from: string;
   id: string;
   timestamp: string;
-  type: 'text' | 'image' | 'document' | 'interactive' | 'button';
+  type: 'text' | 'image' | 'document' | 'interactive' | 'button' | 'video' | 'audio' | 'location' | 'reaction';
   text?: { body: string };
   image?: { id: string; mime_type: string; sha256: string; caption?: string };
   document?: { id: string; mime_type: string; sha256: string; filename?: string; caption?: string };
   interactive?: { type: string; button_reply?: { id: string; title: string }; list_reply?: { id: string; title: string } };
   button?: { text: string; payload: string };
+  video?: { id: string; mime_type: string; sha256: string; caption?: string };
+  audio?: { id: string; mime_type: string; sha256: string; voice?: boolean };
+  location?: { latitude: string; longitude: string; name?: string; address?: string; url?: string };
+  reaction?: { emoji: string };
 }
 
 export interface WebhookStatus {

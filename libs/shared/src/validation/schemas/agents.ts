@@ -82,6 +82,7 @@ export const stdioTransportSchema = z.object({
 export const httpBridgeTransportSchema = z.object({
   transport: z.literal('http_bridge'),
   bridgeUrl: z.string().url(),
+  headers: z.record(z.string(), z.string()).optional(),
   targetCommand: z.string().optional(),
 });
 

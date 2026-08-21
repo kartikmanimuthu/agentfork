@@ -70,7 +70,14 @@ export default function KnowledgeBaseDocumentsPage() {
   }, [id, selectedSource]);
 
   const loadDocuments = useCallback(() => {
-    if (!selectedSource) return;
+    if (!selectedSource) {
+      // No data source yet (e.g. a brand-new KB with nothing uploaded) — resolve to an
+      // empty list instead of leaving `loading` stuck true forever, which otherwise
+      // renders the loading skeleton indefinitely with nothing to ever resolve it.
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetch(`/api/knowledge-bases/${id}/documents?sourceId=${selectedSource}&limit=50`)
       .then((res) => res.json())

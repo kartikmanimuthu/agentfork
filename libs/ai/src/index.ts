@@ -12,6 +12,7 @@ export {
 } from './types';
 
 export { createDiscovery } from './discovery';
+export { toOllamaOpenAIBaseUrl, toOllamaNativeBaseUrl } from './ollama-url';
 export type { DiscoveredModel, ModelCapability } from './discovery';
 
 export {
@@ -75,8 +76,22 @@ export {
   fetchWebPage,
   buildWebFetchTool,
   buildBuiltInTools,
+  resolveSearchConfig,
   type ConfigResolver,
+  type UrlGuardOptions,
+  type UrlGuardResult,
+  checkUrl,
 } from './tools';
+
+export {
+  transcribeAudio,
+  EngineHttpError,
+  EngineCircuitOpenError,
+  type TranscribeAudioInput,
+  type TranscriptionResult,
+  type TranscriptionSegment,
+  type TranscriptionContract,
+} from './transcription';
 
 // Legacy exports — still used by libs/knowledge-base and workers during migration.
 // TODO: Remove once all consumers migrate to createLLMProvider/getDefaultProvider.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaClient, createLogger, S3Service } from '@chatbot/shared';
+import { getPrismaClient, createLogger } from '@chatbot/shared';
+import { S3Service } from '@chatbot/shared/server';
 import { validateInferenceApiKey } from '../../../lib/auth';
 
 const logger = createLogger('api:inference:sessions:files');

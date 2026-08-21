@@ -35,7 +35,9 @@ vi.mock('@chatbot/shared/workers', () => ({
   })),
 }));
 
-vi.mock('@chatbot/shared', () => ({
+// S3Service moved to a dedicated subpath (see libs/shared/src/server.ts) so it can't be
+// dragged into browser bundles via the main barrel — mock it separately.
+vi.mock('@chatbot/shared/server', () => ({
   S3Service: vi.fn().mockImplementation(() => ({
     uploadBuffer: mockUploadBuffer,
   })),

@@ -50,6 +50,7 @@ export default function NewMcpServerPage() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          nativeButton={false}
           render={<Link href="/mcp-servers" aria-label="Back to MCP servers" />}
         >
           <ArrowLeft className="h-4 w-4" />

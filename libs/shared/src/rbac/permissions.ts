@@ -11,6 +11,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update', 'delete'],
     Evaluation: ['create', 'read', 'update', 'delete'],
     Dashboards: ['create', 'read', 'update', 'delete'],
+    TranscriptionStudio: ['create', 'read', 'update', 'delete'],
   },
   Admin: {
     Settings: ['create', 'read', 'update'],
@@ -22,6 +23,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update', 'delete'],
     Evaluation: ['create', 'read', 'update', 'delete'],
     Dashboards: ['create', 'read', 'update', 'delete'],
+    TranscriptionStudio: ['create', 'read', 'update', 'delete'],
   },
   Member: {
     Settings: ['read'],
@@ -33,6 +35,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['create', 'read', 'update'],
     Evaluation: ['create', 'read', 'update'],
     Dashboards: ['create', 'read', 'update'],
+    TranscriptionStudio: ['create', 'read', 'update'],
   },
   Viewer: {
     Settings: ['read'],
@@ -44,6 +47,7 @@ export const ROLE_PERMISSIONS: Record<PredefinedRole, PermissionSet> = {
     LlmProviders: ['read'],
     Evaluation: ['read'],
     Dashboards: ['read'],
+    TranscriptionStudio: ['read'],
   },
 };
 
@@ -75,9 +79,9 @@ export function canAssignRole(assignerRole: PredefinedRole, targetRole: Predefin
 
 export function getAutoLevel(permissions: PermissionSet): RoleLevel {
   const totalActions = Object.values(permissions).flat().length;
-  const maxPossible = 36; // 9 modules * 4 actions
+  const maxPossible = 40; // 10 modules * 4 actions
   if (totalActions >= maxPossible) return 4;
-  if (totalActions >= 19) return 3;
-  if (totalActions >= 11) return 2;
+  if (totalActions >= 21) return 3;
+  if (totalActions >= 12) return 2;
   return 1;
 }

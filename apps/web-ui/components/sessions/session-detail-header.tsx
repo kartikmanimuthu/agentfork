@@ -47,7 +47,7 @@ export function SessionDetailHeader({ session, messageCount, firstUserQuery, onB
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
+          <h2 className="text-lg font-semibold tracking-tight truncate">{title}</h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge variant="outline" className="text-xs">{session.channel}</Badge>
